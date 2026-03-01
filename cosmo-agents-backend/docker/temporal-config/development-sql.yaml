@@ -1,0 +1,26 @@
+# Temporal dynamic config for development
+# Reference: https://docs.temporal.io/references/dynamic-configuration
+
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true
+    constraints: {}
+
+# Increase history size limit for development
+limit.maxIDLength:
+  - value: 1000
+    constraints: {}
+
+# Frontend settings
+frontend.enableClientVersionCheck:
+  - value: true
+    constraints: {}
+
+# Worker settings
+worker.enableScheduler:
+  - value: true
+    constraints: {}
+
+# History settings
+history.maximumSignalsPerExecution:
+  - value: 10000
+    constraints: {}

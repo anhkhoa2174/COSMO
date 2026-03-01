@@ -1,0 +1,36 @@
+.accordionItem {
+  border-bottom: none;
+}
+
+.accordionLabel {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+}
+
+.accordionControl {
+  border-radius: var(--mantine-radius-md);
+
+  &[data-active] {
+    background-color: var(--mantine-color-gray-0);
+  }
+}
+
+.conversation {
+  border-radius: var(--mantine-radius-md);
+  padding: var(--mantine-spacing-sm);
+  user-select: none;
+  cursor: pointer;
+
+  @mixin hover {
+    background-color: var(--mantine-color-gray-1);
+  }
+
+  &[data-selected='true'] {
+    background-color: var(--mantine-color-gray-1);
+  }
+}
+
+.cardRoot {
+  box-shadow: 0px 0px 10px 0px #0000001a;
+  border-radius: var(--mantine-radius-lg);
+}

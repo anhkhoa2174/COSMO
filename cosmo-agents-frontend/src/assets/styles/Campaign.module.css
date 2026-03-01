@@ -1,0 +1,125 @@
+.playbookContainer {
+  /* height: calc(100dvh - var(--app-shell-header-height) - 2 * var(--app-shell-padding)); */
+  height: calc(100% + 32px);
+  margin: -16px;
+
+  --nr: 5; /* number of rows */
+  --nc: 10; /* number of columns */
+  --b: 2px; /* border length */
+
+  background: conic-gradient(
+      from 90deg at var(--b) var(--b),
+      var(--mantine-color-body) 90deg,
+      var(--mantine-color-gray-0) 0
+    )
+    calc(-1 * var(--b)) calc(-1 * var(--b)) / calc(100% / var(--nc)) calc(100% / var(--nr));
+}
+
+.flowContainer {
+  /* height: calc(100dvh - var(--app-shell-header-height) - 2 * var(--app-shell-padding)); */
+  height: calc(100% + 32px);
+  margin: -16px;
+  position: relative;
+
+  div[class='react-flow__renderer'] svg {
+    max-width: initial;
+  }
+}
+
+.playbookRoot {
+  box-shadow: 0px 10px 20px 0px #00000012;
+  text-align: center;
+  border-radius: var(--mantine-radius-lg);
+  max-width: 320px;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+
+  @mixin hover {
+    transform: scale(1.025);
+  }
+}
+
+.drawerRoot {
+  --mb-shadow: -10px 1px 10px 0px #00000012;
+}
+
+.drawerBody {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.node1 {
+  position: relative;
+  border: 1.5px solid #e8e8e8;
+  width: rem(256px);
+  max-width: rem(256px);
+  border-radius: var(--mantine-radius-md);
+  overflow: hidden;
+  background-color: var(--mantine-color-white);
+
+  &[data-completed='true'] {
+    border: 1.5px solid var(--mantine-color-teal-7);
+    box-shadow: -4px 4px 6px 0px #0000001a;
+
+    > div:first-child {
+      color: var(--mantine-color-white);
+      background-color: var(--mantine-color-teal-7);
+    }
+  }
+
+  &[data-selected='true'] {
+    border: 1.5px solid var(--mantine-primary-color-filled);
+    box-shadow: -4px 4px 6px 0px #0000001a;
+
+    > div:first-child {
+      color: var(--mantine-color-white);
+      background-color: var(--mantine-primary-color-filled);
+    }
+  }
+
+  > div:not([class^='react-flow__handle']) {
+    padding: var(--mantine-spacing-sm);
+  }
+
+  > div:first-child {
+    background-color: #f4f4f4;
+  }
+
+  > div:not(:first-child):not([class^='react-flow__handle']) {
+    font-weight: 500;
+    color: #6a6a6a;
+  }
+}
+
+.listContact {
+  /* cursor: pointer; */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 2px dashed var(--mantine-color-gray-3);
+  border-radius: var(--mantine-radius-md);
+
+  padding-inline: var(--mantine-spacing-sm);
+  padding-block: var(--mantine-spacing-xs);
+
+  &[data-selected='true'] {
+    background-color: var(--mantine-color-gray-1);
+    border: 2px solid transparent;
+  }
+}
+
+/* Table */
+.tableWrapper {
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid #e8e8e8;
+  overflow-y: auto;
+}
+
+.table {
+  border-radius: var(--mantine-radius-sm);
+}
+
+.thead {
+  background-color: #f7f7f7;
+}

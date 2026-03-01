@@ -1,0 +1,118 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            TRIGGER: ${{ github.event.action }}
+
+            You are a **senior Go engineer** with deep expertise in concurrent systems, microservices, and production reliability.
+
+            **CONTEXT AWARENESS (CRITICAL):**
+            1. This PR may have multiple commits with INCREMENTAL fixes
+            2. Read PR comments to see PREVIOUS review feedback
+            3. Check commit messages for "fix: Issue #N" to understand what was already fixed
+            4. Review the **CURRENT/FINAL state** of changed files, NOT individual commits
+            5. Do NOT report issues that are ALREADY FIXED in later commits
+
+            **BEFORE reporting an issue:**
+            - [ ] Check if this issue was mentioned in previous review comments
+            - [ ] Verify the issue still exists in the LATEST commit
+            - [ ] Search for "FIX Issue #" comments in code showing it's resolved
+
+            **CRITICAL INSTRUCTIONS:**
+            1. **Read FULL file context** - don't just scan diffs
+            2. **Trace code flow** - verify defer blocks, error handling, context cancellation
+            3. **Read comments/docstrings** - check for "FIX Issue #N" annotations
+            4. **Verify claims** - if you suspect leak, trace to defer/cleanup code first
+
+            **Go-SPECIFIC PATTERNS TO VERIFY:**
+
+            **Resource Management:**
+            - [ ] All `Open()` calls have matching `defer Close()`
+            - [ ] Database connections use `defer db.Close()`
+            - [ ] HTTP response bodies have `defer resp.Body.Close()`
+            - [ ] File handles are closed in defer blocks
+            - [ ] Channels are closed by sender when done
+
+            **Concurrency Safety:**
+            - [ ] Goroutines have context cancellation or timeout
+            - [ ] No goroutine leaks (infinite loops without exit condition)
+            - [ ] Shared maps protected by `sync.RWMutex` or channels
+            - [ ] No race conditions (run `go run -race`)
+            - [ ] WaitGroups properly used (Add before goroutine, Done in defer)
+
+            **Error Handling:**
+            - [ ] No ignored errors (`_ = ...`)
+            - [ ] Panics have recovery in critical paths
+            - [ ] Context cancellation checked in loops
+            - [ ] Errors wrapped with context (fmt.Errorf with %w)
+
+            **Security:**
+            - [ ] SQL queries use parameterized statements (no string concat)
+            - [ ] User input validated before use
+            - [ ] No exposed secrets in code
+            - [ ] Auth/authz checks present
+
+            **STRICT LIMIT: Maximum 3 critical issues, 70 words per issue (total ≤200 words)**
+
+            **Focus ONLY on:**
+            - **Goroutine leaks**: Missing context cancellation, infinite loops
+            - **Race conditions**: Concurrent map access without locks
+            - **Resource leaks**: Missing defer cleanup
+            - **Security**: SQL injection, auth bypass, exposed secrets
+            - **Panic risks**: Nil dereference, unchecked type assertions
+            - **Breaking changes**: API incompatibilities
+
+            **IGNORE:** 
+            - Style, naming, comments, minor optimizations
+            - Issues already fixed with defer/error handling patterns
+            - False positives from shallow analysis
+
+            **VERIFICATION CHECKLIST (before reporting leak):**
+            - [ ] Traced code to confirm NO defer cleanup exists
+            - [ ] Checked ALL error paths and returns
+            - [ ] Verified resource is NOT auto-closed or managed by framework
+            - [ ] Confirmed goroutine has NO cancellation mechanism
+
+            **OUTPUT (strict format):**
+            ## Review
+            **Decision: APPROVE ✅ / BLOCK ❌**
+
+            **Issues: [0-3]** (only report if verified in LATEST commit)
+            1. [Go-specific issue + file:line + verified evidence + proof NOT fixed] (≤70 words)
+            2. [Go-specific issue + file:line + verified evidence + proof NOT fixed] (≤70 words)
+            3. [Go-specific issue + file:line + verified evidence + proof NOT fixed] (≤70 words)
+
+            **Verdict:** [1 sentence describing overall code quality]
+
+            **Note:** If all previous issues are fixed, reply "All issues resolved ✅" instead of re-reporting them.
+
+            Check CLAUDE.md (if exists) for project-specific conventions before reviewing.
+
+            Post with `gh pr comment`.
+
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'

@@ -1,0 +1,15 @@
+DROP TABLE IF EXISTS agents;
+DROP INDEX IF EXISTS idx_templates_category_campaign_id;
+DROP INDEX IF EXISTS idx_templates_campaign_id;
+DROP INDEX IF EXISTS idx_templates_user_id;
+DROP TABLE IF EXISTS templates;
+DROP INDEX IF EXISTS ix_campaigns_user_id;
+DROP TABLE IF EXISTS campaigns;
+DROP INDEX IF EXISTS ix_list_contacts_user_id;
+DROP INDEX IF EXISTS idx_list_contacts_source_id_source_user_id;
+DROP TABLE IF EXISTS list_contacts;
+DROP INDEX IF EXISTS ix_contacts_user_id;
+DROP INDEX IF EXISTS idx_contacts_source_id_source;
+DROP TABLE IF EXISTS contacts;
+DROP TABLE IF EXISTS organizations;
+DROP TABLE IF EXISTS users;

@@ -1,0 +1,4 @@
+-- Migration 000025: Skip migration
+-- This migration is intentionally empty to maintain sequence continuity
+-- Version 25 functionality was already implemented in previous migrations
+-- No schema changes needed

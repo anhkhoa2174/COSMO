@@ -1,0 +1,119 @@
+run:
+  timeout: 5m
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  govet:
+    enable-all: true
+    disable:
+      - shadow
+
+  gocyclo:
+    min-complexity: 15
+
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+
+  misspell:
+    locale: US
+
+  lll:
+    line-length: 120
+
+  goimports:
+    local-prefixes: github.com/rockship/cosmo-agents-go
+
+  revive:
+    enable-all-rules: false
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+
+  funlen:
+    lines: 100
+    statements: 50
+
+  exhaustive:
+    default-signifies-exhaustive: true
+
+linters:
+  disable-all: true
+  enable:
+    # Essential linters
+    - errcheck      # Check error handling
+    - gosimple      # Simplify code
+    - govet         # Examine Go code
+    - ineffassign   # Detect unused assignments
+    - staticcheck   # Advanced static analysis
+    - unused        # Find unused code
+
+    # Style & formatting
+    - gofmt         # Check formatting
+    - goimports     # Check imports
+    - misspell      # Find spelling mistakes
+
+    # Code quality
+    - goconst       # Find repeated strings
+    - gocyclo       # Check cyclomatic complexity
+    - funlen        # Check function length
+    - lll           # Check line length
+
+    # Best practices
+    - gosec         # Security checks
+    - unconvert     # Remove unnecessary conversions
+    - unparam       # Find unused parameters
+    - bodyclose     # Check HTTP body close
+    - noctx         # Find HTTP requests without context
+
+    # Error handling
+    - err113        # Go 1.13 error wrapping (renamed from goerr113)
+    - errname       # Error naming conventions
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  uniq-by-line: true
+
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - funlen
+        - gocyclo
+        - goconst
+        - lll
+
+    # Exclude known issues in vendor and generated code
+    - path: vendor/
+      linters:
+        - all
+
+    - path: .*\.pb\.go
+      linters:
+        - all
+
+    # Specific exclusions
+    - text: "weak cryptographic primitive"
+      linters:
+        - gosec
+
+    - text: "should have comment"
+      linters:
+        - golint
+
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  sort-results: true

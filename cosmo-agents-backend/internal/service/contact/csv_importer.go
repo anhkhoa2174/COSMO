@@ -1,0 +1,422 @@
+package contact
+
+import (
+	"context"
+	"encoding/csv"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/rockship/cosmo-agents-go/internal/domain"
+)
+
+// CSVImporter handles CSV file import for contacts
+type CSVImporter struct {
+	contactRepo ContactRepositoryInterface
+}
+
+// NewCSVImporter creates a new CSVImporter
+func NewCSVImporter(contactRepo ContactRepositoryInterface) *CSVImporter {
+	return &CSVImporter{
+		contactRepo: contactRepo,
+	}
+}
+
+// ImportConfig contains configuration for CSV import
+type ImportConfig struct {
+	FilePath       string
+	UserID         uuid.UUID
+	OrganizationID *uuid.UUID
+	RequiredFields []string
+	// FieldMapping maps CSV column names to contact field names
+	// e.g., {"Company Name": "company", "Job": "job_title", "Custom Field 1": "custom_field_1"}
+	FieldMapping map[string]string
+}
+
+// ImportResult contains the result of a CSV import operation
+type ImportResult struct {
+	TotalRows       int
+	ImportedRows    int
+	SkippedRows     int
+	RejectedRows    int               // Contacts rejected due to ownership conflict
+	RejectedReasons map[string]string // Map of email/identifier -> reason
+	ErrorMessages   []string
+}
+
+// Import processes a CSV file and imports contacts
+func (s *CSVImporter) Import(ctx context.Context, config ImportConfig) (*ImportResult, error) {
+	result := &ImportResult{}
+
+	// Set default required fields if not provided
+	if len(config.RequiredFields) == 0 {
+		config.RequiredFields = []string{"first_name", "last_name", "email"}
+	}
+
+	// Step 1: Open and read CSV file
+	file, err := os.Open(config.FilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open CSV file: %w", err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	reader.TrimLeadingSpace = true
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CSV file: %w", err)
+	}
+
+	if len(records) == 0 {
+		return nil, fmt.Errorf("CSV file is empty")
+	}
+
+	// Step 2: Parse headers
+	headers := records[0]
+	headerMap := make(map[string]int)
+	for i, header := range headers {
+		headerMap[strings.TrimSpace(strings.ToLower(header))] = i
+	}
+
+	// Step 3: Validate required columns
+	for _, field := range config.RequiredFields {
+		if _, exists := headerMap[field]; !exists {
+			return nil, fmt.Errorf("missing required header '%s'", field)
+		}
+	}
+
+	// Step 4: Check if we have data rows
+	if len(records) < 2 {
+		result.TotalRows = 0
+		return result, nil
+	}
+
+	result.TotalRows = len(records) - 1
+	result.RejectedReasons = make(map[string]string)
+
+	// Step 5: Build effective field mapping (CSV column -> contact field)
+	effectiveMapping := s.buildEffectiveMapping(headers, config.FieldMapping)
+
+	// Step 6: Process each row and create contacts
+	contacts, skipped := s.parseCSVRecordsWithMapping(records, headerMap, effectiveMapping, config.UserID, config.OrganizationID)
+	result.SkippedRows = skipped
+
+	// Step 7: Batch upsert contacts with ownership check
+	if len(contacts) > 0 {
+		if config.OrganizationID != nil {
+			// Use ownership check when organization is specified
+			ownershipResult, err := s.contactRepo.UpsertManyWithOwnershipCheck(ctx, contacts, config.UserID, *config.OrganizationID)
+			if err != nil {
+				return result, fmt.Errorf("failed to upsert contacts: %w", err)
+			}
+			result.ImportedRows = len(ownershipResult.ValidContacts)
+			result.RejectedRows = len(ownershipResult.RejectedContacts)
+			result.RejectedReasons = ownershipResult.RejectedReasons
+		} else {
+			// No organization, use regular upsert
+			err = s.contactRepo.UpsertMany(ctx, contacts)
+			if err != nil {
+				return result, fmt.Errorf("failed to upsert contacts: %w", err)
+			}
+			result.ImportedRows = len(contacts)
+		}
+	}
+
+	return result, nil
+}
+
+// Standard contact fields that map directly to Contact struct
+var standardFields = map[string]bool{
+	"first_name": true,
+	"last_name":  true,
+	"email":      true,
+	"phone":      true,
+	"company":    true,
+	"job_title":  true,
+	"address":    true,
+	"city":       true,
+	"country":    true,
+	"state":      true,
+	"zip":        true,
+}
+
+// buildEffectiveMapping creates the final field mapping from CSV headers
+// It uses provided mapping or auto-maps matching headers to standard fields
+func (s *CSVImporter) buildEffectiveMapping(headers []string, customMapping map[string]string) map[string]string {
+	effectiveMapping := make(map[string]string)
+
+	for _, header := range headers {
+		normalizedHeader := strings.TrimSpace(strings.ToLower(header))
+
+		// Check if there's a custom mapping for this header
+		if customMapping != nil {
+			if targetField, exists := customMapping[header]; exists {
+				effectiveMapping[normalizedHeader] = strings.ToLower(strings.TrimSpace(targetField))
+				continue
+			}
+			// Also check normalized header in custom mapping
+			if targetField, exists := customMapping[normalizedHeader]; exists {
+				effectiveMapping[normalizedHeader] = strings.ToLower(strings.TrimSpace(targetField))
+				continue
+			}
+		}
+
+		// Auto-map if header matches a standard field name
+		if standardFields[normalizedHeader] {
+			effectiveMapping[normalizedHeader] = normalizedHeader
+		} else {
+			// Non-standard fields go to profile (custom fields)
+			// Normalize the field name for storage
+			normalizedFieldName := strings.ReplaceAll(normalizedHeader, " ", "_")
+			effectiveMapping[normalizedHeader] = "profile." + normalizedFieldName
+		}
+	}
+
+	return effectiveMapping
+}
+
+// parseCSVRecordsWithMapping converts CSV records to domain.Contact objects using field mapping
+func (s *CSVImporter) parseCSVRecordsWithMapping(records [][]string, headerMap map[string]int, fieldMapping map[string]string, userID uuid.UUID, orgID *uuid.UUID) ([]*domain.Contact, int) {
+	contacts := make([]*domain.Contact, 0, len(records)-1)
+	skipped := 0
+	now := time.Now().UTC()
+
+	for i := 1; i < len(records); i++ {
+		row := records[i]
+
+		// Skip empty rows
+		if s.isEmptyRow(row) {
+			skipped++
+			continue
+		}
+
+		// Get field value by CSV header name
+		getFieldByHeader := func(headerName string, defaultValue string) string {
+			if idx, exists := headerMap[headerName]; exists && idx < len(row) {
+				value := strings.TrimSpace(row[idx])
+				if value == "" {
+					return defaultValue
+				}
+				return value
+			}
+			return defaultValue
+		}
+
+		// Get field value by target field name (looks up which CSV header maps to this field)
+		getFieldByTarget := func(targetField string, defaultValue string) string {
+			for header, target := range fieldMapping {
+				if target == targetField {
+					return getFieldByHeader(header, defaultValue)
+				}
+			}
+			return defaultValue
+		}
+
+		email := getFieldByTarget("email", "N/A")
+
+		// Build profile (custom fields) map
+		profile := make(map[string]interface{})
+		for header, target := range fieldMapping {
+			if strings.HasPrefix(target, "profile.") {
+				fieldName := strings.TrimPrefix(target, "profile.")
+				value := getFieldByHeader(header, "")
+				if value != "" {
+					profile[fieldName] = value
+				}
+			}
+		}
+
+		// Add email and phone to profile (they're now stored in profile JSONB)
+		if email != "" && email != "N/A" {
+			profile["email"] = email
+		}
+		phone := getFieldByTarget("phone", "N/A")
+		if phone != "" && phone != "N/A" {
+			profile["phone"] = phone
+		}
+
+		// Create contact
+		contact := &domain.Contact{
+			Base: domain.Base{
+				ID: uuid.New(),
+			},
+			UserID:         userID,
+			OrganizationID: orgID,
+			Source:         string(domain.ContactSourceCSV),
+			SourceID:       fmt.Sprintf("csv_%s", email),
+			Name:           combineName(getFieldByTarget("first_name", ""), getFieldByTarget("last_name", ""), getFieldByTarget("name", "N/A")),
+			Company:        getFieldByTarget("company", "N/A"),
+			JobTitle:       getFieldByTarget("job_title", "N/A"),
+			Address:        getFieldByTarget("address", "N/A"),
+			City:           getFieldByTarget("city", "N/A"),
+			Country:        getFieldByTarget("country", "N/A"),
+			State:          getFieldByTarget("state", "N/A"),
+			Zip:            getFieldByTarget("zip", "N/A"),
+			DoNotContact:   false,
+			TimestampMixin: domain.TimestampMixin{
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+			SoftDeleteMixin: domain.SoftDeleteMixin{
+				IsDeleted: false,
+			},
+		}
+
+		// Set profile with email, phone, and custom fields
+		if len(profile) > 0 {
+			if profileBytes, err := json.Marshal(profile); err == nil {
+				contact.Profile = profileBytes
+			}
+		}
+
+		contacts = append(contacts, contact)
+	}
+
+	return contacts, skipped
+}
+
+// parseCSVRecords converts CSV records to domain.Contact objects (legacy method for backwards compatibility)
+func (s *CSVImporter) parseCSVRecords(records [][]string, headerMap map[string]int, userID uuid.UUID) ([]*domain.Contact, int) {
+	contacts := make([]*domain.Contact, 0, len(records)-1)
+	skipped := 0
+	now := time.Now().UTC()
+
+	for i := 1; i < len(records); i++ {
+		row := records[i]
+
+		// Skip empty rows
+		if s.isEmptyRow(row) {
+			skipped++
+			continue
+		}
+
+		// Get field values safely
+		getField := func(fieldName string, defaultValue string) string {
+			if idx, exists := headerMap[fieldName]; exists && idx < len(row) {
+				value := strings.TrimSpace(row[idx])
+				if value == "" {
+					return defaultValue
+				}
+				return value
+			}
+			return defaultValue
+		}
+
+		email := getField("email", "N/A")
+		phone := getField("phone", "N/A")
+
+		// Build profile with email and phone
+		profile := make(map[string]interface{})
+		if email != "" && email != "N/A" {
+			profile["email"] = email
+		}
+		if phone != "" && phone != "N/A" {
+			profile["phone"] = phone
+		}
+		var profileBytes domain.JSONB
+		if len(profile) > 0 {
+			_ = profileBytes.Marshal(profile)
+		}
+
+		// Create contact
+		contact := &domain.Contact{
+			Base: domain.Base{
+				ID: uuid.New(),
+			},
+			UserID:       userID,
+			Source:       string(domain.ContactSourceCSV),
+			SourceID:     fmt.Sprintf("csv_%s", email),
+			Name:         combineName(getField("first_name", ""), getField("last_name", ""), getField("name", "N/A")),
+			Profile:      profileBytes,
+			Company:      getField("company", "N/A"),
+			JobTitle:     getField("job_title", "N/A"),
+			Address:      getField("address", "N/A"),
+			City:         getField("city", "N/A"),
+			Country:      getField("country", "N/A"),
+			State:        getField("state", "N/A"),
+			Zip:          getField("zip", "N/A"),
+			DoNotContact: false,
+			TimestampMixin: domain.TimestampMixin{
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+			SoftDeleteMixin: domain.SoftDeleteMixin{
+				IsDeleted: false,
+			},
+		}
+
+		contacts = append(contacts, contact)
+	}
+
+	return contacts, skipped
+}
+
+// isEmptyRow checks if a CSV row is empty
+func (s *CSVImporter) isEmptyRow(row []string) bool {
+	if len(row) == 0 {
+		return true
+	}
+	if len(row) == 1 && strings.TrimSpace(row[0]) == "" {
+		return true
+	}
+	// Check if all elements in the row are empty or whitespace
+	for _, value := range row {
+		if strings.TrimSpace(value) != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// combineName combines first name and last name into a single name field
+func combineName(firstName, lastName, fallback string) string {
+	firstName = strings.TrimSpace(firstName)
+	lastName = strings.TrimSpace(lastName)
+
+	if firstName != "" && lastName != "" {
+		return firstName + " " + lastName
+	}
+	if firstName != "" {
+		return firstName
+	}
+	if lastName != "" {
+		return lastName
+	}
+	if fallback != "" {
+		return fallback
+	}
+	return "N/A"
+}
+
+// ValidateCSVFile validates CSV file structure without importing
+func (s *CSVImporter) ValidateCSVFile(filePath string, requiredFields []string) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to open CSV file: %w", err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	reader.TrimLeadingSpace = true
+
+	headers, err := reader.Read()
+	if err != nil {
+		return fmt.Errorf("failed to read CSV headers: %w", err)
+	}
+
+	headerMap := make(map[string]bool)
+	for _, header := range headers {
+		headerMap[strings.TrimSpace(strings.ToLower(header))] = true
+	}
+
+	for _, field := range requiredFields {
+		if !headerMap[field] {
+			return fmt.Errorf("missing required header '%s'", field)
+		}
+	}
+
+	return nil
+}

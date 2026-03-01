@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Cosmo LinkedIn Scraper</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Cosmo LinkedIn Scraper</h1>
+
+      <!-- Login Status Banner -->
+      <div id="loginStatus" class="login-status">
+        <span id="loginStatusText">Checking login...</span>
+        <button id="loginBtn" class="login-btn" style="display: none;">Login to Cosmo</button>
+      </div>
+
+      <!-- Environment Selector -->
+      <div id="envSelector" class="env-selector">
+        <label>Environment:</label>
+        <select id="envSelect">
+          <option value="staging">Staging (cosmoagents.rockship.xyz)</option>
+          <option value="production">Production (cosmo.rockship.co)</option>
+          <option value="local">Local (localhost:8081)</option>
+        </select>
+      </div>
+
+      <div id="modeSelector" class="mode-selector">
+        <button id="modeNewContact" class="mode-btn active">New Contact</button>
+        <button id="modeUpdateContact" class="mode-btn">Update Contact</button>
+        <button id="modeConnections" class="mode-btn">Connections</button>
+      </div>
+
+      <!-- New Contact Section (default) -->
+      <div id="newContactSection">
+        <p class="hint">Scrape LinkedIn profile and create a new contact in Cosmo</p>
+
+        <label class="checkbox">
+          <input id="useAiMapNew" type="checkbox" checked />
+          Use AI mapping (slower)
+        </label>
+        <label class="checkbox">
+          <input id="useAiEnrichNew" type="checkbox" checked />
+          Use AI enrichment
+        </label>
+
+        <button id="createContactBtn" class="primary-btn">Scrape & Create Contact</button>
+      </div>
+
+      <!-- Update Contact Section -->
+      <div id="updateContactSection" style="display: none;">
+        <p class="hint">Update an existing contact with LinkedIn data</p>
+
+        <label for="contactId">Contact ID</label>
+        <input id="contactId" type="text" placeholder="UUID of existing contact" />
+
+        <label class="checkbox">
+          <input id="useAi" type="checkbox" />
+          Use AI mapping (slower)
+        </label>
+
+        <button id="sendBtn">Scrape & Update</button>
+      </div>
+
+      <!-- Connections Section -->
+      <div id="connectionsSection" style="display: none;">
+        <p class="hint">Import multiple connections from LinkedIn</p>
+
+        <label for="maxScrolls">Max Scrolls (more = more contacts)</label>
+        <input id="maxScrolls" type="number" value="10" min="1" max="50" />
+
+        <button id="scrapeConnectionsBtn">Scrape Connections</button>
+        <button id="sendConnectionsBtn" disabled>Send to Cosmo</button>
+
+        <div id="connectionsList" class="connections-list"></div>
+      </div>
+
+      <!-- Advanced Settings (collapsed by default) -->
+      <details id="advancedSettings" class="advanced-settings">
+        <summary>Advanced Settings</summary>
+        <label for="apiBase">Custom API URL</label>
+        <input id="apiBase" type="text" placeholder="https://api.cosmo.rockship.co" />
+        <label for="token">Manual Token (optional)</label>
+        <input id="token" type="password" placeholder="Only if auto-login fails" />
+      </details>
+
+      <div id="status" class="status"></div>
+
+      <!-- Success result with link -->
+      <div id="successResult" class="success-result" style="display: none;">
+        <a id="contactLink" href="#" target="_blank">View Contact in Cosmo</a>
+      </div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

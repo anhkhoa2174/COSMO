@@ -1,0 +1,72 @@
+name: ${COMPOSE_PROJECT_NAME:-cosmo}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cosmo_agents
+    ports:
+      - "15434:5432" # Changed to avoid conflicts with other stacks
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis/redis-stack-server:latest
+    restart: unless-stopped
+    command: redis-stack-server --appendonly yes
+    ports:
+      - "16381:6379" # Changed to avoid conflicts with other stacks
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_ARGS=--appendonly yes --loadmodule /opt/redis-stack/lib/redisearch.so --loadmodule /opt/redis-stack/lib/rejson.so
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: PgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "15052:80" # Changed to avoid conflicts with other stacks
+    depends_on:
+      - postgres
+
+  migrate:
+    image: golang:1.23-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    working_dir: /app
+    entrypoint:
+      [
+        "/bin/sh",
+        "-c",
+        "apk add --no-cache make curl && curl -L https://github.com/golang-migrate/migrate/releases/download/v4.18.1/migrate.linux-amd64.tar.gz | tar xvz && mv migrate /usr/local/bin/migrate && make migrate-up",
+      ]
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: cosmo_agents
+    volumes:
+      - ../:/app
+
+volumes:
+  postgres_data:
+  redis_data:

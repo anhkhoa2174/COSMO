@@ -1,0 +1,3 @@
+-- Migration 000025 (down): Skip migration
+-- This migration is intentionally empty to maintain sequence continuity
+-- No schema changes to revert

@@ -1,0 +1,36 @@
+.radioCard {
+  position: relative;
+  padding: var(--mantine-spacing-sm);
+  transition: border-color 150ms ease;
+  border-radius: rem(12px);
+
+  &[data-checked] {
+    background-color: #eefaff;
+  }
+
+  @mixin hover {
+    background-color: #eefaff;
+  }
+}
+
+.indicator {
+  --radio-icon-size: calc(var(--radio-size) - rem(8px));
+}
+
+.option {
+  padding: 0;
+}
+
+.dropdown {
+  border-radius: var(--mantine-radius-lg);
+  box-shadow: -2px 4px 10px 0px #0000001a;
+  padding: var(--mantine-spacing-xs);
+}
+
+.deselect {
+  font-weight: 600;
+  text-decoration: underline;
+  color: var(--mantine-color-dark-3);
+  cursor: pointer;
+  text-underline-offset: 4px;
+}

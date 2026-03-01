@@ -1,0 +1,63 @@
+# --- Go build / cache ---
+/bin/
+/build/
+/dist/
+/out/
+/coverage/
+/profile.out
+*.test
+*.coverprofile
+*.pprof
+*.pem
+
+# Go binaries (built executables)
+/server
+/worker
+v1.test
+*.exe
+*.test.exe
+
+# Go workspace stuff (nếu có)
+/go.work.sum
+.claude/*.md
+.gocache
+.gomodcache/
+# --- OS junk ---
+# Windows
+Thumbs.db
+Desktop.ini
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# --- IDE/Editor ---
+# VSCode
+.vscode/
+# JetBrains (GoLand)
+.idea/
+*.iml
+
+# --- Env & local configs ---
+.env
+.env.local
+.env.*.local
+# keep example files
+!.env.example
+
+# --- Logs & temp ---
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# --- Generated files ---
+/vendor/**/te**
+.claude/*.sh
+/.cache/**
+
+# --- Test data ---
+test_data.sql
+test_jwt.py
+coverage.out

@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS templates;
+DROP TABLE IF EXISTS campaigns;
+DROP TABLE IF EXISTS list_contacts;
+DROP TABLE IF EXISTS contacts;
+DROP TABLE IF EXISTS organizations;
+DROP TABLE IF EXISTS users;

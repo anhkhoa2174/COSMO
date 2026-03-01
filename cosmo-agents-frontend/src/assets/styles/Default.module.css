@@ -1,0 +1,16 @@
+.anchorRoot {
+  text-underline-offset: rem(4px);
+}
+
+.badgeRoot {
+  --badge-radius: var(--mantine-radius-sm);
+}
+
+.textRoot {
+  --text-fz: var(--mantine-font-size-sm);
+  --text-lh: var(--mantine-line-height-sm);
+}
+
+.radioIcon {
+  --radio-icon-size: calc(var(--radio-size) - rem(8px));
+}

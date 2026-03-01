@@ -1,0 +1,30 @@
+.tab {
+  padding-inline: 1rem;
+  padding-block: 0.5rem;
+  border-radius: 0.5rem;
+  position: relative;
+  background-color: light-dark(var(--mantine-color-white), var(--mantine-color-dark-6));
+
+  @mixin hover {
+    background: linear-gradient(180deg, transparent, transparent, var(--mantine-color-gray-4));
+  }
+
+  &[data-active="true"] {
+    z-index: 1;
+    color: #5952F2;
+    background: linear-gradient(180deg, transparent, transparent, var(--mantine-color-violet-2));
+    border-color: var(--mantine-color-blue-filled);
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 25%;
+      height: 6px;
+      border-radius: 5px 5px 0 0;
+      background-color: #4c00ff;
+    }
+  }
+}

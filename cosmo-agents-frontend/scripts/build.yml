@@ -1,0 +1,13 @@
+.build_docker_image:
+  image:
+    name: gcr.io/kaniko-project/executor:v1.10.0-debug
+    entrypoint: ['']
+  script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"credsStore\":\"ecr-login\"}" > /kaniko/.docker/config.json
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      ${BUILD_ARG}
+      --image-name-tag-with-digest-file "${IMAGE_NAME}:${TAG}"
+      --dockerfile "${CI_PROJECT_DIR}/build/Dockerfile"
+      --destination "${IMAGE_NAME}:${TAG}"

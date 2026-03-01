@@ -1,0 +1,92 @@
+include:
+  - local: '/scripts/build.yml'
+  - local: '/scripts/install.yml'
+
+stages:
+  - pre-build
+  - build
+  - deploy
+
+build_and_export:
+  image: node:18
+  tags:
+    - builder
+  stage: pre-build
+  when: manual
+  script:
+    - rm -rf .env
+    - apt install -y curl
+    - 'curl --header "PRIVATE-TOKEN: ${BOT_PRIVATE_TOKEN}" "https://gitlab.rockitflow.com/api/v4/projects/1/repository/files/frontend%2Fcosmo-agents%2Fprod%2F.env/raw?ref=master" > .env'
+    - corepack enable pnpm
+    - pnpm install
+    - pnpm run build
+  artifacts:
+    paths:
+      - ./.next/static
+      - ./.next/standalone
+      - ./build
+    expire_in: 1 hour
+  only:
+    - main
+
+build-prod:
+  stage: build
+  tags:
+    - builder
+  needs:
+    - job: build_and_export
+      artifacts: true
+  image:
+    name: gcr.io/kaniko-project/executor:v1.10.0-debug
+    entrypoint: ['']
+  variables:
+    TAG: 'prod'
+    IMAGE_NAME: '${ECR_URL}/cosmos-agent-frontend'
+    BUILD_ARG: '--build-arg BOT_PRIVATE_TOKEN=${BOT_PRIVATE_TOKEN}'
+  script:
+    - !reference [.build_docker_image, script]
+  only:
+    - main
+
+install-with-ssh-prod:
+  stage: deploy
+  needs:
+    - job: build-prod
+      artifacts: false
+  tags:
+    - builder
+  variables:
+    TAG: 'prod'
+    IMAGE_NAME: '${ECR_URL}/cosmos-agent-frontend'
+  script:
+    - !reference [.install-prod, script]
+  only:
+    - main
+# deploy_s3_bucket:
+#   stage: deploy-s3-bucket
+#   tags:
+#     - builder
+#   image: registry.gitlab.com/gitlab-org/cloud-deploy/aws-base:latest
+#   when: manual
+#   script:
+#     - aws s3 sync ./out/ s3://$S3_BUCKET/
+#     - cd out
+#     - |
+#       find . -type f -name '*.html' | while read HTMLFILE; do
+#         HTMLFILESHORT=${HTMLFILE:2}
+#         HTMLFILE_WITHOUT_INDEX=${HTMLFILESHORT::-5}
+#
+#         echo $HTMLFILESHORT
+#         echo $HTMLFILE_WITHOUT_INDEX
+#         echo "$HTMLFILESHORT ----> $HTMLFILE_WITHOUT_INDEX"
+#         aws s3 cp s3://$S3_BUCKET/${HTMLFILESHORT} \
+#           s3://$S3_BUCKET/$HTMLFILE_WITHOUT_INDEX
+#
+#         if [ $? -ne 0 ]; then
+#           echo "***** Failed renaming build to $S3_BUCKET (html)"
+#           exit 1
+#         fi
+#       done
+#     - aws cloudfront create-invalidation --distribution-id=$DISTRIBUTION_ID --paths "/*"
+#   only:
+#     - main

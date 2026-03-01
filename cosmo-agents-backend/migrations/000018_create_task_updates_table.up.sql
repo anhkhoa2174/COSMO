@@ -1,0 +1,1 @@
+-- task_updates table moved to 000020_create_tasks_table.up.sql for proper dependency ordering

@@ -1,0 +1,12 @@
+{
+  // eslint extension
+  // "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+  // prettier extension
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "editor.formatOnSave": true,
+  "eslint.enable": false,
+  "json.format.enable": false
+}

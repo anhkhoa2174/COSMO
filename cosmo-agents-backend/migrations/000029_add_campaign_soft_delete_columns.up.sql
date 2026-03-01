@@ -1,0 +1,5 @@
+ALTER TABLE campaigns
+    ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+UPDATE campaigns SET is_deleted = FALSE WHERE is_deleted IS NULL;

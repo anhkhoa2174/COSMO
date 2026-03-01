@@ -1,0 +1,78 @@
+\section{Literature Review}
+
+Structured outreach---contacting external organizations and decision-makers through planned, multi-step campaigns---is a core activity in B2B sales and marketing. Over the past decade, a range of commercial and open-source platforms have emerged to automate parts of this process. This section reviews the most relevant categories of existing systems, examines their strengths and limitations, and identifies the gaps that motivate COSMO's design.
+
+\subsection{CRM-Driven Campaign Automation}
+
+Commercial CRM platforms such as HubSpot~\cite{hubspot_marketing_automation} and Salesforce Marketing Cloud~\cite{salesforce_journey_builder_pdf} represent the dominant paradigm for outreach automation. Both systems tightly couple contact data management with workflow-based campaign execution: users define audience segments from CRM records and build multi-step ``journeys'' or ``workflows'' that automatically trigger emails, delays, conditional branches, and follow-up actions based on contact behavior.
+
+This CRM-driven approach offers several advantages. Contact context (profile data, interaction history, deal stage) is directly available within the campaign builder, reducing context switching. Workflow engines handle scheduling, branching, and retry logic, freeing teams from manual coordination. Both platforms also provide built-in analytics dashboards to track open rates, click-through rates, and conversion funnels.
+
+However, these platforms have significant limitations for the use case COSMO targets. First, they are proprietary SaaS products with substantial licensing costs, making them impractical for small teams or early-stage projects. Second, their workflow engines abstract away low-level execution details---users cannot easily inspect individual task states (queued, processing, succeeded, failed) or implement custom retry policies. Third, while both platforms have recently introduced AI features~\cite{hubspot_ai_email_creation, salesforce_einstein_gpt_sales_emails}, the AI capabilities are tightly bundled with the platform and cannot be used independently or customized at the prompt level.
+
+\subsection{Sales Engagement Platforms}
+
+Sales engagement platforms, exemplified by Outreach~\cite{outreach_sales_engagement}, operationalize outreach through a \emph{sequence-based execution model}. Rather than building full marketing journeys, sales representatives define cadences---ordered sequences of touchpoints (email, call, LinkedIn message) with configurable wait intervals---and the system prioritizes daily tasks, automates email sends, and tracks engagement signals. Outreach also incorporates AI-driven features such as content performance reporting~\cite{outreach_ai_content_reporting} and email sentiment classification~\cite{outreach_sentiment_classification} to help representatives prioritize responses.
+
+This model aligns closely with the day-to-day workflow of BD representatives: it emphasizes execution discipline (consistent follow-ups at the right time) over complex branching logic. Outreach and similar tools also provide activity logging, template management, and analytics at the sequence level.
+
+The main limitation is scope: sales engagement platforms focus narrowly on outbound sequences and do not provide full CRM capabilities (contact enrichment, organization context, custom fields) or marketing-style campaign workflows. They are also closed-source commercial products. Furthermore, their task execution models are opaque---users see sequence progress but not the underlying queue/worker infrastructure, making it difficult to diagnose failures or extend the system with custom execution logic.
+
+\subsection{Open-Source Marketing Automation}
+
+Several open-source alternatives provide self-hosted outreach capabilities. Mautic~\cite{mautic_docs} offers a full marketing automation suite including contact management, segmentation, campaign workflows with visual builders, and email delivery. Odoo Marketing Automation~\cite{odoo_marketing_automation} integrates campaign workflows within a broader ERP ecosystem. SuiteCRM~\cite{suitecrm_campaigns} provides campaign management as part of its open-source CRM suite.
+
+These platforms demonstrate that workflow-based campaigns and audience segmentation can be implemented effectively in self-hosted environments, offering data ownership, customizability, and zero licensing costs. However, they share several limitations relevant to COSMO's goals: (1)~none provide AI-assisted content generation, contact intelligence, or next-best-action suggestions; (2)~B2B account-level context (organization hierarchy, multi-contact relationships within a company) is either absent or limited; and (3)~their task execution models typically lack the explicit state tracking and queue-based orchestration needed for reliable, auditable campaign execution at the individual task level.
+
+At the simpler end of the spectrum, listmonk~\cite{listmonk_github} is a lightweight, self-hosted newsletter and mailing list manager. It handles subscriber management and bulk email delivery efficiently but does not provide CRM features, campaign workflows, or any form of outreach intelligence---positioning it as a complementary tool rather than a direct alternative.
+
+\subsection{AI-Assisted Sales and Marketing}
+
+Recent developments in large language models (LLMs) have introduced AI assistance into the outreach domain. HubSpot now offers AI-powered email generation that drafts marketing emails based on campaign context and tone preferences~\cite{hubspot_ai_email_creation}. Microsoft Dynamics~365 integrates Copilot to summarize account histories, draft email responses~\cite{ms_copilot_email_draft}, and surface next-best-action recommendations within the CRM interface~\cite{ms_d365_copilot_overview}. Salesforce Einstein provides a similar ``Next Best Action'' engine that recommends prioritized actions based on predictive models and business rules~\cite{salesforce_nba_about, salesforce_nba_get_started}.
+
+Academic research supports the value of such automation while highlighting important caveats. J\"{a}rvinen and Taiminen~\cite{jarvinen2016marketingautomation} found that marketing automation improves B2B content marketing effectiveness when properly aligned with buyer journey stages, but requires careful calibration to avoid irrelevant or poorly timed messages. More recently, Habel et~al.~\cite{habel2025aln} demonstrated that automated lead nurturing via sales pipeline technology can increase engagement rates, but noted that the benefits are not universal---effectiveness depends on lead quality, message personalization, and the availability of human oversight for edge cases. Cao and Zhu~\cite{cao2022nba} further formalize the next-best-action problem as a multi-party interaction learning task, showing that personalized action recommendations can outperform rule-based approaches when sufficient interaction data is available.
+
+These findings motivate COSMO's approach to AI assistance: rather than fully automating outreach, the system generates draft messages and next-step suggestions while preserving human review and feedback mechanisms. This human-in-the-loop design allows BD representatives to validate, modify, or override AI outputs, addressing the risk of over-automation identified in the literature.
+
+\subsection{Workflow Execution and Fault Tolerance}
+
+Campaign execution at scale requires reliable task processing with explicit state management. Da~Silva et~al.~\cite{dasilva2017wfms} characterize workflow management systems and identify key properties for fault-tolerant execution: explicit task state transitions, retry mechanisms for transient failures, execution provenance (audit logs), and decoupled task scheduling from task processing.
+
+These principles directly inform COSMO's architecture. Rather than embedding execution logic within the API server, COSMO delegates campaign steps to a Redis-backed task queue (Asynq) processed by independent background workers. Each task follows explicit state transitions (queued $\to$ processing $\to$ succeeded/failed), supports configurable retries, and produces execution logs. This design ensures that campaign execution remains reliable and auditable even under partial failures, and that the execution subsystem can scale independently of the user-facing API.
+
+\subsection{Summary and Gap Analysis}
+
+Table~\ref{tab:comparison} presents a direct feature comparison between COSMO and the reviewed systems across ten capabilities identified as critical for B2B outreach.
+
+% ---- keep existing Table 1 here ----
+\begin{table}[htbp]
+\centering
+\caption{Direct comparison of COSMO with related commercial and open-source outreach systems}
+\label{tab:comparison}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{l c c c c c c c c}
+\hline
+\textbf{Capability} & \textbf{COSMO} & \textbf{HubSpot} & \textbf{SFMC} & \textbf{Outreach} & \textbf{Mautic} & \textbf{Odoo MA} & \textbf{SuiteCRM} & \textbf{listmonk} \\
+\hline
+Contact database / CRM & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & partial \\
+Organization / account context (B2B) & \checkmark & \checkmark & \checkmark & \checkmark & partial & partial & \checkmark & \ding{55} \\
+Custom fields / contact enrichment & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & partial \\
+Segments / contact lists & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+Campaign workflows / journeys & \checkmark & \checkmark & \checkmark & partial\textsuperscript{a} & \checkmark & \checkmark & partial & \ding{55} \\
+Task/sequence execution model & \checkmark & partial & partial & \checkmark & partial & partial & \ding{55} & \ding{55} \\
+Execution state tracking + audit logs & \checkmark & partial\textsuperscript{b} & partial\textsuperscript{b} & partial & partial & partial & partial & partial \\
+AI assistance (summary / NBA / drafting) & \checkmark & partial & partial & partial & \ding{55} & \ding{55} & \ding{55} & \ding{55} \\
+Self-hosted / on-premise & \checkmark & \ding{55} & \ding{55} & \ding{55} & \checkmark & \checkmark & \checkmark & \checkmark \\
+Extensibility (APIs / integrations) & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+\hline
+\end{tabular}%
+}
+\par\smallskip
+\footnotesize
+\textsuperscript{a} Outreach focuses on sales engagement sequences rather than full marketing journeys.\\
+\textsuperscript{b} Commercial platforms provide automation logs, but low-level queue/worker details are typically abstracted from end users.
+\end{table}
+
+The comparison reveals a clear gap: no single existing system---whether commercial or open-source---combines all of the following properties: (1)~a self-hosted, extensible platform with full CRM and B2B account context; (2)~both automated email campaigns and AI-assisted manual outreach workflows; (3)~explicit task-queue-based execution with granular state tracking and audit logs; and (4)~integrated AI capabilities (contact intelligence, next-best-action suggestions, personalized draft generation) with a human-in-the-loop feedback mechanism.
+
+Commercial platforms (HubSpot, Salesforce, Outreach) provide mature automation and emerging AI features but are proprietary, expensive, and opaque in their execution models. Open-source alternatives (Mautic, Odoo, SuiteCRM, listmonk) offer data ownership and customizability but lack AI assistance and fine-grained execution tracking. COSMO is designed to bridge this gap by providing an open, self-hosted system that integrates CRM-driven campaign management, queue-based reliable execution, and AI-assisted outreach within a single, modular architecture.

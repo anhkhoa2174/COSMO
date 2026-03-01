@@ -1,0 +1,1 @@
+-- task_updates table drop moved to 000020_create_tasks_table.down.sql

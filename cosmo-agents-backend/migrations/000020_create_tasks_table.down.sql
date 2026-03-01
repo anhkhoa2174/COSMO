@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS task_updates;
+DROP TABLE IF EXISTS tasks;

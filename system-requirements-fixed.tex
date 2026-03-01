@@ -1,0 +1,279 @@
+\section{System Requirements}
+
+\subsection{Functional Requirements}
+
+The functional requirements are organized by module, reflecting the system's domain-driven architecture. COSMO uses a single user entity with organization-scoped roles (\texttt{admin} and \texttt{member}). Resource access is governed by three patterns: (1)~authentication only, (2)~resource ownership verification, and (3)~organization role checks.
+
+Requirements are divided into two phases:
+\begin{itemize}
+    \item \textbf{Phase~1 (Core Platform):} Fully operational modules with registered API routes and frontend UI.
+    \item \textbf{Phase~2 (AI-Assisted Outreach):} Modules with complete backend implementation (handlers, services, domain models, database migrations, background workers) pending API route activation.
+\end{itemize}
+
+% ============================================================
+% PHASE 1 — CORE PLATFORM (Routes registered, fully active)
+% ============================================================
+
+\subsubsection{Phase 1: Core Platform}
+
+\paragraph{Authentication and User Account Management.}
+These operations are available to any user, with or without organization membership.
+
+\begin{itemize}
+    \item \textbf{FR-01}: The system shall allow a user to authenticate via Google OAuth~2.0. The backend exchanges the authorization code for tokens, creates or retrieves the user record, and issues a JWT access token and refresh token.
+    \item \textbf{FR-02}: The system shall allow a user to obtain a new access token by presenting a valid refresh token, without requiring re-authentication.
+    \item \textbf{FR-03}: The system shall allow a user to log out, invalidating the current session.
+    \item \textbf{FR-04}: The system shall allow an authenticated user to retrieve, update, and delete their own profile.
+    \item \textbf{FR-05}: The system shall allow an authenticated user to create, list, and revoke personal API keys as an alternative authentication method for programmatic access.
+\end{itemize}
+
+\paragraph{Organization Management.}
+The user who creates an organization is automatically assigned the \texttt{admin} role. Only administrators may modify organization settings or manage members.
+
+\begin{itemize}
+    \item \textbf{FR-06}: The system shall allow an authenticated user to create a new organization. The creating user is automatically assigned the \texttt{admin} role.
+    \item \textbf{FR-07}: The system shall allow an authenticated user to list all organizations in which they hold an active role.
+    \item \textbf{FR-08}: The system shall restrict organization updates (name, settings) to users with the \texttt{admin} role in that organization.
+    \item \textbf{FR-09}: The system shall restrict adding members and assigning roles to users with the \texttt{admin} role. Administrators may assign either \texttt{admin} or \texttt{member} roles to new members.
+\end{itemize}
+
+\paragraph{Contact Management.}
+Contact data is scoped by organization. Operations are available to any authenticated organization member.
+
+\begin{itemize}
+    \item \textbf{FR-10}: The system shall allow an authenticated user to create, view, update, and delete contacts within their organization.
+    \item \textbf{FR-11}: The system shall support searching contacts by keywords and filtering by structured attributes including custom fields.
+    \item \textbf{FR-12}: The system shall expose an endpoint to retrieve distinct filterable field values, enabling dynamic filter construction on the frontend.
+    \item \textbf{FR-13}: The system shall support bulk deletion of contacts.
+    \item \textbf{FR-14}: The system shall allow an authenticated user to create, view, update, and delete custom field definitions that extend the contact schema without requiring database migrations.
+\end{itemize}
+
+\paragraph{Contact List Management.}
+Contact lists group contacts into reusable audiences for campaigns.
+
+\begin{itemize}
+    \item \textbf{FR-15}: The system shall allow an authenticated user to create, view, update, and delete contact lists.
+    \item \textbf{FR-16}: The system shall support searching contact lists by keywords and metadata.
+\end{itemize}
+
+\paragraph{Campaign Management.}
+Campaigns define outreach workflows over a target contact list. Campaigns are scoped by organization.
+
+\begin{itemize}
+    \item \textbf{FR-17}: The system shall allow an authenticated user to create, view, update, and delete campaigns.
+    \item \textbf{FR-18}: The system shall support searching campaigns by keywords and status.
+    \item \textbf{FR-19}: The system shall allow a user to assign an execution agent and team members to a campaign.
+    \item \textbf{FR-20}: The system shall allow a user to update campaign status (e.g., draft, active, paused, completed).
+    \item \textbf{FR-21}: The system shall allow a user to define an outreach strategy for a campaign, including message positioning and tone.
+    \item \textbf{FR-22}: The system shall allow a user to configure a follow-up schedule for a campaign, defining the cadence and timing of follow-up steps.
+    \item \textbf{FR-23}: The system shall allow a user to trigger AI-assisted generation of personalized email templates for a campaign, using contact context and the defined outreach strategy.
+\end{itemize}
+
+\paragraph{Agent Management.}
+Agents are execution entities that send emails via connected email accounts. Access follows an ownership model: only the owner may update, delete, or synchronize an agent; organization members may view agents within the same organization.
+
+\begin{itemize}
+    \item \textbf{FR-24}: The system shall allow an authenticated user to create an execution agent linked to their email account via OAuth (e.g., Gmail).
+    \item \textbf{FR-25}: The system shall allow the agent owner to view, update, and delete their agents. Organization members may view agents belonging to the same organization.
+    \item \textbf{FR-26}: The system shall support searching agents by keywords and status.
+    \item \textbf{FR-27}: The system shall allow a user to search and view conversation history between a specific agent and its contacts, subject to ownership or organization membership.
+\end{itemize}
+
+\paragraph{Template Management.}
+Templates define reusable email content for campaign sequences. Only the template creator may update or delete a template.
+
+\begin{itemize}
+    \item \textbf{FR-28}: The system shall allow an authenticated user to create, view, update, and delete message templates. Update and delete operations are restricted to the template owner.
+    \item \textbf{FR-29}: The system shall support associating templates with campaigns and ordering them in a sequence for multi-step outreach.
+\end{itemize}
+
+\paragraph{Email Record Viewing.}
+Sent emails are recorded for auditability. Access is scoped to organizations where the user holds an active role.
+
+\begin{itemize}
+    \item \textbf{FR-30}: The system shall allow an authenticated user to view sent email records, filtered to organizations in which the user holds an active role.
+\end{itemize}
+
+\paragraph{Task Orchestration.}
+Tasks represent individual execution steps within campaign workflows. The system provides both direct task management and an asynchronous enqueue mechanism for background processing.
+
+\begin{itemize}
+    \item \textbf{FR-31}: The system shall allow an authenticated user to create tasks and track their status through explicit state transitions: \texttt{queued} $\rightarrow$ \texttt{processing} $\rightarrow$ \texttt{succeeded} or \texttt{failed}.
+    \item \textbf{FR-32}: The system shall provide API endpoints to enqueue tasks for asynchronous processing by background workers, including:
+    \begin{itemize}
+        \item sending outreach emails via the assigned agent's email account,
+        \item executing campaign workflows (multi-step email sequences over a contact list),
+        \item synchronizing agent credentials and OAuth state,
+        \item scheduling future follow-up tasks according to the campaign cadence.
+    \end{itemize}
+    \item \textbf{FR-33}: The system shall allow an authenticated user to view task details and list tasks, optionally filtered by campaign or contact.
+\end{itemize}
+
+\paragraph{Inbound Lead Forms.}
+Inbound lead forms allow external visitors to submit contact information. Form management requires authentication; form submission is intentionally public to support external lead capture.
+
+\begin{itemize}
+    \item \textbf{FR-34}: The system shall allow an authenticated user to create, view, update, and delete inbound lead forms. Update and delete are restricted to the form owner.
+    \item \textbf{FR-35}: The system shall allow unauthenticated external users to submit an inbound lead form by its public identifier, creating a contact record and optionally triggering campaign-related workflows.
+\end{itemize}
+
+% ============================================================
+% PHASE 2 — AI-ASSISTED OUTREACH (Code complete, pending route activation)
+% ============================================================
+
+\subsubsection{Phase 2: AI-Assisted Outreach}
+
+Phase~2 extends the core platform with intelligence, outreach orchestration, and automation capabilities. All modules described below have complete backend implementations---including HTTP handlers, services, domain models, database migrations, and background workers---and are pending API route registration.
+
+\paragraph{Contact Intelligence.}
+The intelligence module provides AI-powered contact analysis and scoring. It uses OpenAI for insight generation and Redis vector store for semantic search.
+
+\begin{itemize}
+    \item \textbf{FR-36}: The system shall allow a user to trigger AI enrichment for a contact, generating structured insights (e.g., pain points, buying signals, communication preferences) and vector embeddings for semantic search.
+    \item \textbf{FR-37}: The system shall allow a user to calculate segmentation fit scores for a contact against one or more defined segments.
+    \item \textbf{FR-38}: The system shall allow a user to compute a relationship strength score for a contact based on interaction history, using weighted metrics (reply frequency, meeting count, engagement recency over 30-day and 90-day windows).
+    \item \textbf{FR-39}: The system shall allow a user to generate a pre-meeting briefing for a contact, including talking points, discovery questions, and risk flags, generated by AI using the contact's profile, interaction history, and segment fit data.
+    \item \textbf{FR-40}: The system shall provide campaign-level intelligence by aggregating reply rates, response counts, and generating AI-powered recommendations for campaign optimization.
+\end{itemize}
+
+\paragraph{Vector Search.}
+The vector search module enables semantic discovery of contacts, interactions, and segments using AI-generated embeddings stored in a Redis vector index (HNSW algorithm, cosine distance, 1536 dimensions).
+
+\begin{itemize}
+    \item \textbf{FR-41}: The system shall support semantic vector search across contacts and interaction history using AI embeddings, with configurable result limits and similarity thresholds.
+    \item \textbf{FR-42}: The system shall support finding contacts similar to a given contact based on embedding proximity.
+    \item \textbf{FR-43}: The system shall support hybrid search combining keyword matching and semantic similarity for contact discovery.
+\end{itemize}
+
+\paragraph{Outreach State Management.}
+The outreach module tracks the full lifecycle of contact engagement---from initial outreach through follow-ups, meetings, and outcomes.
+
+\begin{itemize}
+    \item \textbf{FR-44}: The system shall suggest prioritized contacts for outreach (cold, follow-up, or mixed) based on pipeline state and interaction history. Administrators see all organization contacts; members see their own.
+    \item \textbf{FR-45}: The system shall generate AI-powered outreach draft messages personalized to each contact's context, with configurable language (Vietnamese or English) and scenario (role-based, industry-based, no-reply follow-up, post-reply, meeting confirmation, post-meeting, re-engage). The system falls back to template-based drafts when AI generation is unavailable.
+    \item \textbf{FR-46}: The system shall maintain an outreach state for each user--contact pair, tracking: conversation state (\texttt{COLD}, \texttt{NO\_REPLY}, \texttt{REPLIED}, \texttt{POST\_MEETING}, \texttt{DROPPED}), follow-up count, maximum follow-ups, days since last interaction, and recommended next step (\texttt{SEND}, \texttt{FOLLOW\_UP\_1}, \texttt{FOLLOW\_UP\_2}, \texttt{SET\_MEETING}, \texttt{PREPARE\_MEETING}, \texttt{WAIT}, \texttt{DROP}).
+    \item \textbf{FR-47}: The system shall allow a user to record interactions (messages sent and received) with contacts, categorized by channel (Email, LinkedIn, Call, Meeting, Note), direction (outgoing, incoming, internal), and sentiment (positive, neutral, negative).
+    \item \textbf{FR-48}: The system shall allow a user to add, update, and delete internal team notes for a contact.
+    \item \textbf{FR-49}: A background worker shall periodically recalculate the outreach state and next step for contacts in \texttt{WAIT} state, updating the contact's outreach stage and follow-up count when state transitions occur.
+\end{itemize}
+
+\paragraph{Meeting Management.}
+The meeting module supports scheduling, preparation, and outcome tracking for meetings with contacts.
+
+\begin{itemize}
+    \item \textbf{FR-50}: The system shall allow a user to create, update, and delete meetings with contacts, including metadata such as title, time, duration, channel (Zoom, Google Meet, Call, Offline), location, and meeting URL.
+    \item \textbf{FR-51}: The system shall track meeting status through a lifecycle: \texttt{scheduled} $\rightarrow$ \texttt{completed} or \texttt{cancelled} or \texttt{no\_show}.
+    \item \textbf{FR-52}: The system shall support AI-generated meeting preparation before a meeting and storage of meeting content (transcript or notes), outcomes, and next steps after a meeting.
+\end{itemize}
+
+\paragraph{Outreach Feedback and Analytics.}
+The feedback system tracks how users interact with AI suggestions and measures outreach effectiveness per scenario.
+
+\begin{itemize}
+    \item \textbf{FR-53}: The system shall record user actions on AI-generated suggestions: \texttt{used\_draft}, \texttt{modified\_draft}, \texttt{wrote\_own}, or \texttt{skipped}.
+    \item \textbf{FR-54}: The system shall record outreach outcomes per contact: \texttt{sent}, \texttt{replied}, \texttt{meeting\_booked}, \texttt{meeting\_done}, or \texttt{dropped}, with optional reply sentiment and days to reply.
+    \item \textbf{FR-55}: The system shall provide aggregated feedback statistics including reply rate, meeting rate, draft usage rate, and average days to reply, grouped by outreach scenario and context level, via a precomputed database view.
+\end{itemize}
+
+\paragraph{Segmentation.}
+The segmentation module enables dynamic contact grouping based on criteria and ICP (Ideal Customer Profile) definitions with automated scoring.
+
+\begin{itemize}
+    \item \textbf{FR-56}: The system shall allow a user to create, view, and delete contact segments with configurable criteria (filters, scoring rules, exclusions), ICP definition, and priority (1--10).
+    \item \textbf{FR-57}: The system shall maintain a fit score (0--100) for each contact--segment pair, computed automatically or set manually, with a detailed score breakdown. Scores track qualification status and campaign enrollment state.
+    \item \textbf{FR-58}: The system shall support listing contacts within a segment with pagination and querying all segment scores for a given contact.
+    \item \textbf{FR-59}: A background worker shall periodically recalculate segment scores for contacts in batches, using the intelligence service to evaluate contacts against active segment criteria.
+\end{itemize}
+
+\paragraph{Playbook Automation.}
+Playbooks define multi-stage outreach sequences that can be executed automatically. The automation system connects segments to playbooks via trigger rules with optional human approval.
+
+\begin{itemize}
+    \item \textbf{FR-60}: The system shall allow a user to create, view, and delete playbooks with configurable multi-stage sequences. Supported stage types are: email, LinkedIn, call, and wait. Each stage defines trigger conditions (wait duration in days), success criteria (advance, pause, or complete on timeout), and content (template text or AI generation prompt).
+    \item \textbf{FR-61}: The system shall allow a user to create, view, toggle, and delete automation rules that link a segment to a playbook with enrollment criteria (e.g., minimum fit score and engagement score thresholds) and an optional human approval requirement.
+    \item \textbf{FR-62}: The system shall support manual and automatic enrollment of contacts into playbooks. When an automation rule requires human approval, the system shall create an approval request with the contact's fit and engagement scores that must be approved or rejected by a reviewer before enrollment proceeds.
+    \item \textbf{FR-63}: A background worker shall evaluate active automation rules by finding contacts that meet enrollment criteria in the rule's linked segment and are not yet enrolled, creating enrollments or approval requests as configured.
+    \item \textbf{FR-64}: A background worker shall process active enrollments by executing the current stage when its wait duration has elapsed. For email stages, the worker identifies the contact's email, selects the user's default active agent, generates content (from template with placeholder substitution or AI generation), and enqueues an email-send task. After execution, the worker advances to the next stage or marks the enrollment as completed.
+    \item \textbf{FR-65}: The system shall track enrollment status (\texttt{pending\_approval}, \texttt{active}, \texttt{paused}, \texttt{completed}) and maintain an execution log recording which stages have been completed and when.
+\end{itemize}
+
+\paragraph{Interaction Logging.}
+The interaction module provides a unified log of all contact interactions across channels, feeding into the intelligence and automation pipelines.
+
+\begin{itemize}
+    \item \textbf{FR-66}: The system shall allow a user to log interactions with contacts, categorized by type (sent, open, reply, bounce, LinkedIn message, call, meeting), channel, direction, and optional AI analysis metadata.
+    \item \textbf{FR-67}: The system shall list recent interactions for a contact with pagination.
+    \item \textbf{FR-68}: When a new interaction is logged, the system shall enqueue an orchestration task that re-enriches the contact, recalculates segment scores, updates the relationship score, and evaluates playbook automation rules.
+\end{itemize}
+
+\paragraph{User Feedback on AI Insights.}
+The feedback module enables users to validate, correct, or extend AI-generated contact insights, supporting a human-in-the-loop approach to data quality.
+
+\begin{itemize}
+    \item \textbf{FR-69}: The system shall allow a user to record score adjustments (original vs.\ adjusted score with reason), insight validations (confirm or reject AI-generated insights with optional confirmed data), and custom facts for a contact.
+    \item \textbf{FR-70}: The system shall list a user's feedback history for auditability.
+\end{itemize}
+
+\paragraph{MCP Integration (Model Context Protocol).}
+The MCP module provides a simplified API for external AI tool agents to create campaigns with contacts in a single call.
+
+\begin{itemize}
+    \item \textbf{FR-71}: The system shall allow an authenticated AI tool agent to create a campaign with an associated contact list and contacts in a single API call. The system creates or updates contacts by email, generates a campaign name from the playbook type if not provided, notifies the user, and triggers asynchronous AI template generation.
+\end{itemize}
+
+
+% ============================================================
+% NON-FUNCTIONAL REQUIREMENTS
+% ============================================================
+
+\subsection{Non-Functional Requirements}
+
+The most critical architectural characteristics for COSMO are, in order of priority: \textbf{Responsiveness}, \textbf{Reliability}, \textbf{Maintainability}, and \textbf{Security}.
+
+\begin{itemize}
+    \item \textbf{Responsiveness:} Users interact frequently with contact lists, search, and campaign monitoring. Slow UI or API responses reduce productivity and make campaign operations harder to manage.
+    \item \textbf{Reliability:} Campaign execution depends on consistent APIs and stable background processing. Failures or inconsistent responses can cause missed outreach steps and reduce trust in the system.
+    \item \textbf{Maintainability:} COSMO is expected to evolve with new features (e.g., integrations, AI-assisted content generation). A modular domain separation approach reduces coupling and supports long-term development scalability.
+    \item \textbf{Security:} COSMO manages sensitive contact and campaign data in a multi-tenant environment. Strong authentication, token handling, and data isolation are required to prevent unauthorized access.
+\end{itemize}
+
+\subsubsection{Responsiveness Requirements}
+\begin{itemize}
+    \item \textbf{NFR-01}: The system must provide a responsive web user interface with efficient client-side rendering using Next.js and server-side data caching via TanStack React Query.
+    \item \textbf{NFR-02}: The system must support fast list rendering for large datasets via server-side pagination and optimized database queries with appropriate indexes.
+    \item \textbf{NFR-03}: The system must return search and filter results within an acceptable time threshold under normal load (target: $<$ 500ms for paginated queries).
+    \item \textbf{NFR-04}: The system must offload long-running operations (email sending, AI content generation, contact enrichment, score recalculation) to background workers so that API responses remain fast.
+\end{itemize}
+
+\subsubsection{Reliability Requirements}
+\begin{itemize}
+    \item \textbf{NFR-05}: The system must provide consistent REST API responses with standardized error formats across all endpoints.
+    \item \textbf{NFR-06}: The system must enforce authentication checks consistently via middleware on all protected endpoints, with explicitly defined public path exceptions (login, token refresh, lead form submission).
+    \item \textbf{NFR-07}: The system must ensure queued tasks are processed reliably by background workers (Asynq), with automatic retry on transient failures (network timeouts, rate limits) and explicit failure states when retries are exhausted.
+    \item \textbf{NFR-08}: The system must preserve explicit task state transitions (\texttt{queued} $\rightarrow$ \texttt{processing} $\rightarrow$ \texttt{succeeded}/\texttt{failed}) to support monitoring, debugging, and auditability.
+    \item \textbf{NFR-09}: The system must include health check endpoints (\texttt{/health}, \texttt{/healthz}, \texttt{/ping}) to support deployment monitoring and container readiness probes.
+\end{itemize}
+
+\subsubsection{Maintainability Requirements}
+\begin{itemize}
+    \item \textbf{NFR-10}: The backend must follow a layered architecture with clear separation: HTTP handlers (controllers), services (business logic), and repositories (data access), organized by domain modules.
+    \item \textbf{NFR-11}: The system must maintain a clear separation between the frontend (presentation and client-side logic) and backend (business logic and persistence), communicating exclusively through REST APIs.
+    \item \textbf{NFR-12}: The system must support adding new domain modules and API endpoints with minimal impact on existing components, facilitated by a dependency injection pattern for handler, service, and repository initialization.
+    \item \textbf{NFR-13}: The system must support API versioning (v1, v2, v3) to enable backward-compatible evolution of endpoints.
+    \item \textbf{NFR-14}: The contact schema must support runtime extensibility via custom fields (stored as structured metadata) and JSONB columns (e.g., \texttt{ai\_insights}, \texttt{confirmed\_facts}, \texttt{scores}) without requiring database schema migrations.
+\end{itemize}
+
+\subsubsection{Security Requirements}
+\begin{itemize}
+    \item \textbf{NFR-15}: The system must protect all non-public API endpoints using JWT-based authentication, validated through a global middleware layer.
+    \item \textbf{NFR-16}: The system must support refresh tokens to maintain user sessions without frequent re-authentication, while enforcing token expiry.
+    \item \textbf{NFR-17}: The system must enforce access control at the handler level using three patterns:
+    \begin{enumerate}
+        \item[(a)] authentication-only for general operations,
+        \item[(b)] resource ownership verification for user-scoped resources (agents, templates, lead forms),
+        \item[(c)] organization role checks (\texttt{admin} required) for organization management operations.
+    \end{enumerate}
+    \item \textbf{NFR-18}: The system must enforce organization-scoped data isolation to prevent cross-tenant data access. All organization-scoped queries must filter by the authenticated user's organization context.
+    \item \textbf{NFR-19}: The system must support per-IP rate limiting on API endpoints to mitigate abuse.
+    \item \textbf{NFR-20}: The system must support personal API keys with encrypted storage as an alternative to JWT tokens for programmatic access.
+\end{itemize}

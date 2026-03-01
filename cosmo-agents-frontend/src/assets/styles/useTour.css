@@ -1,0 +1,18 @@
+.driver-popover.has-custom-content-bottom {
+  min-width: 400px !important;
+  max-width: 400px !important;
+  transform: translateY(93%) !important;
+}
+
+.driver-popover.has-custom-content-right {
+  min-width: 400px !important;
+  max-width: 400px !important;
+  transform: translateX(1%) !important;
+}
+
+.driver-popover.has-custom-content-left {
+  min-width: 400px !important;
+  max-width: 400px !important;
+  transform: translateX(-1%) !important;
+}
+

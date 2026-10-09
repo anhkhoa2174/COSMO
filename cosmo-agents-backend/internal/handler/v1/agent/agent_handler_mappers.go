@@ -75,6 +75,7 @@ func (m *AgentMapper) ToConversationEntity(conv *domain.Conversation) v1schema.C
 		CampaignID: conv.CampaignID,
 		AssigneeID: conv.AssigneeID,
 		Intents:    intents,
+		CMetadata:  json.RawMessage(conv.CMetadata),
 		IsDeleted:  conv.IsDeleted,
 		CreatedAt:  conv.CreatedAt,
 		UpdatedAt:  conv.UpdatedAt,

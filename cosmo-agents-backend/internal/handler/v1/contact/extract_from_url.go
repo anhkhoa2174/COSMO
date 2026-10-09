@@ -58,13 +58,15 @@ func (h *Handler) ExtractFromURL(c fiber.Ctx) error {
 
 	// Get existing contact
 	contact, err := h.repo.GetByID(c.Context(), id)
-	if err != nil {
+	if err != nil || contact == nil {
 		return h.responseHelper.NotFound(c, "Contact not found", err)
 	}
 
 	// Check authorization
 	if contact.UserID != user.ID {
-		return h.responseHelper.HandleAuthError(c, errors.New("You are not authorized to access this resource"))
+		// Answered as not found, like a missing contact, so the endpoint cannot
+		// be used to learn which contact IDs exist in other organisations.
+		return h.responseHelper.NotFound(c, "Contact not found", nil)
 	}
 
 	// Check if scraper service is available

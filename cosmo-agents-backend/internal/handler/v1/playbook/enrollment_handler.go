@@ -1,10 +1,13 @@
 package playbook
 
 import (
+	"errors"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/rockship/cosmo-agents-go/internal/handler"
 	"github.com/rockship/cosmo-agents-go/internal/middleware"
+	"github.com/rockship/cosmo-agents-go/internal/schema"
 	v1schema "github.com/rockship/cosmo-agents-go/internal/schema/v1"
 	playbookService "github.com/rockship/cosmo-agents-go/internal/service/playbook"
 )
@@ -77,6 +80,9 @@ func (h *EnrollmentHandler) ApproveEnrollment(c fiber.Ctx) error {
 
 	// Call service
 	if err := h.service.ApproveEnrollment(ctx, requestID, userID); err != nil {
+		if errors.Is(err, playbookService.ErrAlreadyDecided) {
+			return c.Status(fiber.StatusConflict).JSON(schema.ErrorResponse(fiber.StatusConflict, err.Error(), nil))
+		}
 		return h.responseHelper.InternalServerError(c, "Failed to approve enrollment", err)
 	}
 
@@ -101,6 +107,9 @@ func (h *EnrollmentHandler) RejectEnrollment(c fiber.Ctx) error {
 
 	// Call service
 	if err := h.service.RejectEnrollment(ctx, requestID, userID); err != nil {
+		if errors.Is(err, playbookService.ErrAlreadyDecided) {
+			return c.Status(fiber.StatusConflict).JSON(schema.ErrorResponse(fiber.StatusConflict, err.Error(), nil))
+		}
 		return h.responseHelper.InternalServerError(c, "Failed to reject enrollment", err)
 	}
 

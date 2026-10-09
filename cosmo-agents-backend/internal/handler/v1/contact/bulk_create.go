@@ -3,6 +3,7 @@ package contact
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -169,7 +170,7 @@ func (h *Handler) BulkCreate(c fiber.Ctx) error {
 		err := h.repo.Create(c.Context(), contact)
 		if err != nil {
 			response.Errors = append(response.Errors,
-				"Contact "+string(rune(i+1))+": "+err.Error())
+				"Contact "+strconv.Itoa(i+1)+": "+err.Error())
 			continue
 		}
 

@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/rockship/cosmo-agents-go/internal/domain"
+	v1validation "github.com/rockship/cosmo-agents-go/internal/handler/v1/validation"
 	"github.com/rockship/cosmo-agents-go/internal/schema"
 	v1schema "github.com/rockship/cosmo-agents-go/internal/schema/v1"
 	"github.com/rockship/cosmo-agents-go/pkg/worker"
@@ -55,6 +57,19 @@ func (h *Handler) Update(c fiber.Ctx) error {
 	if err := c.Bind().JSON(&req); err != nil {
 		return h.responseHelper.BadRequest(c, "Invalid request body", err)
 	}
+	// An empty email means "clear it". The validator's omitempty does not skip
+	// an empty string behind a non-nil pointer, so it failed as an invalid
+	// address and the contact could not be saved without one.
+	validated := req
+	if validated.Email != nil && strings.TrimSpace(*validated.Email) == "" {
+		validated.Email = nil
+	}
+	// Same contract as Create: tag validation failures are 422.
+	if err := v1validation.ValidateStruct(validated); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(
+			schema.ErrorResponse(fiber.StatusUnprocessableEntity, err.Error(), ""),
+		)
+	}
 
 	// Build attributes map for validation (exclude extra fields - they go to custom_fields)
 	attributesForValidation := buildUpdateAttributes(&req, false)
@@ -70,6 +85,11 @@ func (h *Handler) Update(c fiber.Ctx) error {
 
 	updateAttributes := buildUpdateAttributes(&req, false)
 	convertMapJSONToJSONB(updateAttributes)
+	// Email and phone have no column since migrations 000041/000043; they are
+	// written to the profile below. Left in, GORM emits SET email=..., which
+	// Postgres rejects, so any edit carrying either field returned 500.
+	delete(updateAttributes, "email")
+	delete(updateAttributes, "phone")
 
 	// Fetch the existing contact
 	existingContact, err := h.repo.GetByID(c.Context(), id)
@@ -85,6 +105,37 @@ func (h *Handler) Update(c fiber.Ctx) error {
 		return h.responseHelper.InternalServerError(c, "Failed to process contact data", err)
 	}
 	updateAttributes["profile"] = profile
+
+	// Sync: if contact_information was set via custom fields, also update the column
+	if ciVal, ok := req.ExtraFields["contact_information"].(string); ok && ciVal != "" && req.ContactInformation == nil {
+		updateAttributes["contact_information"] = ciVal
+		existingContact.ContactInformation = ciVal
+	}
+
+	// contact_information is the dedupe key and the send worker's recipient.
+	// When it was derived from the email or LinkedIn URL (Create sets it so),
+	// a new value must move it too, or duplicates are checked and messages are
+	// sent against the old address.
+	if _, set := updateAttributes["contact_information"]; !set {
+		var oldProfile map[string]interface{}
+		_ = existingContact.Profile.Unmarshal(&oldProfile)
+		for _, f := range []struct {
+			key    string
+			newVal *string
+		}{{"email", req.Email}, {"linkedin_url", req.LinkedInURL}} {
+			key, newVal := f.key, f.newVal
+			if newVal == nil || strings.TrimSpace(*newVal) == "" {
+				continue
+			}
+			oldVal, _ := oldProfile[key].(string)
+			ci := existingContact.ContactInformation
+			if ci == "" || (oldVal != "" && strings.EqualFold(ci, oldVal)) {
+				updateAttributes["contact_information"] = strings.TrimSpace(*newVal)
+				existingContact.ContactInformation = strings.TrimSpace(*newVal)
+				break
+			}
+		}
+	}
 
 	// Apply updates to existing contact for status calculation
 	if req.Name != nil {
@@ -261,9 +312,6 @@ func buildUpdateAttributes(req *v1schema.UpdateContactRequest, isIncludeExtraFie
 	if req.ContactChannel != nil {
 		attributes["contact_channel"] = *req.ContactChannel
 	}
-	if req.LifecycleStage != nil {
-		attributes["lifecycle_stage"] = *req.LifecycleStage
-	}
 	if req.ContextLevel != nil {
 		attributes["context_level"] = *req.ContextLevel
 	}
@@ -370,6 +418,9 @@ func convertUpdateRequestToProfile(req v1schema.UpdateContactRequest, existingCo
 		}
 		profile["custom_fields"] = customFields
 	}
+
+	// Keep what the caller sent under profile before the key itself is dropped.
+	mergeProfileRequest(profile, req.Profile)
 
 	// Remove fields that are not in req body
 	delete(profile, "id")

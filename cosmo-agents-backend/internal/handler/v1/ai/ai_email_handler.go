@@ -61,8 +61,10 @@ func (h *AIEmailHandler) ClassifyIntent(c fiber.Ctx) error {
 	}
 
 	resp := v1schema.EmailIntentClassifyResponse{
-		ID:     result.ID,
-		Intent: result.Intent,
+		ID:         result.ID,
+		Intent:     result.Intent,
+		Confidence: result.Confidence,
+		Reasoning:  result.Reasoning,
 	}
 
 	return c.JSON(schema.SuccessResponse(resp))

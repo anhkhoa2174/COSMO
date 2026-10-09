@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
+	baseRepo "github.com/rockship/cosmo-agents-go/internal/repository/base"
 	v1schema "github.com/rockship/cosmo-agents-go/internal/schema/v1"
 )
 
@@ -39,6 +40,8 @@ func TestUpdateCustomField(t *testing.T) {
 			DataType:       domain.CustomFieldDataTypeText,
 			EntityType:     domain.CustomFieldEntityContact,
 		}, nil).Once()
+
+		mockCustomFieldRepo.On("FindAll", mock.Anything, mock.Anything, mock.Anything).Return(&baseRepo.PaginatedResult[domain.CustomField]{}, nil).Once()
 
 		// Mock UpdateFields
 		newName := "New Name"

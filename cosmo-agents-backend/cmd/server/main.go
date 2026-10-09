@@ -85,6 +85,14 @@ func main() {
 	deps := InitDependencies(db, redisClient, cfg, app.JWTManager)
 	defer deps.Close()
 
+	// SSE route registered BEFORE middleware to avoid response buffering (Fiber v3 RC2 bug)
+	if deps.V1Handlers.DailyAction != nil {
+		app.Fiber.Get("/v1/daily-actions/events", deps.V1Handlers.DailyAction.SSEStream)
+	}
+
+	// Setup middleware AFTER SSE route
+	app.SetupMiddleware()
+
 	// Register all routes
 	RegisterV1Routes(app, deps)
 	RegisterV2Routes(app, deps)

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -73,13 +74,33 @@ func NewApp(cfg *config.Config) *App {
 	}
 
 	// Create Fiber app
+	// Behind the Cloudflare tunnel (or nginx) every request arrives from the
+	// proxy, so c.IP() was the proxy's address and per-IP rate limits became
+	// one bucket shared by all visitors. The client address is taken from the
+	// proxy header, but only for requests that come from a trusted proxy:
+	// loopback, private ranges, and the Tailscale range the tunnel host
+	// connects from. A request reaching the server directly cannot spoof it.
+	proxyHeader := os.Getenv("TRUSTED_PROXY_HEADER")
+	if proxyHeader == "" {
+		proxyHeader = "Cf-Connecting-Ip"
+	}
 	app := fiber.New(fiber.Config{
 		AppName:      cfg.App.Name,
 		ServerHeader: "Cosmo-Agents-Go",
+		BodyLimit:    50 * 1024 * 1024, // 50 MB
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 0, // Disabled for SSE long-lived connections
+		TrustProxy:   true,
+		TrustProxyConfig: fiber.TrustProxyConfig{
+			Loopback: true,
+			Private:  true,
+			Proxies:  []string{"100.64.0.0/10"},
+		},
+		ProxyHeader: proxyHeader,
 	})
 
-	// Setup global middleware
-	setupMiddleware(app, cfg, jwtManager)
+	// NOTE: middleware is NOT set up here — call app.SetupMiddleware() after
+	// registering SSE routes to avoid SSE response buffering.
 
 	// Setup basic routes
 	setupBasicRoutes(app)
@@ -89,6 +110,11 @@ func NewApp(cfg *config.Config) *App {
 		Config:     cfg,
 		JWTManager: jwtManager,
 	}
+}
+
+// SetupMiddleware configures global middleware. Must be called AFTER SSE routes.
+func (a *App) SetupMiddleware() {
+	setupMiddleware(a.Fiber, a.Config, a.JWTManager)
 }
 
 // setupMiddleware configures all global middleware
@@ -184,3 +210,4 @@ func (a *App) Start() error {
 	logger.Logger.Info().Msgf("Starting server on port %d", a.Config.App.Port)
 	return a.Fiber.Listen(fmt.Sprintf(":%d", a.Config.App.Port))
 }
+

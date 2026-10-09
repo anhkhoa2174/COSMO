@@ -37,7 +37,6 @@ import (
 	v1listcontact "github.com/rockship/cosmo-agents-go/internal/handler/v1/list-contact"
 	v1mcp "github.com/rockship/cosmo-agents-go/internal/handler/v1/mcp"
 	v1organization "github.com/rockship/cosmo-agents-go/internal/handler/v1/organization"
-	v1outlook "github.com/rockship/cosmo-agents-go/internal/handler/v1/outlook"
 	v1outreach "github.com/rockship/cosmo-agents-go/internal/handler/v1/outreach"
 	v1playbook "github.com/rockship/cosmo-agents-go/internal/handler/v1/playbook"
 	v1pubsub "github.com/rockship/cosmo-agents-go/internal/handler/v1/pubsub"
@@ -106,7 +105,6 @@ import (
 	knowledgeSerive "github.com/rockship/cosmo-agents-go/internal/service/knowledge"
 	nextstepService "github.com/rockship/cosmo-agents-go/internal/service/nextstep"
 	orgService "github.com/rockship/cosmo-agents-go/internal/service/organization"
-	outlookService "github.com/rockship/cosmo-agents-go/internal/service/outlook"
 	outreachService "github.com/rockship/cosmo-agents-go/internal/service/outreach"
 	playbookService "github.com/rockship/cosmo-agents-go/internal/service/playbook"
 	productivitySvc "github.com/rockship/cosmo-agents-go/internal/service/productivity"
@@ -212,7 +210,6 @@ type Services struct {
 	Gmail              *gmailService.GmailService // Gmail service
 	HubspotAPI         *hubspotService.HubspotAPI
 	HubspotIntegration *hubspotService.HubspotIntegrationService
-	Outlook            *outlookService.OutlookService
 	InboundLeadForm    *inboundLeadFromService.InboundLeadFormService
 	Intelligence       *intelService.Service
 	Scraper            *scraperService.Service
@@ -258,7 +255,6 @@ type V1Handlers struct {
 	AICompany         *v1ai.AIHandler
 	AIEmail           *v1ai.AIEmailHandler
 	Hubspot           *v1hubspot.HubspotHandler
-	Outlook           *v1outlook.OutlookHandler
 	InboundLeadForm   *v1inboundleadform.InboundLeadFormHandler
 	PubSub            *v1pubsub.Handler
 	Lab               *v1lab.LabHandler
@@ -536,7 +532,6 @@ func initServices(deps *Dependencies, cfg *config.Config, jwtManager *auth.JWTMa
 		Auth:            googleService.NewGoogleAuthService(deps.Repos.User, deps.Repos.Role, jwtManager, deps.OAuth2Client),
 		Gmail:           gmailService.NewGmailService(gmailConfig),
 		HubspotAPI:      hubspotService.NewHubspotAPI(cfg.Hubspot),
-		Outlook:         outlookService.NewOutlookService(cfg.Outlook),
 		InboundLeadForm: inboundLeadFromService.NewInboundLeadFormService(deps.Repos.InboundLeadForm, deps.Repos.CustomField, deps.Repos.Contact, deps.Repos.ListContact, deps.Repos.Organization).WithOrgResolver(deps.Repos.Role),
 		Organization:    orgService.NewService(deps.Repos.Organization, deps.Repos.User, deps.Repos.Role, deps.DB),
 	}
@@ -717,7 +712,6 @@ func initV1Handlers(deps *Dependencies, cfg *config.Config, jwtManager *auth.JWT
 		AICompany:       v1ai.NewAIHandler(deps.Services.AICompany),
 		AIEmail:         v1ai.NewAIEmailHandler(aiUsecase.NewAIEmailUsecaseAdapter(deps.Services.AIEmail)),
 		Hubspot:         v1hubspot.NewHubspotHandler(deps.Services.HubspotIntegration),
-		Outlook:         v1outlook.NewOutlookHandler(deps.Services.Outlook),
 		InboundLeadForm: v1inboundleadform.NewInboundLeadFormHandler(deps.Services.InboundLeadForm),
 		PubSub:          v1pubsub.NewHandler(deps.UseCases.PubSub, wsManager),
 		Lab:             v1lab.NewLabHandler(deps.Repos.Email, deps.Repos.User, deps.Repos.Organization, cfg.AI.OpenAIAPIKey),

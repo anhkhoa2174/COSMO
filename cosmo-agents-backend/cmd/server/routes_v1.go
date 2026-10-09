@@ -289,17 +289,6 @@ func RegisterV1Routes(app *App, deps *Dependencies) {
 	hubspotGroup.Get("/callback", h.Hubspot.Callback)
 	hubspotGroup.Get("/users/me", h.Hubspot.GetUserInfo)
 
-	// Outlook routes
-	outlookGroup := v1.Group("/outlook")
-	outlookGroup.Get("/authorize", h.Outlook.Authorize)
-	outlookGroup.Get("/oauth2callback", h.Outlook.Callback)
-	outlookGroup.Get("/refresh_token", h.Outlook.RefreshToken)
-	outlookGroup.Get("/contacts", h.Outlook.GetContacts)
-	outlookGroup.Get("/emails", h.Outlook.GetEmails)
-	outlookGroup.Post("/send_email", h.Outlook.SendMail)
-	outlookGroup.Post("/reply_email", h.Outlook.ReplyMail)
-	outlookGroup.Post("/forward_email", h.Outlook.ForwardMail)
-
 	// Inbound lead form routes
 	inboundLeadForms := v1.Group("/inbound-lead-forms")
 	inboundLeadForms.Post("", h.InboundLeadForm.Create)

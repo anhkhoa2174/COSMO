@@ -1,40 +1,54 @@
-import { InboundLeadForm } from "@/network/client/contact-list";
+import { InboundLeadForm } from '@/network/client/contact-list';
 
 // Contact readiness status
-export type ContactStatus = "ready" | "pending";
+export type ContactStatus = 'ready' | 'pending';
 
 // Context level for outreach
-export type ContextLevel = "LOW" | "MEDIUM" | "HIGH";
+export type ContextLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
 // Outreach decision types
-export type OutreachDecision = "INTRO" | "FOLLOW-UP" | "NURTURE" | "HOLD";
+export type OutreachDecision = 'INTRO' | 'FOLLOW-UP' | 'NURTURE' | 'HOLD';
 
 // Lifecycle stages
-export type LifecycleStage = "new" | "contacted" | "replied" | "qualified" | "proposal" | "won" | "lost" | "meeting" | "dropped";
+export type LifecycleStage =
+  | 'new'
+  | 'contacted'
+  | 'replied'
+  | 'qualified'
+  | 'proposal'
+  | 'won'
+  | 'lost'
+  | 'meeting'
+  | 'dropped';
 
 // Outreach stage (customer status)
-export type OutreachStage = "COLD" | "NO_REPLY" | "REPLIED" | "POST_MEETING" | "DROPPED";
+export type OutreachStage =
+  | 'COLD'
+  | 'NO_REPLY'
+  | 'REPLIED'
+  | 'POST_MEETING'
+  | 'DROPPED';
 
 // Next step options (BD actions)
 export type NextStep =
-  | "SEND"              // Send initial message
-  | "FOLLOW_UP_1"       // Follow-up #1 (Day 4-5)
-  | "FOLLOW_UP_2"       // Follow-up #2 (Day 9-12)
-  | "SET_MEETING"       // Propose meeting
-  | "FOLLOW_UP_MEETING_1" // Meeting confirmation follow-up #1
-  | "FOLLOW_UP_MEETING_2" // Meeting confirmation follow-up #2
-  | "PREPARE_MEETING"   // Prepare meeting materials
-  | "WAIT"              // Wait for response / wait for meeting day
-  | "FOLLOW_UP"         // Follow-up deal (post-meeting)
-  | "DROP";             // Drop contact
+  | 'SEND' // Send initial message
+  | 'FOLLOW_UP_1' // Follow-up #1 (Day 4-5)
+  | 'FOLLOW_UP_2' // Follow-up #2 (Day 9-12)
+  | 'SET_MEETING' // Propose meeting
+  | 'FOLLOW_UP_MEETING_1' // Meeting confirmation follow-up #1
+  | 'FOLLOW_UP_MEETING_2' // Meeting confirmation follow-up #2
+  | 'PREPARE_MEETING' // Prepare meeting materials
+  | 'WAIT' // Wait for response / wait for meeting day
+  | 'FOLLOW_UP' // Follow-up deal (post-meeting)
+  | 'DROP'; // Drop contact
 
 // Business stage (pipeline stage)
-export type BusinessStage = "PRE_SALES" | "SALES" | "POST_SALES";
+export type BusinessStage = 'PRE_SALES' | 'SALES' | 'POST_SALES';
 
 export type Contact = {
   name: string;
-  email?: string;  // Now stored in profile.email
-  phone?: string;  // Now stored in profile.phone
+  email?: string; // Now stored in profile.email
+  phone?: string; // Now stored in profile.phone
   company: string;
   job_title: string;
   address: string;
@@ -117,12 +131,19 @@ export type Contact = {
       likelihood?: number;
       suggested_response?: string;
     }>;
+    research_suggestions?: Array<{
+      category?: string;
+      data_point: string;
+      why_important?: string;
+      priority?: 'High' | 'Medium' | 'Low';
+      where_to_find?: string;
+    }>;
   };
   confirmed_facts?: Record<string, any>;
   profile?: {
-    email?: string;  // Contact email (moved from top-level field)
-    phone?: string;  // Contact phone (moved from top-level field)
-    linkedin_url?: string;  // LinkedIn profile URL
+    email?: string; // Contact email (moved from top-level field)
+    phone?: string; // Contact phone (moved from top-level field)
+    linkedin_url?: string; // LinkedIn profile URL
     custom_fields?: Record<
       string,
       {

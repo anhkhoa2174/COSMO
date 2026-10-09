@@ -7,6 +7,8 @@ export type EmailIntent =
   | 'Request for information'
   | 'Do not contact'
   | 'Out of office'
+  | 'Referral'
+  | 'Nurture'
   | 'Unknown intent';
 
 export type EmailInbox = {

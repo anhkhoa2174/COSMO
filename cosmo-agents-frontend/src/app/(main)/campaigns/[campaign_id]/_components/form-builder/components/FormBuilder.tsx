@@ -5,14 +5,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { generateId } from '@/helpers';
 import useIsScroll from '@/hooks/use-is-scroll';
 import { cn } from '@/lib/utils';
-import { deleteCustomField, getCustomFields } from '@/network/client/custom-field';
+import {
+  deleteCustomField,
+  getCustomFields,
+} from '@/network/client/custom-field';
 import {
   DndContext,
   MouseSensor,
   rectIntersection,
   TouchSensor,
   useSensor,
-  useSensors
+  useSensors,
 } from '@dnd-kit/core';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Code, Edit, Eye, Loader } from 'lucide-react';
@@ -28,14 +31,14 @@ import FormSettingsDialog from './FormSettingsDialog';
 import FormSuccess from './FormSuccess';
 import { useDragHandlers } from './hooks/useDragHandlers';
 import { useFormSettings } from './hooks/useFormSettings';
-import {
-  FormElement,
-  FormState
-} from './types';
+import { FormElement, FormState } from './types';
 import { getPreviewUrl } from './utils/constants';
 import { createCustomForm } from './utils/form-element-utils';
 import { convertApiSchemaToZod } from './utils/validation-utils';
-import { contactListApi, PayloadFormInBoundRequest } from '@/network/client/contact-list';
+import {
+  contactListApi,
+  PayloadFormInBoundRequest,
+} from '@/network/client/contact-list';
 
 const initialFormState = createCustomForm();
 
@@ -54,7 +57,11 @@ export default function FormBuilder({
     enabled: !!formInboundSlug,
   });
 
-  const { data: customFields, isLoading, refetch } = useQuery({
+  const {
+    data: customFields,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ['custom-fields'],
     queryFn: () => getCustomFields({ entity_type: 'contact' }),
   });
@@ -64,18 +71,21 @@ export default function FormBuilder({
     onSuccess: () => {
       toast.success('Custom field deleted successfully');
       refetch();
-    }
-  })
+    },
+  });
 
   const mutationCreate = useMutation({
-    mutationFn: (data: PayloadFormInBoundRequest) => contactListApi.postFormInBound(data),
+    mutationFn: (data: PayloadFormInBoundRequest) =>
+      contactListApi.postFormInBound(data),
     onSuccess: (res) => {
-      onCreateSuccess?.(res.data.id, res.data)
-      setIsPublicUrlDialogOpen(true)
+      onCreateSuccess?.(res.data.id, res.data);
+      setIsPublicUrlDialogOpen(true);
       toast.success('Form saved successfully');
     },
     onError: (err: any) => {
-      const isErrorName = err?.message?.includes('An inbound lead form with slug')
+      const isErrorName = err?.message?.includes(
+        'An inbound lead form with slug'
+      );
       if (isErrorName) {
         setError(err.message);
       } else {
@@ -85,14 +95,17 @@ export default function FormBuilder({
   });
 
   const mutationUpdate = useMutation({
-    mutationFn: (data: PayloadFormInBoundRequest) => contactListApi.putFormInBoundBySlug(formInboundSlug || '', data),
+    mutationFn: (data: PayloadFormInBoundRequest) =>
+      contactListApi.putFormInBoundBySlug(formInboundSlug || '', data),
     onSuccess: () => {
       closeSheet();
       setError(null);
       toast.success('Form saved successfully');
     },
     onError: (err: any) => {
-      const isErrorName = err?.message?.includes('An inbound lead form with slug')
+      const isErrorName = err?.message?.includes(
+        'An inbound lead form with slug'
+      );
       if (isErrorName) {
         setError(err.message);
       } else {
@@ -101,11 +114,17 @@ export default function FormBuilder({
     },
   });
 
-  const [formState, setFormState] = useState<FormState>(formInboundSlug ? {
-    elements: formInbound?.data?.ui_metadata?.elements || [],
-    settings: formInbound?.data?.ui_metadata?.settings || {},
-  } : initialFormState);
-  const [selectedElement, setSelectedElement] = useState<FormElement | null>(null);
+  const [formState, setFormState] = useState<FormState>(
+    formInboundSlug
+      ? {
+          elements: formInbound?.data?.ui_metadata?.elements || [],
+          settings: formInbound?.data?.ui_metadata?.settings || {},
+        }
+      : initialFormState
+  );
+  const [selectedElement, setSelectedElement] = useState<FormElement | null>(
+    null
+  );
   const [activeTab, setActiveTab] = useState('editor');
   const [leftPanelTab, setLeftPanelTab] = useState('components');
   const [jsonOutput, setJsonOutput] = useState(JSON.stringify({}, null, 2));
@@ -118,13 +137,17 @@ export default function FormBuilder({
   const previewUrl = getPreviewUrl(formState);
   const [isPublicUrlDialogOpen, setIsPublicUrlDialogOpen] = useState(false);
 
-  const { activeDragElement, handleDragStart, handleDragOver, handleDragEnd } = useDragHandlers(
-    formState,
-    setFormState,
-    setSelectedElement
-  );
+  const { activeDragElement, handleDragStart, handleDragOver, handleDragEnd } =
+    useDragHandlers(formState, setFormState, setSelectedElement);
 
-  const { currentSettings, isDialogOpen, setCurrentSettings, setIsDialogOpen, handleSettingChange, handleAlignmentChange } = useFormSettings(formState.settings);
+  const {
+    currentSettings,
+    isDialogOpen,
+    setCurrentSettings,
+    setIsDialogOpen,
+    handleSettingChange,
+    handleAlignmentChange,
+  } = useFormSettings(formState.settings);
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -179,16 +202,18 @@ export default function FormBuilder({
     const data = {
       name: formState.settings.title,
       slug: formState.settings.publicUrl?.name || '',
-      fields: formState.elements.filter(item => !['spacer', 'divider'].includes(item.name)).map((el) => ({
-        name: el.name,
-        display_name: el.label,
-        is_required: el.required,
-        field_type: el.type,
-        fallback_value: el.defaultValue,
-        ui_metadata: {},
-      })),
-      ui_metadata: formState
-    }
+      fields: formState.elements
+        .filter((item) => !['spacer', 'divider'].includes(item.name))
+        .map((el) => ({
+          name: el.name,
+          display_name: el.label,
+          is_required: el.required,
+          field_type: el.type,
+          fallback_value: el.defaultValue,
+          ui_metadata: {},
+        })),
+      ui_metadata: formState,
+    };
     if (formInboundSlug) {
       const cloneData = { ...data } as { slug?: string };
       delete cloneData.slug;
@@ -208,7 +233,7 @@ export default function FormBuilder({
 
   // Handler to update form styles from the dialog
   const applySettings = () => {
-    setFormState(prevFormState => ({
+    setFormState((prevFormState) => ({
       ...prevFormState,
       settings: { ...currentSettings },
     }));
@@ -223,7 +248,7 @@ export default function FormBuilder({
     // Handle form settings properties (like publicUrl)
     if (typeof property === 'string' && property.startsWith('publicUrl.')) {
       const [parentProp, childProp] = property.split('.');
-      setFormState(prev => ({
+      setFormState((prev) => ({
         ...prev,
         settings: {
           ...prev.settings,
@@ -255,9 +280,9 @@ export default function FormBuilder({
       return el;
     });
 
-    setFormState(prev => ({ ...prev, elements: newElements }));
+    setFormState((prev) => ({ ...prev, elements: newElements }));
     // Update selectedElement state as well to reflect changes immediately in properties panel
-    setSelectedElement(prevEl =>
+    setSelectedElement((prevEl) =>
       prevEl ? { ...prevEl, [property]: value } : null
     );
   };
@@ -280,8 +305,8 @@ export default function FormBuilder({
       return el;
     });
 
-    setFormState(prev => ({ ...prev, elements: newElements }));
-    setSelectedElement(prevEl => {
+    setFormState((prev) => ({ ...prev, elements: newElements }));
+    setSelectedElement((prevEl) => {
       if (!prevEl) return null;
       const currentStyles = (prevEl as any).styles || {};
       return {
@@ -307,12 +332,11 @@ export default function FormBuilder({
     setError(null);
     setLoadingRegenerateUrl(true);
 
-
     if (timeout1) clearTimeout(timeout1);
     if (timeout2) clearTimeout(timeout2);
 
     timeout1 = setTimeout(() => {
-      setFormState(prev => ({
+      setFormState((prev) => ({
         ...prev,
         settings: {
           ...prev.settings,
@@ -346,26 +370,35 @@ export default function FormBuilder({
   useEffect(() => {
     if (formInboundSlug) return;
     handleRegenerateUrl();
-  }, [formInboundSlug])
+  }, [formInboundSlug]);
 
   useEffect(() => {
     if (!formInbound || !formInboundSlug) return;
 
     const mapSelectOptions = (options: string[]) =>
-      options.map(option => ({
+      options.map((option) => ({
         label: option,
         value: option.includes('-- Select') ? null : option,
       }));
 
-    const selectOptionsMap = formInbound.data?.fields?.reduce((acc: Record<string, { label: string; value: string | null }[]>, field) => {
-      if (field?.select_options?.length) {
-        acc[field.name] = mapSelectOptions(field.select_options);
-      }
-      return acc;
-    }, {} as Record<string, { label: string; value: string | null }[]>);
+    const selectOptionsMap = formInbound.data?.fields?.reduce(
+      (
+        acc: Record<string, { label: string; value: string | null }[]>,
+        field
+      ) => {
+        if (field?.select_options?.length) {
+          acc[field.name] = mapSelectOptions(field.select_options);
+        }
+        return acc;
+      },
+      {} as Record<string, { label: string; value: string | null }[]>
+    );
 
     const processElement = (element: any) => {
-      if ((element.type === 'select' || element.type === 'radio') && selectOptionsMap?.[element.name]) {
+      if (
+        (element.type === 'select' || element.type === 'radio') &&
+        selectOptionsMap?.[element.name]
+      ) {
         return {
           ...element,
           options: selectOptionsMap[element.name],
@@ -375,15 +408,19 @@ export default function FormBuilder({
     };
 
     setFormState({
-      elements: formInbound.data?.ui_metadata?.elements?.map(processElement) || [],
+      elements:
+        formInbound.data?.ui_metadata?.elements?.map(processElement) || [],
       settings: formInbound.data?.ui_metadata?.settings || {},
     });
   }, [formInbound, formInboundSlug]);
 
-  const freezeFields = formInbound?.data?.fields?.filter(item => item.is_required).map(item => item.name) || [];
+  const freezeFields =
+    formInbound?.data?.fields
+      ?.filter((item) => item.is_required)
+      .map((item) => item.name) || [];
 
   const contentRef = useRef<HTMLDivElement>(null);
-  const isScrollContent = useIsScroll(contentRef)
+  const isScrollContent = useIsScroll(contentRef);
 
   return (
     <DndContext
@@ -408,9 +445,14 @@ export default function FormBuilder({
           previewUrl={previewUrl}
         />
 
-
         {/* Main three-column layout */}
-        <div className={cn("grid grid-cols-1 gap-6 lg:grid-cols-12 h-[calc(100vh-106px)] overflow-y-auto", isScrollContent ? 'border-t' : '')} ref={contentRef}>
+        <div
+          className={cn(
+            'grid h-[calc(100vh-106px)] grid-cols-1 gap-6 overflow-y-auto lg:grid-cols-12',
+            isScrollContent ? 'border-t' : ''
+          )}
+          ref={contentRef}
+        >
           {/* Left column - Components & Properties */}
           <div className="space-y-4 lg:col-span-2">
             <Tabs
@@ -439,11 +481,14 @@ export default function FormBuilder({
                   onDeleteField={(id) => {
                     mutationDelete.mutate(id);
                   }}
-                  onCreateField={() => { refetch() }}
+                  onCreateField={() => {
+                    refetch();
+                  }}
                   formState={formState}
                   customFields={customFields?.data?.list}
                   isLoading={isLoading}
-                  setHeightToolbox={setHeightToolbox} />
+                  setHeightToolbox={setHeightToolbox}
+                />
               </TabsContent>
               <TabsContent value="properties" className="mt-4">
                 <FormElementProperties
@@ -467,7 +512,10 @@ export default function FormBuilder({
                   <Edit className="mr-2 h-4 w-4" />
                   Edit
                 </TabsTrigger>
-                <TabsTrigger value="code" disabled={process.env.NODE_ENV !== 'development'}>
+                <TabsTrigger
+                  value="code"
+                  disabled={process.env.NODE_ENV !== 'development'}
+                >
                   <Code className="mr-2 h-4 w-4" />
                   JSON
                 </TabsTrigger>
@@ -514,31 +562,29 @@ export default function FormBuilder({
                 </div>
               </div>
             </div>
-            {
-              isLoadingFormInbound ? (
-                <div className="flex h-[400px] items-center justify-center">
-                  <Loader className="h-5 w-5 animate-spin" />
-                </div>
-              ) : (
-                <>
-                  {isSuccess ? (
-                    <FormSuccess
-                      formState={formState}
-                      data={submitData}
-                      onBack={handleOnBack}
-                      onClose={handleOnClose}
-                    />
-                  ) : (
-                    <FormPreview
-                      formState={formState}
-                      validationSchema={convertApiSchemaToZod(formState.elements)}
-                      onFormSubmit={handleOnSubmit}
-                      selectedElement={selectedElement}
-                    />
-                  )}
-                </>
-              )
-            }
+            {isLoadingFormInbound ? (
+              <div className="flex h-[400px] items-center justify-center">
+                <Loader className="h-5 w-5 animate-spin" />
+              </div>
+            ) : (
+              <>
+                {isSuccess ? (
+                  <FormSuccess
+                    formState={formState}
+                    data={submitData}
+                    onBack={handleOnBack}
+                    onClose={handleOnClose}
+                  />
+                ) : (
+                  <FormPreview
+                    formState={formState}
+                    validationSchema={convertApiSchemaToZod(formState.elements)}
+                    onFormSubmit={handleOnSubmit}
+                    selectedElement={selectedElement}
+                  />
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>

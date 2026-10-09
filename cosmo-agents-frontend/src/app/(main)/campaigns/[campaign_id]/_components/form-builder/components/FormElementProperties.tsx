@@ -164,7 +164,9 @@ export default function FormElementProperties({
               <Textarea
                 id="description"
                 value={
-                  localValues['description'] || internalElement.description || ''
+                  localValues['description'] ||
+                  internalElement.description ||
+                  ''
                 }
                 onChange={(e) => handleChange('description', e.target.value)}
                 rows={2}
@@ -173,7 +175,6 @@ export default function FormElementProperties({
             <Separator className="my-4" />
           </>
         )}
-
 
         {/* Column span selection */}
         <div className="space-y-2">
@@ -187,8 +188,8 @@ export default function FormElementProperties({
                 type="button"
                 variant={
                   localValues['colSpan'] === index + 1 ||
-                    (!localValues['colSpan'] &&
-                      internalElement.colSpan === index + 1)
+                  (!localValues['colSpan'] &&
+                    internalElement.colSpan === index + 1)
                     ? 'default'
                     : 'outline'
                 }
@@ -216,7 +217,9 @@ export default function FormElementProperties({
               checked={
                 localValues['required'] || internalElement.required || false
               }
-              onCheckedChange={(checked) => handleChange('required', checked, internalElement.name)}
+              onCheckedChange={(checked) =>
+                handleChange('required', checked, internalElement.name)
+              }
             />
           </div>
         )}
@@ -226,17 +229,17 @@ export default function FormElementProperties({
           element?.type === 'password' ||
           element?.type === 'number' ||
           element?.type === 'textarea') && (
-            <div className="space-y-2">
-              <Label htmlFor="placeholder">Placeholder (Optional)</Label>
-              <Input
-                id="placeholder"
-                value={
-                  localValues['placeholder'] || internalElement.placeholder || ''
-                }
-                onChange={(e) => handleChange('placeholder', e.target.value)}
-              />
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="placeholder">Placeholder (Optional)</Label>
+            <Input
+              id="placeholder"
+              value={
+                localValues['placeholder'] || internalElement.placeholder || ''
+              }
+              onChange={(e) => handleChange('placeholder', e.target.value)}
+            />
+          </div>
+        )}
 
         {element?.type === 'textarea' && 'rows' in element && (
           <div className="space-y-2">
@@ -282,7 +285,9 @@ export default function FormElementProperties({
               id="url"
               type="string"
               value={
-                localValues['defaultValue'] || internalElement.defaultValue || null
+                localValues['defaultValue'] ||
+                internalElement.defaultValue ||
+                null
               }
               onChange={(e) => handleChange('defaultValue', e.target.value)}
             />

@@ -1,5 +1,7 @@
 import type { Edge, EdgeTypes } from '@xyflow/react';
 
+import CustomEdge from './custom-edge';
+
 export const initialEdges = [
   { id: 'a->b', source: 'a', target: 'b' },
   { id: 'b->c', source: 'b', target: 'c' },
@@ -16,5 +18,7 @@ export const initialEdges = [
 ] satisfies Edge[];
 
 export const edgeTypes = {
-  // Add your custom edge types here!
+  // The animated wire. Registered under its own name rather than shadowing
+  // 'smoothstep', so the built-in stays available.
+  flow: CustomEdge,
 } satisfies EdgeTypes;

@@ -1,4 +1,4 @@
-import { generateId } from "@/helpers";
+import { generateId } from '@/helpers';
 
 const origin =
   process.env.NODE_ENV === 'development'

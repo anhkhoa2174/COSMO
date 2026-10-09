@@ -2,11 +2,13 @@ package custom_field
 
 import (
 	"fmt"
+	"math"
 	"net/mail"
 	"net/url"
 	"regexp"
 	"strconv"
 	"time"
+	"unicode/utf8"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
 )
@@ -66,7 +68,8 @@ func (s *CustomFieldService) ValidateDataType(field map[string]interface{}, valu
 		}
 
 	case domain.CustomFieldDataTypeNumber:
-		if _, err := strconv.ParseFloat(value, 64); err != nil {
+		// ParseFloat also accepts "NaN" and "Inf", which are not usable numbers.
+		if n, err := strconv.ParseFloat(value, 64); err != nil || math.IsNaN(n) || math.IsInf(n, 0) {
 			return "", fmt.Errorf("custom field %s with value %s is not a valid number", fieldName, value)
 		}
 
@@ -86,7 +89,9 @@ func (s *CustomFieldService) ValidateDataType(field map[string]interface{}, valu
 		}
 
 	case domain.CustomFieldDataTypeText:
-		if len(value) > 255 {
+		// Limit is in characters, not bytes: accented (e.g. Vietnamese) text
+		// takes 2-3 bytes per character.
+		if utf8.RuneCountInString(value) > 255 {
 			return "", fmt.Errorf("custom field %s with value %s exceeds maximum length (255)", fieldName, value)
 		}
 	}

@@ -1,6 +1,7 @@
 package custom_field
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
@@ -402,4 +403,24 @@ func TestHelperFunctions(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestCustomFieldService_ValidateDataType_Edges(t *testing.T) {
+	service := NewCustomFieldService()
+	number := map[string]interface{}{"name": "Budget", "data_type": string(domain.CustomFieldDataTypeNumber)}
+	text := map[string]interface{}{"name": "Note", "data_type": string(domain.CustomFieldDataTypeText)}
+
+	for _, v := range []string{"NaN", "Inf", "-Infinity"} {
+		_, err := service.ValidateDataType(number, v)
+		assert.Error(t, err, v)
+	}
+	_, err := service.ValidateDataType(number, "-12.5")
+	assert.NoError(t, err)
+
+	// 255 characters of Vietnamese text is ~500 bytes but within the limit.
+	vi := strings.Repeat("ạ", 255)
+	_, err = service.ValidateDataType(text, vi)
+	assert.NoError(t, err)
+	_, err = service.ValidateDataType(text, vi+"ạ")
+	assert.Error(t, err)
 }

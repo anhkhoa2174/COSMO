@@ -1,6 +1,8 @@
 package contact
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/rockship/cosmo-agents-go/internal/domain/base"
 	"gorm.io/gorm"
@@ -133,6 +135,14 @@ type Contact struct {
 	FollowupCount    int    `gorm:"default:0" json:"followup_count"`                                        // Number of follow-up messages sent
 	Meeting          string `gorm:"default:''" json:"meeting"`                                              // Meeting details if scheduled
 	BusinessStage    string `gorm:"default:'LEAD';index:idx_contacts_business_stage" json:"business_stage"` // SUBSCRIBER, LEAD, QUALIFIED, OPPORTUNITY, CUSTOMER, ADVOCATE
+
+	// Latest decision of the next-step engine (migration 000058). Written only
+	// when the engine is on; the cadence fields above are untouched by it.
+	NextAction           *string    `gorm:"column:next_action" json:"next_action,omitempty"`
+	NextActionArgs       base.JSONB `gorm:"column:next_action_args;type:jsonb" json:"next_action_args,omitempty"`
+	NextActionReason     *string    `gorm:"column:next_action_reason" json:"next_action_reason,omitempty"`
+	NextActionDueAt      *time.Time `gorm:"column:next_action_due_at" json:"next_action_due_at,omitempty"`
+	NextActionDecisionID *uuid.UUID `gorm:"column:next_action_decision_id;type:uuid" json:"next_action_decision_id,omitempty"`
 
 	// Relationships
 	ListContacts []ListContact `gorm:"many2many:list_contact_association" json:"list_contacts,omitempty"`

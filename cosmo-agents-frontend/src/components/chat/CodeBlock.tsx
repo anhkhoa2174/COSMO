@@ -1,54 +1,54 @@
-"use client";
-import React from "react";
-import { CodeBlock, dracula, github } from "react-code-blocks";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { useTheme } from "next-themes";
-import { CheckCheckIcon, CopyIcon } from "lucide-react";
+'use client';
+import React from 'react';
+import { CodeBlock, dracula, github } from 'react-code-blocks';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import { useTheme } from 'next-themes';
+import { CheckCheckIcon, CopyIcon } from 'lucide-react';
 
 interface ButtonCodeblockProps {
-    code: string;
-    lang: string;
+  code: string;
+  lang: string;
 }
 
 export default function CodeDisplayBlock({ code, lang }: ButtonCodeblockProps) {
-    const [isCopied, setisCopied] = React.useState(false);
-    const { theme } = useTheme();
+  const [isCopied, setisCopied] = React.useState(false);
+  const { theme } = useTheme();
 
-    const copyToClipboard = () => {
-        navigator.clipboard.writeText(code);
-        setisCopied(true);
-        toast.success("Code copied to clipboard!");
-        setTimeout(() => {
-            setisCopied(false);
-        }, 1500);
-    };
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(code);
+    setisCopied(true);
+    toast.success('Code copied to clipboard!');
+    setTimeout(() => {
+      setisCopied(false);
+    }, 1500);
+  };
 
-    return (
-        <div className="relative flex flex-col text-start">
-            <Button
-                onClick={copyToClipboard}
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 absolute top-2 right-2"
-            >
-                {isCopied ? (
-                    <CheckCheckIcon className="w-4 h-4 scale-100 transition-all" />
-                ) : (
-                    <CopyIcon className="w-4 h-4 scale-100 transition-all" />
-                )}
-            </Button>
-            <CodeBlock
-                customStyle={
-                    theme === "dark"
-                        ? { background: "#303033" }
-                        : { background: "#fcfcfc" }
-                }
-                text={code}
-                language="tsx"
-                showLineNumbers={false}
-                theme={theme === "dark" ? dracula : github}
-            />
-        </div>
-    );
+  return (
+    <div className="relative flex flex-col text-start">
+      <Button
+        onClick={copyToClipboard}
+        variant="ghost"
+        size="icon"
+        className="absolute right-2 top-2 h-5 w-5"
+      >
+        {isCopied ? (
+          <CheckCheckIcon className="h-4 w-4 scale-100 transition-all" />
+        ) : (
+          <CopyIcon className="h-4 w-4 scale-100 transition-all" />
+        )}
+      </Button>
+      <CodeBlock
+        customStyle={
+          theme === 'dark'
+            ? { background: '#303033' }
+            : { background: '#fcfcfc' }
+        }
+        text={code}
+        language="tsx"
+        showLineNumbers={false}
+        theme={theme === 'dark' ? dracula : github}
+      />
+    </div>
+  );
 }

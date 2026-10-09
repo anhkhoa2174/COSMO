@@ -1,29 +1,37 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { BookOpenText, Paperclip, SendHorizonal } from "lucide-react";
-import React from "react";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { BookOpenText, Paperclip, SendHorizonal } from 'lucide-react';
+import React from 'react';
 
-export function ChatInput({ onSend, onUseKnowledge, onAttachFile, placeholder }: { onSend: (msg: string) => void, onUseKnowledge: () => void, onAttachFile: () => void, placeholder?: string }) {
-  const [value, setValue] = React.useState("");
+export function ChatInput({
+  onSend,
+  onUseKnowledge,
+  onAttachFile,
+  placeholder,
+}: {
+  onSend: (msg: string) => void;
+  onUseKnowledge: () => void;
+  onAttachFile: () => void;
+  placeholder?: string;
+}) {
+  const [value, setValue] = React.useState('');
 
   const handleSend = () => {
     if (value.trim()) {
       onSend(value.trim());
-      setValue("");
+      setValue('');
     }
   };
 
   return (
-    <form
-      className="relative rounded-lg border bg-background focus-within:ring-1 focus-within:ring-ring p-1 ml-2"
-    >
+    <form className="relative ml-2 rounded-lg border bg-background p-1 focus-within:ring-1 focus-within:ring-ring">
       <div className="flex items-center gap-2 p-2">
         <Input
           className="flex-1"
-          placeholder={placeholder || "Type your message here..."}
+          placeholder={placeholder || 'Type your message here...'}
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
         />
       </div>
       <div className="flex items-center p-3 pt-0">
@@ -37,16 +45,11 @@ export function ChatInput({ onSend, onUseKnowledge, onAttachFile, placeholder }:
           <span className="sr-only">Use Knowledge</span>
         </Button>
 
-        <Button
-          size="sm"
-          className="ml-auto gap-1.5"
-          onClick={handleSend}
-        >
+        <Button size="sm" className="ml-auto gap-1.5" onClick={handleSend}>
           Send
           <SendHorizonal className="size-3.5" />
         </Button>
       </div>
     </form>
-
   );
 }

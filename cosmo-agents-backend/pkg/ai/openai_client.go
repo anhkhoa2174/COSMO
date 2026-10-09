@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/sashabaranov/go-openai"
 )
@@ -21,7 +22,7 @@ type Config struct {
 
 // NewOpenAIClient creates a new OpenAI client.
 func NewOpenAIClient(cfg Config) *OpenAIClient {
-	client := openai.NewClient(cfg.APIKey)
+	client := newCompatibleClient(cfg.APIKey)
 
 	model := cfg.Model
 	if model == "" {
@@ -34,12 +35,34 @@ func NewOpenAIClient(cfg Config) *OpenAIClient {
 	}
 }
 
+// newCompatibleClient builds the client, honouring an alternative
+// OpenAI-compatible host when one is configured. See provider.go.
+func newCompatibleClient(apiKey string) *openai.Client {
+	if base := BaseURL(); base != "" {
+		conf := openai.DefaultConfig(apiKey)
+		conf.BaseURL = base
+		return openai.NewClientWithConfig(conf)
+	}
+	return openai.NewClient(apiKey)
+}
+
 // ChatCompletionRequest represents a chat completion request.
 type ChatCompletionRequest struct {
 	Messages     []Message
 	Temperature  float32
 	MaxTokens    int
 	SystemPrompt string
+}
+
+// isReasoningModel reports whether the model belongs to the reasoning family,
+// which uses max_completion_tokens and a fixed sampling temperature.
+func isReasoningModel(model string) bool {
+	for _, prefix := range []string{"gpt-5", "o1", "o3", "o4"} {
+		if strings.HasPrefix(model, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // Message represents a chat message.
@@ -79,16 +102,26 @@ func (c *OpenAIClient) ChatCompletion(ctx context.Context, req ChatCompletionReq
 		maxTokens = 1000
 	}
 
+	chatReq := openai.ChatCompletionRequest{
+		Model:    c.model,
+		Messages: messages,
+	}
+	if isReasoningModel(c.model) {
+		// The gpt-5 / o-series API rejects `max_tokens` and any non-default
+		// temperature. Reasoning also consumes completion tokens, so the cap
+		// is raised or a short reply comes back empty.
+		budget := maxTokens * 4
+		if budget < 2000 {
+			budget = 2000
+		}
+		chatReq.MaxCompletionTokens = budget
+	} else {
+		chatReq.Temperature = temperature
+		chatReq.MaxTokens = maxTokens
+	}
+
 	// Create request
-	resp, err := c.client.CreateChatCompletion(
-		ctx,
-		openai.ChatCompletionRequest{
-			Model:       c.model,
-			Messages:    messages,
-			Temperature: temperature,
-			MaxTokens:   maxTokens,
-		},
-	)
+	resp, err := c.client.CreateChatCompletion(ctx, chatReq)
 
 	if err != nil {
 		return "", fmt.Errorf("chat completion failed: %w", err)
@@ -129,15 +162,26 @@ func (c *OpenAIClient) ChatCompletionWithParts(
 		maxTokens = 1000
 	}
 
-	resp, err := c.client.CreateChatCompletion(
-		ctx,
-		openai.ChatCompletionRequest{
-			Model:       c.model,
-			Messages:    messages,
-			Temperature: temperature,
-			MaxTokens:   maxTokens,
-		},
-	)
+	chatReq := openai.ChatCompletionRequest{
+		Model:    c.model,
+		Messages: messages,
+	}
+	// Same split as ChatCompletion: the gpt-5 / o-series API rejects both
+	// `max_tokens` and a non-default temperature, and reasoning eats into the
+	// completion budget, so the cap has to be raised or the reply comes back
+	// empty. Without this the vision path fails outright on a reasoning model.
+	if isReasoningModel(c.model) {
+		budget := maxTokens * 4
+		if budget < 2000 {
+			budget = 2000
+		}
+		chatReq.MaxCompletionTokens = budget
+	} else {
+		chatReq.Temperature = temperature
+		chatReq.MaxTokens = maxTokens
+	}
+
+	resp, err := c.client.CreateChatCompletion(ctx, chatReq)
 	if err != nil {
 		return "", fmt.Errorf("chat completion failed: %w", err)
 	}
@@ -177,9 +221,13 @@ func (c *OpenAIClient) GenerateEmailContent(ctx context.Context, params EmailGen
 
 // GenerateEmbedding generates text embeddings for semantic search.
 func (c *OpenAIClient) GenerateEmbedding(ctx context.Context, text string) ([]float32, error) {
+	// The width is requested explicitly rather than left to the model's
+	// default: the vector index is built at a fixed size, and a provider whose
+	// natural output is wider would otherwise produce vectors Redis rejects.
 	req := openai.EmbeddingRequest{
-		Input: []string{text},
-		Model: openai.SmallEmbedding3, // Upgraded: 5x cheaper, 62% smaller, same performance
+		Input:      []string{text},
+		Model:      openai.EmbeddingModel(EmbeddingModel()),
+		Dimensions: EmbeddingDimensions(),
 	}
 
 	resp, err := c.client.CreateEmbeddings(ctx, req)

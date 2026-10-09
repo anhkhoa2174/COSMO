@@ -3,28 +3,39 @@ package personalapikey
 import (
 	"context"
 	"fmt"
+	"github.com/lib/pq"
+	"github.com/rockship/cosmo-agents-go/internal/domain"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/rockship/cosmo-agents-go/internal/domain/personal_api_key"
 	baseRepo "github.com/rockship/cosmo-agents-go/internal/repository/base"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupTestDB creates a test database with workaround for timestamp issues
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 
 	// Auto-migrate the PersonalApiKey schema
-	err = db.AutoMigrate(&personal_api_key.PersonalApiKey{})
+	err = db.AutoMigrate(&domain.User{}, &personal_api_key.PersonalApiKey{})
 	require.NoError(t, err)
 
 	return db
+}
+
+// seedUser inserts the user an API key belongs to. personal_api_keys carries a
+// foreign key to users (migration 000015) that SQLite never enforced.
+func seedUser(t *testing.T, db *gorm.DB) uuid.UUID {
+	t.Helper()
+	user := domain.User{Email: uuid.NewString() + "@example.com", Name: "key-owner", PhoneNumber: pq.StringArray{"123"}}
+	require.NoError(t, db.Create(&user).Error)
+	return user.ID
 }
 
 // TestPersonalApiKeyRepository_NewPersonalApiKeyRepository tests creating a new repository
@@ -87,7 +98,7 @@ func TestPersonalApiKeyRepository_Create(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test data
-	userID := uuid.New()
+	userID := seedUser(t, db)
 	apiKey := &personal_api_key.PersonalApiKey{
 		UserID:    userID,
 		Name:      "Test API Key",
@@ -117,7 +128,7 @@ func TestPersonalApiKeyRepository_FindByID(t *testing.T) {
 	_, hashedKey, err := repo.GenerateAPIKey()
 	require.NoError(t, err)
 
-	userID := uuid.New()
+	userID := seedUser(t, db)
 	apiKey := &personal_api_key.PersonalApiKey{
 		UserID:    userID,
 		Name:      "Find Test Key",
@@ -144,7 +155,7 @@ func TestPersonalApiKeyRepository_FindByUserID(t *testing.T) {
 	ctx := context.Background()
 
 	// Create multiple API keys for the same user
-	userID := uuid.New()
+	userID := seedUser(t, db)
 	var createdKeys []uuid.UUID
 
 	for i := 0; i < 3; i++ {
@@ -164,7 +175,7 @@ func TestPersonalApiKeyRepository_FindByUserID(t *testing.T) {
 	}
 
 	// Create API key for different user
-	differentUserID := uuid.New()
+	differentUserID := seedUser(t, db)
 	_, hashedKey2, err := repo.GenerateAPIKey()
 	require.NoError(t, err)
 
@@ -202,7 +213,7 @@ func TestPersonalApiKeyRepository_FindByHashedKey(t *testing.T) {
 	_, hashedKey, err := repo.GenerateAPIKey()
 	require.NoError(t, err)
 
-	userID := uuid.New()
+	userID := seedUser(t, db)
 	apiKey := &personal_api_key.PersonalApiKey{
 		UserID:    userID,
 		Name:      "Hashed Key Test",
@@ -233,7 +244,7 @@ func TestPersonalApiKeyRepository_UpdateLastUsed(t *testing.T) {
 	_, hashedKey, err := repo.GenerateAPIKey()
 	require.NoError(t, err)
 
-	userID := uuid.New()
+	userID := seedUser(t, db)
 	apiKey := &personal_api_key.PersonalApiKey{
 		UserID:    userID,
 		Name:      "Last Used Test",
@@ -270,7 +281,7 @@ func TestPersonalApiKeyRepository_Delete(t *testing.T) {
 	_, hashedKey, err := repo.GenerateAPIKey()
 	require.NoError(t, err)
 
-	userID := uuid.New()
+	userID := seedUser(t, db)
 	apiKey := &personal_api_key.PersonalApiKey{
 		UserID:    userID,
 		Name:      "Delete Test",
@@ -303,7 +314,7 @@ func TestPersonalApiKeyRepository_ComplexKey(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test data
-	userID := uuid.New()
+	userID := seedUser(t, db)
 	expiresAt := time.Now().Add(365 * 24 * time.Hour) // 1 year
 
 	apiKey := &personal_api_key.PersonalApiKey{

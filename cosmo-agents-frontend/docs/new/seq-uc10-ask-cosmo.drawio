@@ -1,0 +1,166 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="seq-uc10" name="UC-10 Query Ask COSMO Assistant">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="UC-10: Query Ask COSMO Assistant" style="text;html=1;fontSize=16;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="450" y="10" width="400" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="bd" value="BD (Sales Rep)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="40" y="55" width="110" height="790" as="geometry" />
+        </mxCell>
+        <mxCell id="visitor" value="Visitor&#xa;(unauthenticated)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="190" y="55" width="110" height="790" as="geometry" />
+        </mxCell>
+        <mxCell id="fe" value="Frontend" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="350" y="55" width="110" height="790" as="geometry" />
+        </mxCell>
+        <mxCell id="be" value="Backend API" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="530" y="55" width="120" height="790" as="geometry" />
+        </mxCell>
+        <mxCell id="llm" value="LLM Service&#xa;(OpenAI)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="760" y="55" width="120" height="790" as="geometry" />
+        </mxCell>
+        <mxCell id="db" value="Database" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="990" y="55" width="110" height="790" as="geometry" />
+        </mxCell>
+
+        <!-- Alt: two entry points -->
+        <mxCell id="alt" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;width=30;height=20;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="30" y="105" width="1120" height="720" as="geometry" />
+        </mxCell>
+        <mxCell id="alt1" value="[In-app assistant — authenticated BD]" style="text;html=1;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="70" y="110" width="280" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m1" value="1. Open assistant panel" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="95" y="150" as="sourcePoint" />
+            <mxPoint x="405" y="150" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m2" value="2. GET /v2/chat/sessions (most recent)" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="405" y="182" as="sourcePoint" />
+            <mxPoint x="590" y="182" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m3" value="3. SELECT sessions WHERE user_id = caller" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="590" y="214" as="sourcePoint" />
+            <mxPoint x="1045" y="214" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m4" value="4. Restored conversation (another user's id yields not found)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="590" y="246" as="sourcePoint" />
+            <mxPoint x="405" y="246" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m5" value="5. Ask a question about the organization's data" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="95" y="278" as="sourcePoint" />
+            <mxPoint x="405" y="278" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m6" value="6. POST /api/ai/daily-actions {messages}" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="405" y="310" as="sourcePoint" />
+            <mxPoint x="590" y="310" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m7" value="7. Question + history + tool registry (system role rejected)" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="590" y="342" as="sourcePoint" />
+            <mxPoint x="820" y="342" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m8" value="8. Tool call (e.g. search contacts)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="820" y="374" as="sourcePoint" />
+            <mxPoint x="590" y="374" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m9" value="9. Execute tool under the caller's own token (org-scoped)" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="590" y="406" as="sourcePoint" />
+            <mxPoint x="1045" y="406" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m10" value="10. Tool result" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="590" y="438" as="sourcePoint" />
+            <mxPoint x="820" y="438" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m11" value="11. Answer grounded in the returned data" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="820" y="470" as="sourcePoint" />
+            <mxPoint x="590" y="470" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m12" value="12. Append exchange (conversation created on first completed exchange)" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="590" y="502" as="sourcePoint" />
+            <mxPoint x="1045" y="502" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m13" value="13. Stream answer" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="590" y="534" as="sourcePoint" />
+            <mxPoint x="405" y="534" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m14" value="14. Display answer" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="405" y="566" as="sourcePoint" />
+            <mxPoint x="95" y="566" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="sep" value="" style="endArrow=none;dashed=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="40" y="592" as="sourcePoint" />
+            <mxPoint x="1140" y="592" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="alt2" value="[Public assistant — unauthenticated Visitor]" style="text;html=1;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="70" y="598" width="300" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m15" value="15. Ask a question on the public website" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="245" y="640" as="sourcePoint" />
+            <mxPoint x="405" y="640" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m16" value="16. POST /api/ai/ask-cosmo (no auth, rate limited)" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="405" y="678" as="sourcePoint" />
+            <mxPoint x="590" y="678" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m17" value="17. Question + fixed corpus — no tools, no history, no API client" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="590" y="716" as="sourcePoint" />
+            <mxPoint x="820" y="716" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m18" value="18. Answer from the corpus, else &quot;I don't know&quot;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="820" y="754" as="sourcePoint" />
+            <mxPoint x="590" y="754" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m19" value="19. Reply — nothing is persisted" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="590" y="792" as="sourcePoint" />
+            <mxPoint x="245" y="792" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

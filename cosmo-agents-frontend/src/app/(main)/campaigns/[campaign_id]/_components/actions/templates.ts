@@ -56,6 +56,14 @@ export const sampleTemplatesReply: Record<EmailIntent, string[]> = {
     'Hi {contact_first_name},\n\nHappy to provide pricing info. Based on what you need, {recommended_tier} starts at {price_point}/mo and gives you:\n- {key_feature_1}\n- {key_feature_2}\n- {key_feature_3}\n\nLet me know if you’d like to discuss further!\n\n{agent_signature}',
     'Hi {contact_first_name},\n\nThanks for your interest in our pricing. Here’s what the {recommended_tier} package includes:\n- {key_feature_1}\n- {key_feature_2}\n- {key_feature_3}\n\nIt starts at {price_point}/month. Want to hop on a quick call?\n\nBest,\n{agent_signature}',
   ],
+  Referral: [
+    'Hi {contact_first_name},\n\nThank you for pointing me to the right person — I appreciate it. I will reach out to them and mention you suggested it.\n\n{agent_signature}',
+    "Hello {contact_first_name},\n\nThanks for the introduction. I'll follow up with them directly and keep you out of the loop unless you'd like to stay copied.\n\n{agent_signature}",
+  ],
+  Nurture: [
+    "Hi {contact_first_name},\n\nUnderstood — the timing isn't right just now. I'll check back in a few months; in the meantime, feel free to reach out if anything changes.\n\n{agent_signature}",
+    'Hello {contact_first_name},\n\nThanks for letting me know. I will keep you posted on anything relevant and reconnect later in the year.\n\n{agent_signature}',
+  ],
   'Unknown intent': [
     'Hi {contact_first_name},\n\nThanks for reaching out! Could you clarify what you’re looking for so I can assist properly?\n\nBest,\n{agent_signature}',
     'Hello {contact_first_name},\n\nAppreciate your message. Can you share a bit more about your needs?\n\nHappy to help once I know more!\n\nCheers,\n{agent_signature}',
@@ -104,24 +112,32 @@ export const sampleTemplatesHumanReply: Record<EmailIntent, string[]> = {
     'Currently unavailable, but I’ll reply once I return.',
   ],
   'Request for information': [
-    "Can you send me more details about your services?",
+    'Can you send me more details about your services?',
     'What exactly does your platform offer?',
     'Can you provide a brochure or overview?',
     'I’d like to understand how your solution works.',
     'What features are included in your product?',
   ],
   'Request for pricing': [
-    "Can you share your pricing tiers?",
+    'Can you share your pricing tiers?',
     'How much does this cost monthly?',
     'Do you offer volume discounts?',
-    "What’s your most popular package and its cost?",
+    'What’s your most popular package and its cost?',
     'Can you send me a quote for our team size?',
   ],
+  Referral: [
+    'Hi {contact_first_name},\n\nThank you for pointing me to the right person — I appreciate it. I will reach out to them and mention you suggested it.\n\n{agent_signature}',
+    "Hello {contact_first_name},\n\nThanks for the introduction. I'll follow up with them directly and keep you out of the loop unless you'd like to stay copied.\n\n{agent_signature}",
+  ],
+  Nurture: [
+    "Hi {contact_first_name},\n\nUnderstood — the timing isn't right just now. I'll check back in a few months; in the meantime, feel free to reach out if anything changes.\n\n{agent_signature}",
+    'Hello {contact_first_name},\n\nThanks for letting me know. I will keep you posted on anything relevant and reconnect later in the year.\n\n{agent_signature}',
+  ],
   'Unknown intent': [
-    "Just checking in, wanted to ask about something.",
+    'Just checking in, wanted to ask about something.',
     'Quick question about your services.',
     'Looking into options, not sure what fits yet.',
-    "Can we talk about something related to your tool?",
+    'Can we talk about something related to your tool?',
     'Had a general question, wasn’t sure who to ask.',
   ],
 };

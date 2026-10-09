@@ -75,7 +75,7 @@ function Conversation({
           {data.status === 'send' ? (
             <>
               <Avatar>
-                <AvatarFallback>{data.from_email.slice(0, 2)}</AvatarFallback>
+                <AvatarFallback>{data.from_email?.slice(0, 2)}</AvatarFallback>
               </Avatar>
             </>
           ) : (
@@ -86,7 +86,7 @@ function Conversation({
                   alt={agent?.data.entity.email}
                 />
                 <AvatarFallback>
-                  {agent?.data.entity.email.slice(0, 2)}
+                  {agent?.data?.entity?.email?.slice(0, 2)}
                 </AvatarFallback>
               </Avatar>
               <span className="absolute -bottom-1 -left-1">
@@ -165,7 +165,7 @@ function ReplyInput({
         <div className="flex items-center gap-2">
           <Avatar>
             <AvatarFallback>
-              {selectedContact?.email.slice(0, 2)}
+              {selectedContact?.email?.slice(0, 2)}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1">
@@ -236,13 +236,8 @@ function ScenarioSimulationWithAgent({ closeSheet }: ScenarioSimulationProps) {
   const { conversations, previewContact, templates } = campaignSupport;
   const templateId = campaign.templates[0]?.id || '';
   const scrollRef = useRef<HTMLDivElement>(null);
-  const {
-    currentUser,
-    agent,
-    error,
-    isLoading,
-    getGeneratedTemplate,
-  } = usePrefetchV3(templateId);
+  const { currentUser, agent, error, isLoading, getGeneratedTemplate } =
+    usePrefetchV3(templateId);
 
   useEffect(() => {
     if (
@@ -251,7 +246,8 @@ function ScenarioSimulationWithAgent({ closeSheet }: ScenarioSimulationProps) {
       agent &&
       !conversations.length
     ) {
-      const toEmail = previewContact.profile?.email ?? previewContact.email ?? '';
+      const toEmail =
+        previewContact.profile?.email ?? previewContact.email ?? '';
       const initialEmail: PreviewEmailWithIntent = {
         from_email: agent.data.entity.email,
         to_email: toEmail,
@@ -359,7 +355,7 @@ function ScenarioSimulationWithAgent({ closeSheet }: ScenarioSimulationProps) {
         title="Preview"
         isError={!!error}
         hasChanged={false}
-        onSubmit={() => { }}
+        onSubmit={() => {}}
         onClose={handleSaveAndClose}
       />
       <Separator />

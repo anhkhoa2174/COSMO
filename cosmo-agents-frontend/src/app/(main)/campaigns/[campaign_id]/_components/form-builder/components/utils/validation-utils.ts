@@ -12,14 +12,14 @@ type FieldDefinition = {
 
 export function convertApiSchemaToZod(fields: FieldDefinition[]) {
   const shape: Record<string, z.ZodTypeAny> = {};
-  
+
   if (!fields?.length) {
     return z.object({});
   }
 
   fields.forEach((field) => {
     let zodType: z.ZodTypeAny;
-    
+
     switch (field.type) {
       case 'email':
         zodType = z.string().email('Invalid email format');
@@ -27,7 +27,9 @@ export function convertApiSchemaToZod(fields: FieldDefinition[]) {
       case 'checkbox':
         zodType = z.boolean();
         if (field.required) {
-          zodType = zodType.refine(val => val === true, { message: 'Required' });
+          zodType = zodType.refine((val) => val === true, {
+            message: 'Required',
+          });
         }
         break;
       case 'url':

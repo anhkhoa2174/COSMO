@@ -25,7 +25,7 @@ export function CustomNode({ id, data, selected }: NodeProps<CustomNode>) {
     children,
     label,
     isCompleted = false,
-    isDelete = true
+    isDelete = true,
   } = data;
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -52,34 +52,40 @@ export function CustomNode({ id, data, selected }: NodeProps<CustomNode>) {
     <div
       onClick={handleNodeClick}
       className={cn(
-        'min-w-[256px] cursor-pointer overflow-hidden rounded-lg border bg-white shadow hover:border-accent-foreground',
-        selected && 'border-t-4 border-accent-foreground'
+        'group min-w-[256px] cursor-pointer overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-200',
+        'hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-lg',
+        // A ring instead of a thicker top border: widening the border shifts
+        // the node's contents and makes the whole canvas jump on select.
+        selected && 'border-violet-400 shadow-lg ring-2 ring-violet-200'
       )}
     >
-      <div className="flex items-center justify-between bg-zinc-100 p-2">
+      <div className="flex items-center justify-between border-b bg-gradient-to-r from-violet-50 to-indigo-50 p-2.5">
         <div className="flex items-center gap-2">
-          <span className="text-blue-500">{icon}</span>
+          <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 text-white [&_svg]:size-4">
+            {icon}
+          </span>
           <p className="font-medium">{label}</p>
         </div>
-        {!['Entry Rules', 'Outreach Email'].includes(data.label) && isDelete && (
-          <div ref={dropdownRef} onClick={(e) => e.stopPropagation()}>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="rounded p-1 hover:bg-zinc-50">
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem
-                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                  onClick={handleDelete}
-                >
-                  <Trash /> Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
+        {!['Entry Rules', 'Outreach Email'].includes(data.label) &&
+          isDelete && (
+            <div ref={dropdownRef} onClick={(e) => e.stopPropagation()}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="rounded p-1 hover:bg-zinc-50">
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem
+                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    onClick={handleDelete}
+                  >
+                    <Trash /> Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
       </div>
       <div className="flex items-center justify-between p-2">
         <div className="text-muted-foreground">{children}</div>

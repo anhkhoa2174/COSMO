@@ -12,7 +12,7 @@ import (
 )
 
 func TestIntentHandlerFactory_PriorityHandlers(t *testing.T) {
-	factory := NewIntentHandlerFactory(nil, nil, nil, nil, nil, nil, nil, nil, &zerolog.Logger{})
+	factory := NewIntentHandlerFactory(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, &zerolog.Logger{})
 	campaign := &domain.Campaign{Base: domain.Base{ID: uuid.New()}, UserID: uuid.New()}
 
 	handler, err := factory.Build(campaign, domain.IntentDoNotContact)
@@ -29,7 +29,7 @@ func TestIntentHandlerFactory_PriorityHandlers(t *testing.T) {
 }
 
 func TestIntentHandlerFactory_ConfiguredHandlers(t *testing.T) {
-	factory := NewIntentHandlerFactory(nil, nil, nil, nil, nil, nil, nil, nil, &zerolog.Logger{})
+	factory := NewIntentHandlerFactory(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, &zerolog.Logger{})
 	campaign := &domain.Campaign{Base: domain.Base{ID: uuid.New()}, UserID: uuid.New()}
 
 	// AI handler
@@ -55,14 +55,22 @@ func TestIntentHandlerFactory_ConfiguredHandlers(t *testing.T) {
 	require.NoError(t, err)
 	assert.IsType(t, &AssignToPersonHandler{}, handler)
 
-	// Missing config returns nil
+	// Missing config falls back to the default route for the intent
 	handler, err = factory.Build(campaign, domain.IntentRequestForInfo)
 	require.NoError(t, err)
-	assert.Nil(t, handler)
+	assert.IsType(t, &AIReplyHandler{}, handler)
+
+	handler, err = factory.Build(campaign, domain.IntentReferral)
+	require.NoError(t, err)
+	assert.IsType(t, &ReferralHandler{}, handler)
+
+	handler, err = factory.Build(campaign, domain.IntentNurture)
+	require.NoError(t, err)
+	assert.IsType(t, &AssignToPersonHandler{}, handler)
 }
 
 func TestIntentHandlerFactory_InvalidPayload(t *testing.T) {
-	factory := NewIntentHandlerFactory(nil, nil, nil, nil, nil, nil, nil, nil, &zerolog.Logger{})
+	factory := NewIntentHandlerFactory(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, &zerolog.Logger{})
 	campaign := &domain.Campaign{Base: domain.Base{ID: uuid.New()}, UserID: uuid.New()}
 	campaign.SetIntentAssignee(domain.CampaignMember{
 		IntentType: domain.IntentRequestForPricing,
@@ -70,7 +78,8 @@ func TestIntentHandlerFactory_InvalidPayload(t *testing.T) {
 		Payload:    map[string]interface{}{"user": "bad"},
 	})
 
+	// Payload hỏng thì giao về chủ campaign thay vì bỏ rơi reply
 	handler, err := factory.Build(campaign, domain.IntentRequestForPricing)
 	require.NoError(t, err)
-	assert.Nil(t, handler)
+	assert.IsType(t, &AssignToPersonHandler{}, handler)
 }

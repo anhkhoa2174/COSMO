@@ -41,11 +41,29 @@ func (h *DoNotContactHandler) Execute(
 	intent domain.IntentType,
 	email *domain.Email,
 ) (bool, error) {
-	// TODO: Find and update contact
-	h.logger.Info().
-		Str("from_email", email.FromEmail).
-		Str("email_id", email.ID.String()).
-		Msg("Do-not-contact handler - implementation simplified")
+	// Suppress the contact: set do_not_contact so every send path skips them
+	contact, err := h.contactRepo.FindByEmail(ctx, campaign.UserID, email.FromEmail)
+	if err != nil {
+		h.logger.Error().Err(err).Str("from_email", email.FromEmail).
+			Msg("Failed to look up contact for do-not-contact")
+		return false, err
+	}
+	if contact != nil {
+		contact.DoNotContact = true
+		if err := h.contactRepo.Update(ctx, contact.ID, contact); err != nil {
+			h.logger.Error().Err(err).Str("contact_id", contact.ID.String()).
+				Msg("Failed to set do_not_contact on contact")
+			return false, err
+		}
+		h.logger.Info().
+			Str("contact_id", contact.ID.String()).
+			Str("from_email", email.FromEmail).
+			Msg("Contact suppressed (do_not_contact=true)")
+	} else {
+		h.logger.Warn().
+			Str("from_email", email.FromEmail).
+			Msg("Do-not-contact: no matching contact found; nothing to suppress")
+	}
 
 	// Mark conversation as replied
 	conversation, err := h.conversationRepo.FindByID(ctx, *email.ConversationID)

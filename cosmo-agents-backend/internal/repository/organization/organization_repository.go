@@ -146,6 +146,47 @@ func (r *OrganizationRepository) Update(ctx context.Context, id uuid.UUID, org *
 		Updates(org).Error
 }
 
+// OutreachSettingsForUser returns the raw settings JSON of the organisation the
+// user belongs to, or nil when they belong to none or it has never been set.
+//
+// Membership is resolved through roles rather than through
+// FindUserMainOrganization: that helper falls back to organisations the user
+// created, and a member must be governed by the cadence of the organisation
+// they actually work in. Only the one column is selected — this runs on the
+// outreach hot path.
+func (r *OrganizationRepository) OutreachSettingsForUser(ctx context.Context, userID uuid.UUID) ([]byte, error) {
+	// GORM reads a bare *[]byte destination as "a slice of rows", so the
+	// value goes through a one-field struct. An organisation that never saved
+	// settings holds NULL, which cannot be scanned into []byte; every AI
+	// reply then drafted without the organisation's guidance. Empty settings
+	// resolve to the defaults.
+	var row struct{ Settings []byte }
+	err := r.db.WithContext(ctx).
+		Model(&domain.Organization{}).
+		Select("COALESCE(organizations.outreach_settings, '{}'::jsonb) AS settings").
+		Joins("JOIN roles ON roles.organization_id = organizations.id").
+		Where("roles.user_id = ? AND organizations.is_deleted = ?", userID, false).
+		Order("CASE WHEN roles.name = 'admin' THEN 0 ELSE 1 END, organizations.created_at").
+		Limit(1).
+		Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	return row.Settings, nil
+}
+
+// UpdateOutreachSettings writes the organisation's outreach cadence.
+//
+// It is a single-column update rather than Update(): passing a struct there
+// would let GORM's zero-value skipping decide which other fields travel, and
+// this write must touch nothing but the settings.
+func (r *OrganizationRepository) UpdateOutreachSettings(ctx context.Context, id uuid.UUID, settings []byte) error {
+	return r.db.WithContext(ctx).
+		Model(&domain.Organization{}).
+		Where("id = ? AND is_deleted = ?", id, false).
+		Update("outreach_settings", settings).Error
+}
+
 // FindFirstOrganizationOfUser finds the first organization for a user
 func (r *OrganizationRepository) FindFirstOrganizationOfUser(ctx context.Context, userID uuid.UUID) (*domain.Organization, error) {
 	var org domain.Organization

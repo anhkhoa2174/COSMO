@@ -14,9 +14,9 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/option"
 	"gorm.io/gorm"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/rockship/cosmo-agents-go/internal/agents"
 	"github.com/rockship/cosmo-agents-go/internal/core"
 	"github.com/rockship/cosmo-agents-go/internal/domain"
@@ -24,6 +24,7 @@ import (
 	campaignRepo "github.com/rockship/cosmo-agents-go/internal/repository/campaign"
 	contactrepo "github.com/rockship/cosmo-agents-go/internal/repository/contact"
 	conversationRepo "github.com/rockship/cosmo-agents-go/internal/repository/conversation"
+	dailyActionRepo "github.com/rockship/cosmo-agents-go/internal/repository/daily_action"
 	emailRepo "github.com/rockship/cosmo-agents-go/internal/repository/email"
 	integrationRepo "github.com/rockship/cosmo-agents-go/internal/repository/integration"
 	interactionRepo "github.com/rockship/cosmo-agents-go/internal/repository/interaction"
@@ -32,17 +33,25 @@ import (
 	organizationRepo "github.com/rockship/cosmo-agents-go/internal/repository/organization"
 	outreachRepo "github.com/rockship/cosmo-agents-go/internal/repository/outreach"
 	playbookRepo "github.com/rockship/cosmo-agents-go/internal/repository/playbook"
+	saleRepRepo "github.com/rockship/cosmo-agents-go/internal/repository/sale_rep"
 	segRepo "github.com/rockship/cosmo-agents-go/internal/repository/segmentation"
 	taskrepo "github.com/rockship/cosmo-agents-go/internal/repository/task"
 	templateRepo "github.com/rockship/cosmo-agents-go/internal/repository/template"
 	userRepo "github.com/rockship/cosmo-agents-go/internal/repository/user"
+	"github.com/rockship/cosmo-agents-go/internal/service/autoreply"
+	cozeService "github.com/rockship/cosmo-agents-go/internal/service/coze"
+	dailyActionSvc "github.com/rockship/cosmo-agents-go/internal/service/daily_action"
 	hubspotService "github.com/rockship/cosmo-agents-go/internal/service/hubspot"
 	intelligenceService "github.com/rockship/cosmo-agents-go/internal/service/intelligence"
+	intentService "github.com/rockship/cosmo-agents-go/internal/service/intent"
 	mailService "github.com/rockship/cosmo-agents-go/internal/service/mail"
+	outreachService "github.com/rockship/cosmo-agents-go/internal/service/outreach"
 	summaryService "github.com/rockship/cosmo-agents-go/internal/service/summary"
+	"github.com/rockship/cosmo-agents-go/internal/skills"
 	aiworker "github.com/rockship/cosmo-agents-go/internal/worker/ai"
 	campaignworker "github.com/rockship/cosmo-agents-go/internal/worker/campaign"
 	contactworker "github.com/rockship/cosmo-agents-go/internal/worker/contact"
+	dailyactionworker "github.com/rockship/cosmo-agents-go/internal/worker/daily_action"
 	emailworker "github.com/rockship/cosmo-agents-go/internal/worker/email"
 	gmailnotificationworker "github.com/rockship/cosmo-agents-go/internal/worker/gmailnotification"
 	knowledgeworker "github.com/rockship/cosmo-agents-go/internal/worker/knowledge"
@@ -51,6 +60,7 @@ import (
 	outreachworker "github.com/rockship/cosmo-agents-go/internal/worker/outreach"
 	playbookworker "github.com/rockship/cosmo-agents-go/internal/worker/playbook"
 	relationshipworker "github.com/rockship/cosmo-agents-go/internal/worker/relationship"
+	replyworker "github.com/rockship/cosmo-agents-go/internal/worker/reply"
 	segmentationworker "github.com/rockship/cosmo-agents-go/internal/worker/segmentation"
 	summarizerworker "github.com/rockship/cosmo-agents-go/internal/worker/summarizer"
 	"github.com/rockship/cosmo-agents-go/pkg/ai"
@@ -59,8 +69,29 @@ import (
 	"github.com/rockship/cosmo-agents-go/pkg/logger"
 	googleoauth "github.com/rockship/cosmo-agents-go/pkg/oauth2/google"
 	redisutil "github.com/rockship/cosmo-agents-go/pkg/redis"
+	"github.com/rockship/cosmo-agents-go/pkg/vectorstore"
 	"github.com/rockship/cosmo-agents-go/pkg/worker"
 )
+
+// knowledgeSearcherAdapter adapts skills.KnowledgeSearchSkill to mailwriterworker.KnowledgeSearcher.
+type knowledgeSearcherAdapter struct {
+	skill *skills.KnowledgeSearchSkill
+}
+
+func (a *knowledgeSearcherAdapter) Search(ctx context.Context, userID uuid.UUID, query string, limit int) ([]mailwriterworker.KnowledgeChunk, error) {
+	results, err := a.skill.Search(ctx, userID, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	chunks := make([]mailwriterworker.KnowledgeChunk, len(results))
+	for i, r := range results {
+		chunks[i] = mailwriterworker.KnowledgeChunk{
+			ChunkText: r.ChunkText,
+			Score:     r.Score,
+		}
+	}
+	return chunks, nil
+}
 
 // Placeholder implementations to satisfy email worker interfaces.
 type googleAuthPlaceholder struct{}
@@ -73,15 +104,14 @@ func (g *googleAuthPlaceholder) Refresh(ctx context.Context, credentials map[str
 type gmailPlaceholder struct{}
 
 func (g *gmailPlaceholder) SendEmail(ctx context.Context, sender string, to []string, subject string, body map[string]string) (*emailworker.GmailMessage, error) {
-	logger.Logger.Warn().
+	// Tuyệt đối không trả success giả: task phải fail rõ ràng để không có
+	// đường gửi mail nào "thành công" mà thực ra chưa gửi gì.
+	logger.Logger.Error().
 		Str("sender", sender).
 		Strs("to", to).
 		Str("subject", subject).
-		Msg("Using placeholder GmailService - email not sent")
-	return &emailworker.GmailMessage{
-		ID:       "placeholder-id",
-		ThreadID: "placeholder-thread-id",
-	}, nil
+		Msg("Agent email send is NOT wired to a real GmailService - refusing to fake success")
+	return nil, fmt.Errorf("agent email send unavailable: GmailService not configured (placeholder)")
 }
 
 type taskMonitorPlaceholder struct{}
@@ -162,6 +192,20 @@ func main() {
 	// Parse Redis URL using shared utility
 	redisCfg := redisutil.ParseRedisURL(cfg.Redis.URL, cfg.Redis.Password)
 
+	// Initialize Redis client for vector store
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisCfg.Addr,
+		Password: redisCfg.Password,
+		DB:       redisCfg.DB,
+	})
+	defer redisClient.Close()
+
+	// Initialize vector store and indexes
+	vectorStore := vectorstore.NewRedisVectorStore(redisClient)
+	if err := vectorStore.InitializeIndexes(context.Background()); err != nil {
+		logger.Logger.Warn().Err(err).Msg("Failed to initialize vector indexes (may already exist)")
+	}
+
 	// Initialize session
 	session := core.NewGormSession(db, nil)
 
@@ -193,7 +237,7 @@ func main() {
 	})
 
 	// Register task handlers
-	registerHandlers(workerServer, db, session, workerClient, oauth2Client, openaiClient, cfg)
+	registerHandlers(workerServer, db, session, workerClient, oauth2Client, openaiClient, vectorStore, cfg, redisClient)
 
 	// Start playbook automation schedulers
 	playbookCancel := startPlaybookSchedulers(workerClient)
@@ -226,14 +270,22 @@ func getSqlxDB(gormDB *gorm.DB) (*sqlx.DB, error) {
 func startPlaybookSchedulers(workerClient *worker.Client) context.CancelFunc {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	enqueue := func(taskType string) {
+		_, _ = workerClient.EnqueueTask(ctx, taskType, map[string]interface{}{}, asynq.Unique(30*time.Second))
+	}
+
 	runTicker := func(interval time.Duration, taskType string) {
 		ticker := time.NewTicker(interval)
 		go func() {
 			defer ticker.Stop()
+			// Fire once on boot. time.Ticker only delivers after a full
+			// interval, so the daily jobs left their tables empty for 24h
+			// after every restart — the dashboard read that as a real zero.
+			enqueue(taskType)
 			for {
 				select {
 				case <-ticker.C:
-					_, _ = workerClient.EnqueueTask(ctx, taskType, map[string]interface{}{}, asynq.Unique(30*time.Second))
+					enqueue(taskType)
 				case <-ctx.Done():
 					return
 				}
@@ -245,7 +297,8 @@ func startPlaybookSchedulers(workerClient *worker.Client) context.CancelFunc {
 	runTicker(1*time.Minute, worker.TypePlaybookProcessEnrollments)
 	runTicker(2*time.Hour, worker.TypeRecalculateSegmentScores)
 	runTicker(24*time.Hour, worker.TypeRecalculateRelationshipScores)
-	runTicker(1*time.Minute, worker.TypeRecalculateOutreachNextStep) // Run every 1 minute for testing (normally every hour)
+	runTicker(1*time.Minute, worker.TypeRecalculateOutreachNextStep) // Run every 1 minute
+	runTicker(24*time.Hour, worker.TypeOutcomeMetricsCompute)        // Daily outcome metrics
 	return cancel
 }
 
@@ -257,7 +310,9 @@ func registerHandlers(
 	workerClient *worker.Client,
 	oauth2Client *googleoauth.Client,
 	openaiClient *ai.OpenAIClient,
+	vectorStore *vectorstore.RedisVectorStore,
 	cfg *config.Config,
+	redisClient *redis.Client,
 ) {
 	sqlxDB, err := getSqlxDB(db)
 	if err != nil {
@@ -327,6 +382,9 @@ func registerHandlers(
 		contactRepository,
 		conversationRepoInstance,
 		orgRepo,
+		workerClient,
+		outreachInteractionRepo,
+		redisClient,
 	)
 
 	campaignWorker := campaignworker.New(
@@ -337,7 +395,7 @@ func registerHandlers(
 		templateRepoInstance,
 		taskRepository,
 		agentRepoWithMetrics,
-	)
+	).WithReplyChecker(taskRepository)
 
 	aiWorker := aiworker.New(
 		db,
@@ -351,7 +409,7 @@ func registerHandlers(
 	)
 
 	// Initialize OpenAI client for new services (uses openai-go library)
-	openaiServiceClient := openai.NewClient(option.WithAPIKey(cfg.AI.OpenAIAPIKey))
+	openaiServiceClient := openai.NewClient(ai.CompatOptions(cfg.AI.OpenAIAPIKey)...)
 
 	// Initialize AI services for new workers
 	summarizer := summaryService.NewSummarizer(&openaiServiceClient, cfg.AI.OpenAIModel, &logger.Logger)
@@ -379,6 +437,9 @@ func registerHandlers(
 		&logger.Logger,
 	)
 
+	// Initialize knowledge search for RAG
+	knowledgeSearcher := skills.NewKnowledgeSearchSkill(openaiClient, vectorStore)
+
 	mailWriterWorker := mailwriterworker.New(
 		campaignRepository,
 		contactRepository,
@@ -388,6 +449,7 @@ func registerHandlers(
 		userRepoInstance,
 		orgRepo,
 		mailWriter,
+		&knowledgeSearcherAdapter{skill: knowledgeSearcher},
 		&logger.Logger,
 	)
 
@@ -404,14 +466,14 @@ func registerHandlers(
 	contactWorker := contactworker.New(
 		db,
 		session,
-		nil, // Don't see where Enrich function is used, please ignore it, will remove in refactor phase
+		intelService, // AI enrichment for contact:enrich
 		hubspotAPI,
 		contactRepository,
 		listContactRepo,
 		operationRepository,
 		userRepoInstance,
 		integrationRepository,
-	)
+	).WithQueue(workerClient)
 
 	playbookWorker := playbookworker.New(
 		playbookRepository,
@@ -453,6 +515,81 @@ func registerHandlers(
 		workerClient,
 	)
 
+	// Initialize daily action service and worker
+	dailyActionGenerationRepo := dailyActionRepo.NewGenerationRepository(db)
+	dailyActionActionRepo := dailyActionRepo.NewActionRepository(db)
+	outreachSvc := outreachService.NewServiceWithAI(
+		outreachInteractionRepo,
+		outreachStateRepo,
+		outreachMeetingRepo,
+		outreachFeedbackRepo,
+		contactRepository,
+		openaiClient,
+		nil,
+	).WithOrgSettings(orgRepo.OutreachSettingsForUser)
+	dailyActionSnoozeRepo := dailyActionRepo.NewSnoozeRepository(db)
+	dailyActionCompletionLogRepo := dailyActionRepo.NewCompletionLogRepository(db)
+	dailyActionService := dailyActionSvc.NewService(
+		outreachSvc,
+		dailyActionGenerationRepo,
+		dailyActionActionRepo,
+		dailyActionSnoozeRepo,
+		dailyActionCompletionLogRepo,
+		outreachMeetingRepo,
+		outreachInteractionRepo,
+		userRepoInstance,
+	).WithAIPrioritizer(openaiClient)
+	dailyActionWorker := dailyactionworker.NewGenerationWorker(dailyActionService)
+
+	// Initialize intent classifier and handler factory for reply worker
+	classifierClient := openai.NewClient(ai.CompatOptions(cfg.AI.OpenAIAPIKey)...)
+	replyIntentClassifier := intentService.NewIntentClassifier(&classifierClient, cfg.AI.OpenAIModel, &logger.Logger)
+	saleRepRepository := saleRepRepo.NewSaleRepRepository(db)
+	// Create Coze service for AI reply handler
+	cozeSvcInstance, cozeSvcErr := cozeService.NewCozeService()
+	if cozeSvcErr != nil {
+		logger.Logger.Warn().Err(cozeSvcErr).Msg("Coze service not available — AI reply will be disabled")
+	}
+
+	intentHandlerFactory := intentService.NewIntentHandlerFactory(
+		emailRepository,
+		contactRepository,
+		conversationRepoInstance,
+		agentRepoWithMetrics,
+		saleRepRepository,
+		knowledgeRepository,
+		knowledgeSearcher,
+		taskRepository,
+		templateRepoInstance,
+		cozeSvcInstance,
+		&logger.Logger,
+	).WithOrgSettings(orgRepo.OutreachSettingsForUser)
+
+	workerSSEManager := dailyActionSvc.NewSSEManager(redisClient)
+	defer workerSSEManager.Close()
+
+	replyWorker := replyworker.New(
+		emailRepository,
+		conversationRepoInstance,
+		campaignRepository,
+		contactRepository,
+		replyIntentClassifier,
+		intentHandlerFactory,
+		outreachSvc,
+		&logger.Logger,
+		workerSSEManager,
+	).WithAutoReply(
+		// Organisations that have not opted in are unaffected: the dispatcher
+		// resolves their policy to "hold every draft for review".
+		autoreply.NewDispatcher(
+			orgRepo.OutreachSettingsForUser,
+			conversationRepoInstance,
+			replyworker.NewQueueSender(workerClient),
+			&logger.Logger,
+		),
+		agentRepoWithMetrics,
+	)
+
 	// Register email task handlers
 	srv.HandleFunc(emailworker.TypeAgentSendEmail, agentEmailWorker.HandleAgentSendEmail)
 	srv.HandleFunc(emailworker.TypeAgentDailyReset, agentEmailWorker.HandleAgentDailyReset)
@@ -482,6 +619,7 @@ func registerHandlers(
 
 	// Register contact task handlers
 	srv.HandleFunc(contactworker.TypeContactImportHubspot, contactWorker.HandleContactImportHubspot)
+	srv.HandleFunc(contactworker.TypeContactEnrich, contactWorker.HandleContactEnrich)
 
 	// Register playbook automation handlers
 	srv.HandleFunc(worker.TypePlaybookEvaluateRules, playbookWorker.HandleEvaluateRules)
@@ -490,11 +628,20 @@ func registerHandlers(
 	srv.HandleFunc(worker.TypeRecalculateRelationshipScores, relationshipWorker.HandleRecalculateScores)
 	srv.HandleFunc(worker.TypeRecalculateOutreachNextStep, outreachRecalculateWorker.HandleRecalculateNextStep)
 	srv.HandleFunc(worker.TypeOrchestrateContact, orchestratorWorker.HandleContactOrchestration)
+	srv.HandleFunc(worker.TypeDailyActionGenerate, dailyActionWorker.HandleGenerateActions)
 
-	// Initialize knowledge worker
+	// Outcome metrics worker (006-agentic-daily-actions)
+	outcomeMetricsWorker := dailyactionworker.NewOutcomeMetricsWorker(db)
+	srv.HandleFunc(worker.TypeOutcomeMetricsCompute, outcomeMetricsWorker.HandleComputeMetrics)
+
+	// Register reply task handler
+	srv.HandleFunc(replyworker.TypeHandleReply, replyWorker.ProcessTask)
+
+	// Initialize knowledge worker with vector store adapter
+	knowledgeVectorAdapter := vectorstore.NewKnowledgeVectorStoreAdapter(vectorStore, openaiClient)
 	knowledgeWorker := knowledgeworker.New(
 		db,
-		nil, // VectorStore - not implemented yet
+		knowledgeVectorAdapter,
 		summarizer,
 	)
 

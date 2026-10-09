@@ -156,7 +156,13 @@ export function VectorSearchDialog({ trigger }: VectorSearchDialogProps) {
                       </div>
                       <div>
                         <p className="font-medium">
-                          {result.first_name || ''} {result.last_name || ''}
+                          {/* The search returns a single `name`; first/last
+                              are kept for older responses that sent them. */}
+                          {result.name ||
+                            [result.first_name, result.last_name]
+                              .filter(Boolean)
+                              .join(' ') ||
+                            'Unnamed contact'}
                         </p>
                         {result.job_title && (
                           <p className="text-sm text-muted-foreground">

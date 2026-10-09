@@ -75,6 +75,7 @@ export interface CalculateScoresResponse {
 export interface ContactSearchResult {
   contact_id: string;
   similarity: number;
+  name?: string;
   first_name?: string;
   last_name?: string;
   company?: string;

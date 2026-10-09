@@ -3,6 +3,8 @@ package playbook
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -23,16 +25,25 @@ func NewEnrollmentRepository(db *sqlx.DB) *EnrollmentRepository {
 func (r *EnrollmentRepository) Create(ctx context.Context, enrollment *playbook.ContactEnrollment) error {
 	query := `
 		INSERT INTO contact_enrollments
-		(contact_id, playbook_id, automation_rule_id, enrollment_status, current_stage_order, current_stage_id, execution_log)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		(contact_id, playbook_id, automation_rule_id, enrollment_status, current_stage_order, current_stage_id, enrolled_at, execution_log)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING enrollment_id, created_at, updated_at
 	`
+
+	// enrolled_at is a TIMESTAMP without time zone, which keeps the wall clock
+	// and drops the offset. The other timestamps come from NOW() on a UTC
+	// session, so this one is written in UTC too or it reads back shifted.
+	var enrolledAt *time.Time
+	if enrollment.EnrolledAt != nil {
+		utc := enrollment.EnrolledAt.UTC()
+		enrolledAt = &utc
+	}
 
 	return r.db.QueryRowContext(
 		ctx, query,
 		enrollment.ContactID, enrollment.PlaybookID, enrollment.AutomationRuleID,
 		enrollment.EnrollmentStatus, enrollment.CurrentStageOrder, enrollment.CurrentStageID,
-		enrollment.ExecutionLog,
+		enrolledAt, enrollment.ExecutionLog,
 	).Scan(&enrollment.EnrollmentID, &enrollment.CreatedAt, &enrollment.UpdatedAt)
 }
 
@@ -146,14 +157,19 @@ func (r *ApprovalRequestRepository) ListPending(ctx context.Context) ([]*playboo
 	return requests, nil
 }
 
-// GetPendingByContactRule fetches a pending request for contact/playbook/rule.
-func (r *ApprovalRequestRepository) GetPendingByContactRule(ctx context.Context, contactID, playbookID, ruleID uuid.UUID) (*playbook.EnrollmentApprovalRequest, error) {
+// GetLatestByContactRule fetches the most recent request for
+// contact/playbook/rule, whatever its status, or nil if there is none.
+//
+// Looking only for a pending request is not enough to decide whether to
+// propose again: a rejected request is no longer pending, so the rule would
+// re-propose the same contact on its next run, minutes after a person said no.
+func (r *ApprovalRequestRepository) GetLatestByContactRule(ctx context.Context, contactID, playbookID, ruleID uuid.UUID) (*playbook.EnrollmentApprovalRequest, error) {
 	query := `
 		SELECT * FROM enrollment_approval_requests
-		WHERE status = 'pending'
-		  AND contact_id = $1
+		WHERE contact_id = $1
 		  AND playbook_id = $2
 		  AND automation_rule_id = $3
+		ORDER BY created_at DESC
 		LIMIT 1
 	`
 
@@ -168,16 +184,42 @@ func (r *ApprovalRequestRepository) GetPendingByContactRule(ctx context.Context,
 	return &req, nil
 }
 
+// GetByID fetches one approval request regardless of its status.
+//
+// ListPending cannot serve this: approving flips the status out of 'pending',
+// so a caller that approves first and looks the request up afterwards finds
+// nothing.
+func (r *ApprovalRequestRepository) GetByID(ctx context.Context, requestID uuid.UUID) (*playbook.EnrollmentApprovalRequest, error) {
+	query := `SELECT * FROM enrollment_approval_requests WHERE request_id = $1`
+
+	var req playbook.EnrollmentApprovalRequest
+	if err := r.db.GetContext(ctx, &req, query, requestID); err != nil {
+		return nil, err
+	}
+	return &req, nil
+}
+
+// ErrRequestNotPending is returned when a request was decided already.
+var ErrRequestNotPending = errors.New("approval request is no longer pending")
+
 // Approve marks a request as approved
 func (r *ApprovalRequestRepository) Approve(ctx context.Context, requestID, reviewedBy uuid.UUID) error {
 	query := `
 		UPDATE enrollment_approval_requests
 		SET status = 'approved', reviewed_by = $1, reviewed_at = NOW()
-		WHERE request_id = $2
+		WHERE request_id = $2 AND status = 'pending'
 	`
 
-	_, err := r.db.ExecContext(ctx, query, reviewedBy, requestID)
-	return err
+	// Conditional on 'pending', so an approve and a reject racing on the
+	// same request cannot both win.
+	res, err := r.db.ExecContext(ctx, query, reviewedBy, requestID)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return ErrRequestNotPending
+	}
+	return nil
 }
 
 // Reject marks a request as rejected
@@ -185,9 +227,17 @@ func (r *ApprovalRequestRepository) Reject(ctx context.Context, requestID, revie
 	query := `
 		UPDATE enrollment_approval_requests
 		SET status = 'rejected', reviewed_by = $1, reviewed_at = NOW()
-		WHERE request_id = $2
+		WHERE request_id = $2 AND status = 'pending'
 	`
 
-	_, err := r.db.ExecContext(ctx, query, reviewedBy, requestID)
-	return err
+	// Conditional on 'pending', so an approve and a reject racing on the
+	// same request cannot both win.
+	res, err := r.db.ExecContext(ctx, query, reviewedBy, requestID)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return ErrRequestNotPending
+	}
+	return nil
 }

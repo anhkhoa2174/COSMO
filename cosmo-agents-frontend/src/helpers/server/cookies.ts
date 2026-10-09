@@ -43,8 +43,20 @@ export const setToken = async ({
   }
 };
 
-export const getAccessToken = async () => {
-  const { access_token, agent_access_token, session_name } = await getToken();
+/**
+ * Returns a usable Coze token, minting one when the cookie is missing.
+ *
+ * Pass `forceRefresh` after Coze has rejected the cached token: the cookie
+ * outlives the token it holds, so without this the caller stays stuck on a
+ * dead token until the cookie itself expires.
+ */
+export const getAccessToken = async (forceRefresh = false) => {
+  const {
+    access_token,
+    agent_access_token: cachedAgentToken,
+    session_name,
+  } = await getToken();
+  const agent_access_token = forceRefresh ? undefined : cachedAgentToken;
 
   let session_nameRes = session_name;
 
@@ -76,9 +88,16 @@ export const getAccessToken = async () => {
 
       const resJson = await res.json();
       const agent_access_tokenRes = resJson?.data?.access_token;
-      setToken({ agent_access_token: agent_access_tokenRes, session_name: session_nameRes });
+      setToken({
+        agent_access_token: agent_access_tokenRes,
+        session_name: session_nameRes,
+      });
 
-      return { agent_access_token: agent_access_tokenRes, access_token, session_name: session_nameRes };
+      return {
+        agent_access_token: agent_access_tokenRes,
+        access_token,
+        session_name: session_nameRes,
+      };
     } catch (err) {
       throw new Error('Error getting access token.');
     }

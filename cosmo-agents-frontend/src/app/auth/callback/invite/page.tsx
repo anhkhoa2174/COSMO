@@ -44,7 +44,7 @@ export default function InviteCallback() {
           const { data: user } = await authService.getMe();
           await updateUserCache(user);
 
-          window.location.href = '/campaigns';
+          window.location.href = '/ai-inboxes';
         }
       } catch (err: any) {
         toast.error(err.message);

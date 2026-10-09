@@ -5,12 +5,17 @@ import { gmailRedirectUri } from '@/helpers/env';
 import AuthApi from '@/network/client/auth';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export default function GmailAuthCallback() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(5);
+  // An authorization code is single-use. This effect re-runs (Strict Mode, and
+  // any render that hands back a new searchParams object), and each re-run
+  // burned the code — so the retries always failed with invalid_grant and
+  // masked whatever the first attempt actually hit.
+  const exchangedRef = useRef(false);
 
   useEffect(() => {
     if (error) {
@@ -30,6 +35,8 @@ export default function GmailAuthCallback() {
 
   useEffect(() => {
     if (!searchParams) return;
+    if (exchangedRef.current) return;
+    exchangedRef.current = true;
 
     const execute = async () => {
       const timeout = setTimeout(() => {
@@ -61,7 +68,12 @@ export default function GmailAuthCallback() {
         }
       } catch (err: any) {
         console.error('Gmail Auth Error:', err);
-        setError(err.message || 'Authentication failed. Please try again.');
+        const detail = err?.error?.detail || err?.detail;
+        setError(
+          detail
+            ? `${err.message || 'Authentication failed'}: ${detail}`
+            : err.message || 'Authentication failed. Please try again.'
+        );
       } finally {
         clearTimeout(timeout);
       }

@@ -1,4 +1,14 @@
 import { AIWriterV2 } from '@/components/ai-writer-v2';
+import { PaneHeader } from './pane-header';
+import { Eye, PencilLine } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import SalesRepApi from '@/network/client/sales-rep';
+import type { SalesRep } from '@/models/sales-rep';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@/components/ui/resizable';
 import { PlateEditor } from '@/components/editor/plate-editor';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,7 +23,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
-import { fakeStream, getContent } from '@/helpers';
+import { getContent } from '@/helpers';
 import { useGetAgentQuery } from '@/network/client/agent';
 import { useGetContactListQuery } from '@/network/client/contact-list';
 import {
@@ -54,6 +64,18 @@ export default function TemplateComposer({
   const [conversationId, setConversationId] = useState('');
   const [template, setTemplate] = useState(templates[templateId] || null);
   const [assistantOpen, setAssistantOpen] = useState(false);
+
+  // The preview resolves {sale_rep_*} tags from this list; without it every
+  // one of them renders as unfilled even when a rep is configured.
+  const { data: salesRepsRes } = useQuery({
+    queryKey: ['sales-reps'],
+    queryFn: () => SalesRepApi.search({ filter: {} }),
+  });
+  // The search endpoint wraps each rep in a row object; only the entity is
+  // needed, and getPreviewData reads first_name / calendar_link off it.
+  const salesReps = (salesRepsRes?.data?.list ?? []).map(
+    (row) => row.entity
+  ) as SalesRep[];
   const [templateCreatedId, setTemplateCreatedId] = useState(templateId);
   const [isFocus, setIsFocus] = useState(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -73,81 +95,75 @@ export default function TemplateComposer({
   } = useUpdateTemplateMutation(templateCreatedId);
 
   const handleCreateTemplate = async () => {
+    if (isGenerating) return;
+    setIsGenerating(true);
     setTemplate(null);
-    const generatedTemplate = await getGeneratedTemplate([
-      {
-        content: `Generate for me the ${campaign.templates.length === 0 ? 'first' : 'follow-up'} outreach email`,
-        content_type: 'text',
-        role: 'user',
-      },
-    ]);
-    if (!generatedTemplate) {
-      return;
-    }
-    const newItem = {
-      type:
-        campaign.templates.length === 0
-          ? 'First Email'
-          : `Follow-up Email ${campaign.templates.length}`,
-      subject: generatedTemplate.subject || '',
-      content: generatedTemplate.content || '',
-      send_after: campaign.templates.length,
-      knowledges: [],
-    };
-    const res = await createTemplate(campaign.id, newItem);
-    if (res?.data) {
-      setTemplateCreatedId(res.data.id);
-      setCampaign((prev) => ({
-        ...prev,
-        templates: [...prev.templates, { ...res.data }],
-      }));
-      setCampaignSupport((prev) => ({
-        ...prev,
-        templates: {
-          ...prev.templates,
-          [res.data.id]: {
-            ...res.data,
-          },
+    try {
+      const generatedTemplate = await getGeneratedTemplate([
+        {
+          content: `Generate for me the ${campaign.templates.length === 0 ? 'first' : 'follow-up'} outreach email`,
+          content_type: 'text',
+          role: 'user',
         },
-      }));
-      const templateTemp = {
-        ...res.data,
+      ]);
+      if (!generatedTemplate) {
+        return;
+      }
+      const newItem = {
+        type:
+          campaign.templates.length === 0
+            ? 'First Email'
+            : `Follow-up Email ${campaign.templates.length}`,
+        subject: generatedTemplate.subject || '',
+        content: generatedTemplate.content || '',
+        send_after: campaign.templates.length,
+        knowledges: [],
       };
-      onCreateSuccess?.(templateTemp.id);
-      setTemplate(
-        (prev) =>
-          ({
-            ...prev,
-            id: templateTemp.id,
-            send_after: templateTemp.send_after,
-            knowledges: templateTemp.knowledges,
-            type: templateTemp.type,
-          }) as GetTemplateData
-      );
-      fakeStream({
-        data: templateTemp.subject,
-        callback: (data) => {
-          setTemplate(
-            (prev) =>
-              ({
-                ...prev,
-                subject: data,
-              }) as GetTemplateData
-          );
-        },
-      });
-      fakeStream({
-        data: templateTemp.content,
-        callback: (data) => {
-          setTemplate(
-            (prev) =>
-              ({
-                ...prev,
-                content: data,
-              }) as GetTemplateData
-          );
-        },
-      });
+      const res = await createTemplate(campaign.id, newItem);
+      if (res?.data) {
+        setTemplateCreatedId(res.data.id);
+        setCampaign((prev) => ({
+          ...prev,
+          templates: [...prev.templates, { ...res.data }],
+        }));
+        setCampaignSupport((prev) => ({
+          ...prev,
+          templates: {
+            ...prev.templates,
+            [res.data.id]: {
+              ...res.data,
+            },
+          },
+        }));
+        const templateTemp = {
+          ...res.data,
+        };
+        onCreateSuccess?.(templateTemp.id);
+        setTemplate(
+          (prev) =>
+            ({
+              ...prev,
+              id: templateTemp.id,
+              send_after: templateTemp.send_after,
+              knowledges: templateTemp.knowledges,
+              type: templateTemp.type,
+            }) as GetTemplateData
+        );
+        // Đặt thẳng nội dung thay vì gõ dần từng nhịp: trình soạn thảo rich
+        // text chỉ đọc giá trị lúc khởi tạo, nên nếu gõ dần thì nó chốt lại ở
+        // đúng nhịp đầu tiên (10 ký tự — "Hi {contac") và không bao giờ nhận
+        // phần còn lại, trong khi khung preview vẫn đọc state nên hiện đủ.
+        setTemplate(
+          (prev) =>
+            ({
+              ...prev,
+              subject: templateTemp.subject,
+              content: templateTemp.content,
+            }) as GetTemplateData
+        );
+      }
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -226,6 +242,7 @@ export default function TemplateComposer({
         onSubmit={handleSave}
         onClose={handleOnCloseAiWriter}
         onAssistantOpenChange={handleOnClickAiWriter}
+        assistantOpen={assistantOpen}
       />
       <Separator />
       {error ? (
@@ -233,91 +250,127 @@ export default function TemplateComposer({
           <TriangleAlert /> {(error as any).error?.message || error.message}
         </p>
       ) : (
-        <div className="flex flex-1">
+        <ResizablePanelGroup
+          direction="horizontal"
+          // Persisted so a rep's preferred split survives reopening the sheet.
+          autoSaveId="cosmo-template-composer-v2"
+          className="flex-1"
+        >
           <Spinner
             show={isUpdateTemplatePending}
             withOverlay
             label="Saving..."
           />
-          {assistantOpen && !isLoading && (
-            <div className="w-80 flex-shrink-0">
-              <AIWriterV2
-                template={template || undefined}
-                onUpdateTemplate={handleChange}
-                onClearConversation={handleOnClearConversation}
-                onLoadingChat={setIsGenerating}
-                conversationId={conversationId}
-                campaignType={campaign?.playbook || ''}
+
+          <ResizablePanel id="editor" order={1} defaultSize={45} minSize={25}>
+            <div className="flex h-full flex-col">
+              <PaneHeader
+                icon={PencilLine}
+                title="Compose"
+                hint="Edits appear in the preview as you type"
               />
-            </div>
-          )}
-          <div className="flex flex-1 flex-col">
-            <div className="h-96 flex-grow">
-              <ScrollArea className="h-full p-4" type="always">
-                {campaign.status !== 'draft' && (
-                  <p className="mb-4 text-orange-500">
-                    You can't change the template for a campaign that is not in
-                    draft mode
-                  </p>
-                )}
-                {isLoading ? (
-                  <div className="flex flex-col space-y-4">
-                    <Skeleton className="h-6" />
-                    <Skeleton className="h-[500px] rounded-lg" />
-                    <Skeleton className="h-6" />
-                  </div>
-                ) : template ? (
-                  <Card className="relative">
-                    <CardContent className="space-y-2 p-0 pt-2">
-                      {template.type !== 'First Email' && (
-                        <>
-                          <div className="flex items-center gap-2 px-4">
-                            Send if contact does not reply in{' '}
-                            <Input
-                              type="number"
-                              value={template.send_after}
-                              onChange={(event) =>
-                                handleChange('send_after', +event.target.value)
-                              }
-                              min={1}
-                              className="w-16"
-                            />{' '}
-                            working days
-                          </div>
-                          <Separator />
-                        </>
-                      )}
-                      <div className="flex items-center gap-2 px-4">
-                        <p className="text-muted-foreground">Subject:</p>
-                        <Input
-                          value={template?.subject || ''}
-                          onChange={(event) => {
-                            handleChange('subject', event.target.value);
+              <div className="min-h-0 flex-1">
+                <ScrollArea className="h-full p-4" type="always">
+                  {campaign.status !== 'draft' && (
+                    <p className="mb-4 text-orange-500">
+                      You can't change the template for a campaign that is not
+                      in draft mode
+                    </p>
+                  )}
+                  {isLoading ? (
+                    <div className="flex flex-col space-y-4">
+                      <Skeleton className="h-6" />
+                      <Skeleton className="h-[500px] rounded-lg" />
+                      <Skeleton className="h-6" />
+                    </div>
+                  ) : template ? (
+                    <Card className="relative">
+                      <CardContent className="space-y-2 p-0 pt-2">
+                        {template.type !== 'First Email' && (
+                          <>
+                            <div className="flex items-center gap-2 px-4">
+                              Send if contact does not reply in{' '}
+                              <Input
+                                type="number"
+                                value={template.send_after}
+                                onChange={(event) =>
+                                  handleChange(
+                                    'send_after',
+                                    +event.target.value
+                                  )
+                                }
+                                min={1}
+                                className="w-16"
+                              />{' '}
+                              working days
+                            </div>
+                            <Separator />
+                          </>
+                        )}
+                        <div className="flex items-center gap-2 px-4">
+                          <p className="text-muted-foreground">Subject:</p>
+                          <Input
+                            value={template?.subject || ''}
+                            onChange={(event) => {
+                              handleChange('subject', event.target.value);
+                            }}
+                            className="flex-1 border-none bg-transparent shadow-none"
+                          />
+                        </div>
+                        <Separator />
+                        <PlateEditor
+                          deps={[isGenerating ? template?.content : undefined]}
+                          value={template?.content || ''}
+                          onChange={(value) => {
+                            handleChange('content', value);
                           }}
-                          className="flex-1 border-none bg-transparent shadow-none"
+                          readOnly={campaign.status !== 'draft'}
+                          onFocus={() => setIsFocus(true)}
+                          onBlur={() => setIsFocus(false)}
                         />
-                      </div>
-                      <Separator />
-                      <PlateEditor
-                        deps={[
-                          isFocus && !isGenerating ? '' : template?.content,
-                        ]}
-                        value={template?.content || ''}
-                        onChange={(value) => {
-                          handleChange('content', value);
-                        }}
-                        readOnly={campaign.status !== 'draft'}
-                        onFocus={() => setIsFocus(true)}
-                        onBlur={() => setIsFocus(false)}
-                      />
-                    </CardContent>
-                  </Card>
-                ) : null}
-              </ScrollArea>
+                      </CardContent>
+                    </Card>
+                  ) : null}
+                </ScrollArea>
+              </div>
             </div>
-          </div>
-          <TemplatePreview template={template} isLoading={isLoading} />
-        </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          <ResizablePanel id="preview" order={2} defaultSize={31} minSize={20}>
+            <TemplatePreview
+              template={template}
+              isLoading={isLoading}
+              salesReps={salesReps}
+            />
+          </ResizablePanel>
+          {assistantOpen && !isLoading && (
+            <>
+              <ResizableHandle withHandle />
+              <ResizablePanel
+                id="assistant"
+                order={3}
+                defaultSize={26}
+                minSize={16}
+                collapsible
+                collapsedSize={0}
+                onCollapse={() => setAssistantOpen(false)}
+              >
+                {/* AIWriterV2 carries its own header (mark, title, what it
+                    does), so a PaneHeader here would say "AI Writer" twice. */}
+                <AIWriterV2
+                  template={template || undefined}
+                  onUpdateTemplate={handleChange}
+                  onClearConversation={handleOnClearConversation}
+                  onLoadingChat={setIsGenerating}
+                  conversationId={conversationId}
+                  campaignType={campaign?.playbook || ''}
+                />
+              </ResizablePanel>
+            </>
+          )}
+        </ResizablePanelGroup>
       )}
     </div>
   );
@@ -326,7 +379,9 @@ export default function TemplateComposer({
 function TemplatePreview({
   template,
   isLoading,
+  salesReps,
 }: {
+  salesReps: SalesRep[];
   template: GetTemplateData | null;
   isLoading: boolean;
 }) {
@@ -370,14 +425,21 @@ function TemplatePreview({
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="h-96 flex-grow">
+    <div className="flex h-full flex-col">
+      <PaneHeader
+        icon={Eye}
+        title="Live preview"
+        hint="Exactly what this contact receives"
+      />
+      <div className="min-h-0 flex-1">
         <ScrollArea className="h-full bg-[#F7F7F7] p-4" type="always">
           {isListContactLoading ? (
             <p className="p-4">Loading contact list...</p>
           ) : (
             <div className="mb-4 flex items-center gap-2">
-              <p className="text-base font-semibold">Preview as</p>
+              <p className="shrink-0 text-[0.85rem] text-muted-foreground">
+                Preview as
+              </p>
               <Select
                 value={previewContact?.id}
                 onValueChange={(contact_id) => {
@@ -396,9 +458,7 @@ function TemplatePreview({
                 <SelectContent>
                   {contacts.map((contact) => (
                     <SelectItem key={contact.id} value={contact.id}>
-                      <span className="text-info">
-                        {contact.name}
-                      </span>{' '}
+                      <span className="text-info">{contact.name}</span>{' '}
                       <span className="text-muted-foreground">
                         &lt;{contact.profile?.email || contact.email || '-'}&gt;
                       </span>
@@ -423,7 +483,8 @@ function TemplatePreview({
                       template?.subject || '',
                       previewContact,
                       currentUser,
-                      agent
+                      agent,
+                      salesReps
                     )}
                   </Markdown>
                   <Separator />
@@ -436,12 +497,31 @@ function TemplatePreview({
                         template?.content || '',
                         previewContact,
                         currentUser,
-                        agent
+                        agent,
+                        salesReps
                       )}
                     </Markdown>
                   </div>
                 </CardContent>
               </Card>
+              {/* Two colours with no key left readers guessing what red meant. */}
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[0.8rem] text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block size-2.5 rounded-sm"
+                    style={{ backgroundColor: '#FF9900' }}
+                  />
+                  Filled in for this contact
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block size-2.5 rounded-sm"
+                    style={{ backgroundColor: '#FF0000' }}
+                  />
+                  No data — will send blank
+                </span>
+              </div>
+
               {!agent && (
                 <p className="p-2 text-sm text-orange-500">
                   Select an AI inbox to preview the template with relevant merge

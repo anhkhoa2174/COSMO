@@ -67,7 +67,7 @@ export default function ContactListSelector({
     <AddButton
       text="New"
       onClick={() =>
-        router.push(`/contact-lists?next=${encodeURIComponent(pathname)}`)
+        router.push(`/audiences?next=${encodeURIComponent(pathname)}`)
       }
       variant="outline"
     />

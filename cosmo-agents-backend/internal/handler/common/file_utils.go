@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/rockship/cosmo-agents-go/pkg/logger"
 )
 
@@ -32,7 +33,9 @@ func (h *FileUploadHelper) SaveToTempFile(file *multipart.FileHeader, prefix str
 
 	// Generate temp filename
 	fileName := h.SanitizeFileName(file.Filename)
-	tempFileName := fmt.Sprintf("%s_%s", time.Now().UTC().Format("20060102T150405Z0700"), fileName)
+	// The random part keeps two uploads of the same name in the same second
+	// apart; without it one user's import read the other user's file.
+	tempFileName := fmt.Sprintf("%s_%s_%s", time.Now().UTC().Format("20060102T150405Z0700"), uuid.NewString()[:8], fileName)
 	tempPath := filepath.Join(tempDir, tempFileName)
 
 	// Save file

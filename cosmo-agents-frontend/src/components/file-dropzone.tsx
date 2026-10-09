@@ -21,7 +21,13 @@ export interface DropzoneProps extends Omit<_DropzoneProps, 'children'> {
   showErrorMessage?: boolean;
 }
 
-const MIME_IMAGE_TYPES = ['image/gif', 'image/jpeg', 'image/png', 'image/svg+xml', 'image/webp'];
+const MIME_IMAGE_TYPES = [
+  'image/gif',
+  'image/jpeg',
+  'image/png',
+  'image/svg+xml',
+  'image/webp',
+];
 
 const FileDropzone = ({
   files = [],
@@ -39,7 +45,10 @@ const FileDropzone = ({
       if (props.onDrop) {
         props.onDrop(acceptedFiles, fileRejections, event);
       }
-      setFilesUploaded((_filesUploaded) => [..._filesUploaded, ...acceptedFiles]);
+      setFilesUploaded((_filesUploaded) => [
+        ..._filesUploaded,
+        ...acceptedFiles,
+      ]);
       if (fileRejections.length > 0) {
         let _errorMessage = `Could not upload ${fileRejections[0].file.name}`;
         if (fileRejections.length > 1) {
@@ -75,7 +84,7 @@ const FileDropzone = ({
       <div
         {...dropzone.getRootProps()}
         className={cn(
-          'flex justify-center items-center w-full h-32 border-dashed border-2 border-gray-200 rounded-lg hover:bg-accent hover:text-accent-foreground transition-all select-none cursor-pointer',
+          'flex h-32 w-full cursor-pointer select-none items-center justify-center rounded-lg border-2 border-dashed border-gray-200 transition-all hover:bg-accent hover:text-accent-foreground',
           dropZoneClassName
         )}
       >
@@ -85,12 +94,13 @@ const FileDropzone = ({
         ) : dropzone.isDragAccept ? (
           <div className="text-sm font-medium">Drop your files here!</div>
         ) : (
-          <div className="flex items-center flex-col gap-1.5">
-            <div className="flex items-center flex-row gap-0.5 text-sm font-medium">
-              <Upload className="mr-2 h-4 w-4" /> Upload {props.multiple ? 'files' : 'file'}
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="flex flex-row items-center gap-0.5 text-sm font-medium">
+              <Upload className="mr-2 h-4 w-4" /> Upload{' '}
+              {props.multiple ? 'files' : 'file'}
             </div>
             {props.maxSize && (
-              <div className="text-xs text-gray-400 font-medium">
+              <div className="text-xs font-medium text-gray-400">
                 Max. file size: {(props.maxSize / (1024 * 1024)).toFixed(2)} MB
               </div>
             )}
@@ -98,29 +108,29 @@ const FileDropzone = ({
         )}
       </div>
       {showErrorMessage && errorMessage && (
-        <span className="text-xs text-destructive mt-3">{errorMessage}</span>
+        <span className="mt-3 text-xs text-destructive">{errorMessage}</span>
       )}
       {showFilesList && filesUploaded.length > 0 && (
         <div
-          className={`flex flex-col gap-2 w-full ${filesUploaded.length > 2 ? 'h-48' : 'h-fit'} mt-2 ${filesUploaded.length > 0 ? 'pb-2' : ''}`}
+          className={`flex w-full flex-col gap-2 ${filesUploaded.length > 2 ? 'h-48' : 'h-fit'} mt-2 ${filesUploaded.length > 0 ? 'pb-2' : ''}`}
         >
           <div className="w-full">
             {filesUploaded.map((fileUploaded, index) => (
               <div
                 key={index}
-                className="flex justify-between items-center flex-row w-full h-16 mt-2 px-4 border-solid border-2 border-gray-200 rounded-lg shadow-sm"
+                className="mt-2 flex h-16 w-full flex-row items-center justify-between rounded-lg border-2 border-solid border-gray-200 px-4 shadow-sm"
               >
-                <div className="flex items-center flex-row gap-4 h-full">
+                <div className="flex h-full flex-row items-center gap-4">
                   {MIME_IMAGE_TYPES.includes(fileUploaded.type) ? (
-                    <Image className="text-rose-700 w-6 h-6" />
+                    <Image className="h-6 w-6 text-rose-700" />
                   ) : (
-                    <FileText className="text-rose-700 w-6 h-6" />
+                    <FileText className="h-6 w-6 text-rose-700" />
                   )}
                   <div className="flex flex-col gap-0">
-                    <div className="text-[0.85rem] font-medium leading-snug truncate">
+                    <div className="truncate text-[0.85rem] font-medium leading-snug">
                       {fileUploaded.name.split('.').slice(0, -1).join('.')}
                     </div>
-                    <div className="text-[0.7rem] text-gray-500 leading-tight">
+                    <div className="text-[0.7rem] leading-tight text-gray-500">
                       .{fileUploaded.name.split('.').pop()} •{' '}
                       {(fileUploaded.size / (1024 * 1024)).toFixed(2)} MB
                     </div>

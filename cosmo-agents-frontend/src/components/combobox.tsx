@@ -52,7 +52,7 @@ export function Combobox({
           role="combobox"
           aria-expanded={open}
           className={cn(
-            'w-full justify-between bg-transparent font-normal gap-1 px-2',
+            'w-full justify-between gap-1 bg-transparent px-2 font-normal',
             className
           )}
         >

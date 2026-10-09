@@ -22,7 +22,10 @@ function isValidMinuteOrSecond(value: string) {
 
 type GetValidNumberConfig = { max: number; min?: number; loop?: boolean };
 
-function getValidNumber(value: string, { max, min = 0, loop = false }: GetValidNumberConfig) {
+function getValidNumber(
+  value: string,
+  { max, min = 0, loop = false }: GetValidNumberConfig
+) {
   let numericValue = parseInt(value, 10);
 
   if (!Number.isNaN(numericValue)) {
@@ -160,7 +163,7 @@ const TimeInput = React.forwardRef<HTMLInputElement, TimeInputProps>(
         ref={ref}
         type="tel"
         className={cn(
-          'w-12 [&::-webkit-inner-spin-button]:appearance-none tabular-nums caret-transparent',
+          'w-12 tabular-nums caret-transparent [&::-webkit-inner-spin-button]:appearance-none',
           className
         )}
         inputMode="decimal"
@@ -179,8 +182,10 @@ const TimeInput = React.forwardRef<HTMLInputElement, TimeInputProps>(
   }
 );
 
-interface DatetimePickerProps
-  extends Omit<DayPickerSingleProps, 'mode' | 'selected' | 'onSelect' | 'disabled'> {
+interface DatetimePickerProps extends Omit<
+  DayPickerSingleProps,
+  'mode' | 'selected' | 'onSelect' | 'disabled'
+> {
   value?: Date;
   onChange?: (date: Date) => void;
 }
@@ -194,14 +199,20 @@ const DatetimePicker = ({ value, onChange, ...props }: DatetimePickerProps) => {
 
   const handleSelect = (newDate: Date | undefined) => {
     if (newDate) {
-      newDate.setHours(date?.getHours() ?? 0, date?.getMinutes() ?? 0, date?.getSeconds() ?? 0);
+      newDate.setHours(
+        date?.getHours() ?? 0,
+        date?.getMinutes() ?? 0,
+        date?.getSeconds() ?? 0
+      );
       setDate(newDate);
       onChange?.(newDate);
     }
   };
 
   const handleOnTimeInputChange = (value: string, picker: TimePickerType) => {
-    const newDate = date ? new Date(date) : new Date(new Date().setHours(0, 0, 0));
+    const newDate = date
+      ? new Date(date)
+      : new Date(new Date().setHours(0, 0, 0));
     if (picker === 'hour') {
       newDate.setHours(parseInt(value, 10));
     } else if (picker === 'minute') {
@@ -222,7 +233,7 @@ const DatetimePicker = ({ value, onChange, ...props }: DatetimePickerProps) => {
         disabled={{ before: new Date() }}
         {...props}
       />
-      <div className="flex flex-col justify-center items-center p-3 gap-3">
+      <div className="flex flex-col items-center justify-center gap-3 p-3">
         <p>Hour</p>
         <TimeInput
           picker="hour"

@@ -6,9 +6,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
@@ -16,7 +16,7 @@ import (
 
 // setupTestDB creates a test database
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 
 	// Auto-migrate the CustomField schema
@@ -219,7 +219,8 @@ func TestCustomFieldRepository_UpdateFields(t *testing.T) {
 	updated, err := repo.FindByID(ctx, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "Updated Name", updated.Name)
-	assert.Equal(t, "updated_name", updated.NormalizedName)
+	// Renaming keeps the storage key so values already on contacts stay reachable.
+	assert.Equal(t, "original_name", updated.NormalizedName)
 	assert.Equal(t, domain.CustomFieldDataTypeSelect, updated.DataType)
 	assert.True(t, updated.IsRequired)
 	assert.Equal(t, pq.StringArray{"option1", "option2"}, updated.Options)

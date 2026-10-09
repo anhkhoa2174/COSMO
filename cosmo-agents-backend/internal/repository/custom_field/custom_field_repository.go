@@ -129,14 +129,15 @@ func (r *CustomFieldRepository) UpdateFields(ctx context.Context, id uuid.UUID, 
 		updates["entity_type"] = entityType
 	}
 
-	// Normalize name if being updated
+	// Trim name if being updated. normalized_name is deliberately left alone:
+	// it is the key contact values are stored under (profile.custom_fields),
+	// so re-deriving it on rename would orphan every value already saved.
 	if name, ok := updates["name"].(string); ok {
 		name = strings.TrimSpace(name)
 		if name == "" {
 			return errors.New("custom field name cannot be empty")
 		}
 		updates["name"] = name
-		updates["normalized_name"] = normalizeCustomFieldName(name)
 	}
 
 	// Ensure options is not nil if being updated
@@ -155,13 +156,6 @@ func (r *CustomFieldRepository) UpdateFields(ctx context.Context, id uuid.UUID, 
 		Model(&domain.CustomField{}).
 		Where("id = ?", id).
 		UpdateColumns(updates).Error
-}
-
-// normalizeCustomFieldName converts field name to normalized form (lowercase, underscores)
-func normalizeCustomFieldName(name string) string {
-	slug := strings.ToLower(strings.TrimSpace(name))
-	slug = strings.ReplaceAll(slug, " ", "_")
-	return slug
 }
 
 // Delete hard deletes a custom field

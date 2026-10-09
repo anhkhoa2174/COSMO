@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
@@ -321,8 +321,7 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 func newGmailServiceWithDB(t *testing.T, transport http.RoundTripper) (*GmailService, context.Context, *domain.GmailAccount) {
 	t.Helper()
 
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&domain.Agent{}, &domain.GmailAccount{}))
 
@@ -610,8 +609,7 @@ func TestGmailConfig_Validation(t *testing.T) {
 
 func newGmailServiceWithAgents(t *testing.T) (*GmailService, context.Context, *gmailRepo.GmailAccountRepository, *agentRepo.AgentRepository, uuid.UUID) {
 	t.Helper()
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&domain.Agent{}, &domain.GmailAccount{}))
 

@@ -39,29 +39,65 @@ interface SelectMenuProps extends React.PropsWithChildren {
   renderItem?: (item: ComboboxItem, idx: number) => React.ReactNode;
 }
 
-function RadioOption({ item, renderItem, index }: { item: ComboboxItem, renderItem?: (item: ComboboxItem, idx: number) => React.ReactNode, index: number }) {
+function RadioOption({
+  item,
+  renderItem,
+  index,
+}: {
+  item: ComboboxItem;
+  renderItem?: (item: ComboboxItem, idx: number) => React.ReactNode;
+  index: number;
+}) {
   return (
-    <Radio.Card value={item.value} withBorder={false} className={classes.radioCard}>
+    <Radio.Card
+      value={item.value}
+      withBorder={false}
+      className={classes.radioCard}
+    >
       <Group wrap="nowrap" justify="space-between">
         <Group wrap="nowrap" gap="sm">
-          {renderItem ? renderItem(item, index) : <Text fw={500} lineClamp={1} title={item.label ?? item.value}>
-            {item.label ?? item.value}
-          </Text>}
+          {renderItem ? (
+            renderItem(item, index)
+          ) : (
+            <Text fw={500} lineClamp={1} title={item.label ?? item.value}>
+              {item.label ?? item.value}
+            </Text>
+          )}
         </Group>
-        <Radio.Indicator variant="outline" color="#0085FF" classNames={classes} />
+        <Radio.Indicator
+          variant="outline"
+          color="#0085FF"
+          classNames={classes}
+        />
       </Group>
     </Radio.Card>
   );
 }
 
-function CheckboxOption({ item, renderItem, index }: { item: ComboboxItem, renderItem?: (item: ComboboxItem, idx: number) => React.ReactNode, index: number }) {
+function CheckboxOption({
+  item,
+  renderItem,
+  index,
+}: {
+  item: ComboboxItem;
+  renderItem?: (item: ComboboxItem, idx: number) => React.ReactNode;
+  index: number;
+}) {
   return (
-    <Checkbox.Card value={item.value} withBorder={false} className={classes.radioCard}>
+    <Checkbox.Card
+      value={item.value}
+      withBorder={false}
+      className={classes.radioCard}
+    >
       <Group wrap="nowrap" justify="space-between">
         <Group wrap="nowrap" gap="sm">
-          {renderItem ? renderItem(item, index) : <Text fw={500} lineClamp={1} title={item.label ?? item.value}>
-            {item.label ?? item.value}
-          </Text>}
+          {renderItem ? (
+            renderItem(item, index)
+          ) : (
+            <Text fw={500} lineClamp={1} title={item.label ?? item.value}>
+              {item.label ?? item.value}
+            </Text>
+          )}
         </Group>
         <Checkbox.Indicator color="#0085FF" radius="sm" />
       </Group>
@@ -111,12 +147,18 @@ function SelectMenu({
 
   const options = data
     .filter((item) =>
-      (item.label ?? item.value).toLowerCase().includes(search.toLowerCase().trim())
+      (item.label ?? item.value)
+        .toLowerCase()
+        .includes(search.toLowerCase().trim())
     )
     .map((item, index) => (
       <Combobox.Option value={item.value} key={item.value}>
-        {mode === 'checkbox' && <CheckboxOption item={item} renderItem={renderItem} index={index} />}
-        {mode === 'radio' && <RadioOption item={item} renderItem={renderItem} index={index} />}
+        {mode === 'checkbox' && (
+          <CheckboxOption item={item} renderItem={renderItem} index={index} />
+        )}
+        {mode === 'radio' && (
+          <RadioOption item={item} renderItem={renderItem} index={index} />
+        )}
       </Combobox.Option>
     ));
 
@@ -184,7 +226,11 @@ function SelectMenu({
                 }}
               >
                 <Stack gap="xs">
-                  {options.length === 0 ? <Combobox.Empty>Nothing found</Combobox.Empty> : options}
+                  {options.length === 0 ? (
+                    <Combobox.Empty>Nothing found</Combobox.Empty>
+                  ) : (
+                    options
+                  )}
                 </Stack>
               </Checkbox.Group>
             )}
@@ -197,7 +243,11 @@ function SelectMenu({
                 }}
               >
                 <Stack gap="xs">
-                  {options.length === 0 ? <Combobox.Empty>Nothing found</Combobox.Empty> : options}
+                  {options.length === 0 ? (
+                    <Combobox.Empty>Nothing found</Combobox.Empty>
+                  ) : (
+                    options
+                  )}
                 </Stack>
               </Radio.Group>
             )}
@@ -237,7 +287,7 @@ function SelectMenu({
           {isCustomSubmit && (
             <Button
               color="gray"
-              className='hover:bg-[#E6D6FF] transition-bg duration-300'
+              className="transition-bg duration-300 hover:bg-[#E6D6FF]"
               leftSection={<IconPlusCircle />}
               onClick={handleSubmit}
               variant="light"

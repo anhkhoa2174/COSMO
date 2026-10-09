@@ -191,6 +191,68 @@ export interface FeedbackStats {
   insights: string[];
 }
 
+// ============ Next-step engine ============
+
+export type NextAction =
+  | 'SEND_INTRO'
+  | 'SEND_FOLLOW_UP'
+  | 'ANSWER_REPLY'
+  | 'PROPOSE_MEETING'
+  | 'MEETING_FOLLOW_UP'
+  | 'CONTACT_STAKEHOLDER'
+  | 'SWITCH_CHANNEL'
+  | 'WAIT'
+  | 'NURTURE'
+  | 'FIX_DATA'
+  | 'SUPPRESS'
+  | 'DISQUALIFY'
+  | 'ESCALATE';
+
+export interface NextStepRuleHit {
+  rule: number;
+  name: string;
+  effect: string;
+  removed?: NextAction[];
+}
+
+export interface NextStepDecision {
+  id: string;
+  contact_id: string;
+  trigger: 'reply' | 'timer' | 'cadence' | 'manual';
+  situation: Record<string, any>;
+  rules_fired: NextStepRuleHit[];
+  eligible: NextAction[];
+  action: NextAction;
+  args: Record<string, any>;
+  reason: string;
+  selected_by: 'rule' | 'model' | 'fallback';
+  fallback_cause?: string;
+  approval: 'automatic' | 'approve' | 'task' | 'confirm' | 'decide';
+  status: 'applied' | 'pending_review' | 'approved' | 'rejected';
+  model: string;
+  prompt_version: string;
+  reviewed_at?: string;
+  created_at: string;
+}
+
+export interface NextStepView {
+  enabled: boolean;
+  current: {
+    action: NextAction;
+    args?: Record<string, any>;
+    reason?: string;
+    due_at?: string;
+    decision_id?: string;
+  } | null;
+  decisions: NextStepDecision[];
+  catalogue: {
+    action: NextAction;
+    description: string;
+    approval: string;
+    sends: boolean;
+  }[];
+}
+
 // ============ API Client ============
 
 const OutreachApi = {
@@ -259,6 +321,32 @@ const OutreachApi = {
       }
     );
     return data.json<ApiResponse<UpdateOutreachResponse>>();
+  },
+
+  /** The contact's next step and its recent decisions. */
+  getNextStep: async (contactId: string) => {
+    const data = await kyClient.get(
+      `v1/outreach/contacts/${contactId}/next-step`
+    );
+    return data.json<ApiResponse<NextStepView>>();
+  },
+
+  /** Run the next-step engine for the contact now. */
+  decideNextStep: async (contactId: string) => {
+    const data = await kyClient.post(
+      `v1/outreach/contacts/${contactId}/next-step/decide`,
+      { timeout: 90_000 }
+    );
+    return data.json<ApiResponse<NextStepDecision>>();
+  },
+
+  /** Approve or reject a decision that waits for a person. */
+  reviewNextStep: async (decisionId: string, approve: boolean) => {
+    const data = await kyClient.post(
+      `v1/outreach/next-step/decisions/${decisionId}/review`,
+      { json: { approve } }
+    );
+    return data.json<ApiResponse<NextStepDecision>>();
   },
 
   /**

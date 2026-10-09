@@ -49,6 +49,8 @@ export interface AutoReplyView {
 
 export interface OutreachSettings {
   auto_reply?: AutoReplyPolicy;
+  /** Turns on the next-step decision engine for the organisation. */
+  next_step_engine?: boolean;
   no_reply_hours?: number;
   follow_up1_min_days?: number;
   follow_up1_max_days?: number;

@@ -57,7 +57,8 @@ export const cookieService = {
       const encodedRefreshToken = await encodeToken(tokens.refreshToken);
 
       // Use default expiration if expires_in is 0 or invalid
-      const expiresIn = tokens.expiresIn > 0 ? tokens.expiresIn : DEFAULT_EXPIRES_IN;
+      const expiresIn =
+        tokens.expiresIn > 0 ? tokens.expiresIn : DEFAULT_EXPIRES_IN;
 
       // Set cookies with secure attributes
       Cookies.set(ACCESS_TOKEN_KEY, encodedAccessToken, {
@@ -74,15 +75,11 @@ export const cookieService = {
       });
 
       // Store token expiry time
-      Cookies.set(
-        TOKEN_EXPIRY_KEY,
-        String(Date.now() + expiresIn * 1000),
-        {
-          expires: new Date(Date.now() + expiresIn * 1000),
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
-        }
-      );
+      Cookies.set(TOKEN_EXPIRY_KEY, String(Date.now() + expiresIn * 1000), {
+        expires: new Date(Date.now() + expiresIn * 1000),
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+      });
     } catch (error) {
       console.error('Error setting tokens:', error);
       throw error;

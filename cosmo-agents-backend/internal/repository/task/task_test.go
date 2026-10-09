@@ -8,15 +8,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/rockship/cosmo-agents-go/internal/domain"
 	baseRepo "github.com/rockship/cosmo-agents-go/internal/repository/base"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupTestDB creates a test database
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+	db, err := pgtest.Open(t, &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true, // Help with SQLite compatibility
 	})
 	require.NoError(t, err)

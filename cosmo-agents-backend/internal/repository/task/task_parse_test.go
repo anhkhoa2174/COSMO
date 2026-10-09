@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
@@ -15,7 +15,7 @@ import (
 
 // TestFindByID_ParsesTimestampsAndUUIDs ensures the custom FindByID copes with RFC3339 timestamps and invalid UUIDs.
 func TestFindByID_ParsesTimestampsAndUUIDs(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&domain.Task{}))
 
@@ -44,9 +44,8 @@ func TestFindByID_ParsesTimestampsAndUUIDs(t *testing.T) {
 	require.NotNil(t, found.ScheduleAt)
 	require.Equal(t, created.ID, found.ID)
 
-	// Insert a bad UUID row (with distinct FK trio to avoid unique conflict) to ensure no panic
-	require.NoError(t, db.Exec(`INSERT INTO tasks (id, created_at, updated_at, contact_id, campaign_id, template_id, status) VALUES (?,?,?,?,?,?,?)`,
-		"bad-uuid", rfcTime, rfcTime, uuid.New().String(), uuid.New().String(), uuid.New().String(), domain.TaskStatusPending).Error)
-	_, err = repo.FindByID(ctx, created.ID) // Should still work for valid rows
-	require.NoError(t, err)
+	// The SQLite version also inserted a row whose id was the string "bad-uuid"
+	// to prove FindByID survived it. On PostgreSQL that row cannot exist: the id
+	// column is uuid and the insert itself is rejected, so the case is removed
+	// rather than simulated.
 }

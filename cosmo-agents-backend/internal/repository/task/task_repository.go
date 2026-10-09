@@ -90,7 +90,13 @@ func (r *TaskRepository) CreateTasks(ctx context.Context, attrs []domain.TaskAtt
 		}
 
 		assignments := map[string]interface{}{
-			"status":     gorm.Expr("EXCLUDED.status"),
+			// A task already sent, or cancelled because the contact replied,
+			// keeps its status. Overwriting it put every sent email back to
+			// pending when a paused campaign was activated again, and the
+			// whole sequence went out a second time. Running tasks are still
+			// reset: one stuck after a failed AI call is retried this way.
+			"status": gorm.Expr("CASE WHEN tasks.status IN (?, ?) THEN tasks.status ELSE EXCLUDED.status END",
+				domain.TaskStatusDone, domain.TaskStatusCancelled),
 			"updated_at": time.Now(),
 		}
 
@@ -436,4 +442,95 @@ func (r *TaskRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Ta
 	}
 
 	return &task, nil
+}
+
+// ContactsRepliedInCampaign returns the contacts in a campaign who have an
+// incoming interaction logged after one of the campaign's emails was sent to
+// them. Contacts the campaign has not yet emailed never appear.
+//
+// "Sent" is a done task's done_at, stamped when Gmail accepted the message.
+// triggered_at is stamped earlier, when generation is queued, and survives a
+// failed send, so keying on it let any later email from the contact cancel a
+// first email that never went out.
+func (r *TaskRepository) ContactsRepliedInCampaign(ctx context.Context, campaignID uuid.UUID) (map[uuid.UUID]bool, error) {
+	var ids []uuid.UUID
+	err := core.DB(ctx, r.db).WithContext(ctx).Raw(`
+		SELECT DISTINCT t.contact_id
+		FROM tasks t
+		JOIN interaction_logs il
+		  ON il.contact_id = t.contact_id
+		 AND il.direction = 'incoming'
+		 AND il.timestamp > t.done_at
+		WHERE t.campaign_id = ? AND t.status = ? AND t.done_at IS NOT NULL`, campaignID, domain.TaskStatusDone).
+		Scan(&ids).Error
+	if err != nil {
+		return nil, fmt.Errorf("find contacts who replied: %w", err)
+	}
+	out := make(map[uuid.UUID]bool, len(ids))
+	for _, id := range ids {
+		out[id] = true
+	}
+	return out, nil
+}
+
+// visibleCampaigns selects the campaigns a user may see: their own, and those
+// of an organisation they are a live member of. A task belongs to its
+// campaign, so this is what scopes tasks; tasks have no owner of their own.
+const visibleCampaigns = `SELECT id FROM campaigns
+	WHERE is_deleted = false AND (user_id = ? OR organization_id IN (
+		SELECT organization_id FROM roles WHERE user_id = ? AND is_deleted = false))`
+
+// ownCampaigns selects only the campaigns the user created.
+const ownCampaigns = `SELECT id FROM campaigns WHERE is_deleted = false AND user_id = ?`
+
+// TaskScope narrows FindAllVisibleTo.
+type TaskScope struct {
+	// OwnOnly keeps tasks of campaigns the user created ("My work").
+	OwnOnly bool
+	// OverdueOnly keeps tasks whose scheduled time has passed.
+	OverdueOnly bool
+}
+
+// FindAllVisibleTo is FindAll limited to tasks of campaigns the user may see,
+// or, with OwnOnly, of campaigns they created. FindAll alone returned every
+// tenant's tasks to any caller.
+func (r *TaskRepository) FindAllVisibleTo(ctx context.Context, userID uuid.UUID, scope TaskScope, filter baseRepo.Filter, pagination *baseRepo.PaginationParams) (*baseRepo.PaginatedResult[domain.Task], error) {
+	if pagination == nil {
+		pagination = baseRepo.DefaultPagination()
+	}
+	pagination.Validate()
+
+	query := core.DB(ctx, r.db).WithContext(ctx)
+	if scope.OwnOnly {
+		query = query.Where("campaign_id IN ("+ownCampaigns+")", userID)
+	} else {
+		query = query.Where("campaign_id IN ("+visibleCampaigns+")", userID, userID)
+	}
+	if scope.OverdueOnly {
+		query = query.Where("schedule_at IS NOT NULL AND schedule_at < NOW()")
+	}
+	query = filterPkg.NewFilterBuilder(query).Apply(filter)
+
+	var total int64
+	if err := query.Model(&domain.Task{}).Count(&total).Error; err != nil {
+		return nil, err
+	}
+	var tasks []domain.Task
+	if err := query.Offset(pagination.Offset).Limit(pagination.Limit).
+		Order("created_at DESC").Find(&tasks).Error; err != nil {
+		return nil, err
+	}
+	return &baseRepo.PaginatedResult[domain.Task]{
+		List: tasks, Total: total, Offset: pagination.Offset, Limit: pagination.Limit,
+	}, nil
+}
+
+// CampaignVisibleTo reports whether the user may see the campaign, and so its
+// tasks.
+func (r *TaskRepository) CampaignVisibleTo(ctx context.Context, campaignID, userID uuid.UUID) (bool, error) {
+	var n int64
+	err := core.DB(ctx, r.db).WithContext(ctx).
+		Raw("SELECT COUNT(*) FROM ("+visibleCampaigns+") v WHERE v.id = ?", userID, userID, campaignID).
+		Scan(&n).Error
+	return n > 0, err
 }

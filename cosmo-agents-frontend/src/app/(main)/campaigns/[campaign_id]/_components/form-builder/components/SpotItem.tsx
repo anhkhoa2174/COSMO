@@ -12,13 +12,13 @@ interface SpotItemProps {
   onDropBottom?: () => void;
 }
 
-export default function SpotItem({ 
-  id, 
-  children, 
-  onDropLeft, 
-  onDropRight, 
-  onDropTop, 
-  onDropBottom 
+export default function SpotItem({
+  id,
+  children,
+  onDropLeft,
+  onDropRight,
+  onDropTop,
+  onDropBottom,
 }: SpotItemProps) {
   const [isHoveringLeft, setIsHoveringLeft] = useState(false);
   const [isHoveringRight, setIsHoveringRight] = useState(false);
@@ -71,7 +71,7 @@ export default function SpotItem({
       {onDropTop && (
         <div
           ref={setTopRef}
-          className={`absolute left-0 top-0 w-full transition-all pointer-events-auto ${isOverTop ? 'bg-primary/40' : 'bg-transparent'}`}
+          className={`pointer-events-auto absolute left-0 top-0 w-full transition-all ${isOverTop ? 'bg-primary/40' : 'bg-transparent'}`}
           style={{
             zIndex: 20,
             height: '16px',
@@ -83,7 +83,7 @@ export default function SpotItem({
           onClick={onDropTop}
         >
           {isOverTop && (
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-primary text-white text-xs px-1 rounded whitespace-nowrap">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transform whitespace-nowrap rounded bg-primary px-1 text-xs text-white">
               Insert Above
             </div>
           )}
@@ -95,7 +95,7 @@ export default function SpotItem({
         {/* Left drop zone */}
         <div
           ref={setLeftRef}
-          className={`absolute left-0 top-0 h-full rounded-l-md transition-all pointer-events-auto ${isOverLeft ? 'bg-primary/40' : 'bg-transparent'}`}
+          className={`pointer-events-auto absolute left-0 top-0 h-full rounded-l-md transition-all ${isOverLeft ? 'bg-primary/40' : 'bg-transparent'}`}
           style={{
             zIndex: 20,
             width: '64px',
@@ -107,7 +107,7 @@ export default function SpotItem({
           onClick={onDropLeft}
         >
           {isOverLeft && (
-            <div className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-1/2 bg-primary text-white text-xs px-1 rounded whitespace-nowrap">
+            <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 transform whitespace-nowrap rounded bg-primary px-1 text-xs text-white">
               Insert Left
             </div>
           )}
@@ -119,7 +119,7 @@ export default function SpotItem({
         {/* Right drop zone */}
         <div
           ref={setRightRef}
-          className={`absolute right-0 top-0 h-full rounded-r-md transition-all pointer-events-auto ${isOverRight ? 'bg-primary/40' : 'bg-transparent'}`}
+          className={`pointer-events-auto absolute right-0 top-0 h-full rounded-r-md transition-all ${isOverRight ? 'bg-primary/40' : 'bg-transparent'}`}
           style={{
             zIndex: 20,
             width: '64px',
@@ -131,7 +131,7 @@ export default function SpotItem({
           onClick={onDropRight}
         >
           {isOverRight && (
-            <div className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-1/2 bg-primary text-white text-xs px-1 rounded whitespace-nowrap">
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 transform whitespace-nowrap rounded bg-primary px-1 text-xs text-white">
               Insert Right
             </div>
           )}
@@ -142,7 +142,7 @@ export default function SpotItem({
       {onDropBottom && (
         <div
           ref={setBottomRef}
-          className={`absolute left-0 bottom-0 w-full transition-all pointer-events-auto ${isOverBottom ? 'bg-primary/40' : 'bg-transparent'}`}
+          className={`pointer-events-auto absolute bottom-0 left-0 w-full transition-all ${isOverBottom ? 'bg-primary/40' : 'bg-transparent'}`}
           style={{
             zIndex: 20,
             height: '16px',
@@ -154,7 +154,7 @@ export default function SpotItem({
           onClick={onDropBottom}
         >
           {isOverBottom && (
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-primary text-white text-xs px-1 rounded whitespace-nowrap">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transform whitespace-nowrap rounded bg-primary px-1 text-xs text-white">
               Insert Below
             </div>
           )}

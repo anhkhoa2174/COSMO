@@ -14,7 +14,7 @@ import {
   Lock,
   Mail,
   Minus,
-  Type
+  Type,
 } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
 import { FormElementType } from './types';
@@ -26,24 +26,27 @@ interface ElementButtonProps {
 }
 
 const DraggableElementButton = ({ type, label, icon }: ElementButtonProps) => {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `toolbox-${type}`,
-    data: {
-      type: 'toolbox-item',
-      elementType: type,
-      isToolboxItem: true
-    },
-  });
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: `toolbox-${type}`,
+      data: {
+        type: 'toolbox-item',
+        elementType: type,
+        isToolboxItem: true,
+      },
+    });
 
-  const style = transform ? {
-    transform: CSS.Transform.toString(transform),
-    zIndex: isDragging ? 1000 : 1,
-    opacity: isDragging ? 0 : 1,
-    boxShadow: isDragging ? '0 5px 15px rgba(0, 0, 0, 0.15)' : 'none',
-  } : {
-    opacity: isDragging ? 0 : 1,
-    zIndex: isDragging ? 1000 : 1,
-  };
+  const style = transform
+    ? {
+        transform: CSS.Transform.toString(transform),
+        zIndex: isDragging ? 1000 : 1,
+        opacity: isDragging ? 0 : 1,
+        boxShadow: isDragging ? '0 5px 15px rgba(0, 0, 0, 0.15)' : 'none',
+      }
+    : {
+        opacity: isDragging ? 0 : 1,
+        zIndex: isDragging ? 1000 : 1,
+      };
 
   return (
     <div
@@ -53,7 +56,7 @@ const DraggableElementButton = ({ type, label, icon }: ElementButtonProps) => {
       className="cursor-grab"
       style={style}
     >
-      <div className="flex items-center p-3 mb-2 border rounded-md bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+      <div className="mb-2 flex items-center rounded-md border bg-background p-3 transition-colors hover:bg-accent hover:text-accent-foreground">
         <div className="mr-2 h-5 w-5">{icon}</div>
         <span>{label}</span>
       </div>
@@ -61,7 +64,11 @@ const DraggableElementButton = ({ type, label, icon }: ElementButtonProps) => {
   );
 };
 
-export default function FormElementsToolbox({ setHeightToolbox }: { setHeightToolbox: (height: string) => void }) {
+export default function FormElementsToolbox({
+  setHeightToolbox,
+}: {
+  setHeightToolbox: (height: string) => void;
+}) {
   const heightComponent = useRef<HTMLDivElement>(null);
   const elements: ElementButtonProps[] = [
     { type: 'text', label: 'Text Input', icon: <Type size={18} /> },
@@ -87,10 +94,10 @@ export default function FormElementsToolbox({ setHeightToolbox }: { setHeightToo
 
   return (
     <Card ref={heightComponent}>
-      <CardHeader className='p-0 px-4 pt-4 pb-3 border-b bg-[#F1F5F9] rounded-t-lg'>
+      <CardHeader className="rounded-t-lg border-b bg-[#F1F5F9] p-0 px-4 pb-3 pt-4">
         <CardTitle>Form Elements</CardTitle>
       </CardHeader>
-      <CardContent className='p-2 '>
+      <CardContent className="p-2">
         <div className="space-y-1">
           {elements.map((element) => (
             <DraggableElementButton

@@ -7,15 +7,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/rockship/cosmo-agents-go/internal/domain"
 	"github.com/rockship/cosmo-agents-go/internal/domain/base"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupTestDB creates a test database
+// JSONB columns are compared with JSONEq: PostgreSQL normalises jsonb on write
+// (whitespace, key order), so a byte-for-byte comparison tests formatting, not data.
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 
 	// Auto-migrate the Operation schema
@@ -46,7 +48,7 @@ func TestOperationRepository_Create(t *testing.T) {
 	assert.NotEqual(t, uuid.Nil, result.ID)
 	assert.Equal(t, "Test Operation", result.Name)
 	assert.Equal(t, domain.OperationStatusInProgress, result.Status)
-	assert.Equal(t, base.JSONB([]byte(`{"param1": "value1"}`)), result.Input)
+	assert.JSONEq(t, `{"param1": "value1"}`, string(result.Input))
 }
 
 // TestOperationRepository_FindByID tests finding an operation by ID
@@ -208,7 +210,7 @@ func TestOperationRepository_UpdateOutput(t *testing.T) {
 	// Verify the update
 	updated, err := repo.FindByID(ctx, created.ID)
 	require.NoError(t, err)
-	assert.Equal(t, newOutput, updated.Output)
+	assert.JSONEq(t, string(newOutput), string(updated.Output))
 }
 
 // TestOperationRepository_UpdateFailedStatusWithOutput tests updating operation to failed status with output
@@ -235,7 +237,7 @@ func TestOperationRepository_UpdateFailedStatusWithOutput(t *testing.T) {
 	updated, err := repo.FindByID(ctx, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.OperationStatusFailed, updated.Status)
-	assert.Equal(t, errorOutput, updated.Output)
+	assert.JSONEq(t, string(errorOutput), string(updated.Output))
 }
 
 // TestOperationRepository_Delete tests deleting an operation (soft delete)
@@ -316,5 +318,5 @@ func TestOperationRepository_ComplexOperation(t *testing.T) {
 	final, err := repo.FindByID(ctx, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.OperationStatusSuccess, final.Status)
-	assert.Equal(t, successOutput, final.Output)
+	assert.JSONEq(t, string(successOutput), string(final.Output))
 }

@@ -4,11 +4,10 @@ import { MainButton } from '@/components/buttons/main-button';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from './card';
 
-interface TagsInputProps
-  extends Omit<
-    React.ComponentProps<'input'>,
-    'value' | 'defaultValue' | 'onChange'
-  > {
+interface TagsInputProps extends Omit<
+  React.ComponentProps<'input'>,
+  'value' | 'defaultValue' | 'onChange'
+> {
   data?: string[];
   value?: string[];
   onValueChange?: (value: string[]) => void;

@@ -14,7 +14,7 @@ import { PropsWithChildren, useState } from 'react';
 
 export function CreateAgentForm({
   onSuccess,
-  onGmailAuth
+  onGmailAuth,
 }: {
   onSuccess: () => void;
   onGmailAuth: () => void;
@@ -34,7 +34,7 @@ export function CreateAgentForm({
 
 export function CreateAgentDialog({
   children,
-  onGmailAuth
+  onGmailAuth,
 }: PropsWithChildren<{ onGmailAuth: () => void }>) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 

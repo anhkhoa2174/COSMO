@@ -38,6 +38,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '../ui/sheet';
+import { resolveContactEmail, resolveContactPhone } from '@/lib/contact-info';
 
 interface Field {
   normalized_name: string;
@@ -110,7 +111,10 @@ export function CreateContactListForm({
     queryFn: () =>
       ContactApi.list(
         { filter },
-        { offset: ((currentPage[pageKey] || 1) - 1) * pageSize, limit: pageSize }
+        {
+          offset: ((currentPage[pageKey] || 1) - 1) * pageSize,
+          limit: pageSize,
+        }
       ),
   });
 
@@ -144,19 +148,33 @@ export function CreateContactListForm({
       accessorKey: 'name',
       sortable: true,
       header: 'Name',
-      cell: ({ row }) => (
-        <span className="font-semibold">{row.name}</span>
-      ),
+      cell: ({ row }) => <span className="font-semibold">{row.name}</span>,
     },
     {
       accessorKey: 'email',
       sortable: true,
       header: 'Email',
+      cell: ({ row }) => {
+        const email = resolveContactEmail(row);
+        return email ? (
+          <span className="text-sm">{email}</span>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        );
+      },
     },
     {
       accessorKey: 'phone',
       sortable: true,
       header: 'Phone',
+      cell: ({ row }) => {
+        const phone = resolveContactPhone(row);
+        return phone ? (
+          <span className="text-sm">{phone}</span>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        );
+      },
     },
     {
       accessorKey: 'address',
@@ -445,8 +463,7 @@ export function CreateContactListForm({
 }
 
 interface CreateContactListDialogProps
-  extends CreateContactListFormProps,
-    DialogProps {}
+  extends CreateContactListFormProps, DialogProps {}
 
 export function CreateContactListDialog({
   data,

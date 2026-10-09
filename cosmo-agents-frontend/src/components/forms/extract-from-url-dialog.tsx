@@ -153,11 +153,15 @@ export function ExtractFromURLDialog({
                     handleExtract();
                   }
                 }}
-                disabled={extractMutation.isPending || extractMutation.isSuccess}
+                disabled={
+                  extractMutation.isPending || extractMutation.isSuccess
+                }
               />
               <Button
                 onClick={handleExtract}
-                disabled={extractMutation.isPending || extractMutation.isSuccess}
+                disabled={
+                  extractMutation.isPending || extractMutation.isSuccess
+                }
               >
                 {extractMutation.isPending ? (
                   <>
@@ -339,15 +343,16 @@ export function ExtractFromURLDialog({
           {!extractMutation.isPending &&
             !extractMutation.isSuccess &&
             !extractImageMutation.isSuccess && (
-            <div className="rounded-lg border bg-muted p-3">
-              <p className="text-sm text-muted-foreground">
-                <strong>How it works:</strong> We fetch the profile page, extract
-                text content, and use AI to identify structured information like
-                job title, company, skills, education, experience, and more. All
-                extracted data is added to custom fields.
-              </p>
-            </div>
-          )}
+              <div className="rounded-lg border bg-muted p-3">
+                <p className="text-sm text-muted-foreground">
+                  <strong>How it works:</strong> We fetch the profile page,
+                  extract text content, and use AI to identify structured
+                  information like job title, company, skills, education,
+                  experience, and more. All extracted data is added to custom
+                  fields.
+                </p>
+              </div>
+            )}
         </div>
       </DialogContent>
     </Dialog>

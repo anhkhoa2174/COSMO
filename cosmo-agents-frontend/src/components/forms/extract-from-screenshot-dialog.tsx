@@ -43,12 +43,16 @@ export function ExtractFromScreenshotDialog({
       }
       if (!contactId) {
         const responses = await Promise.all(
-          imageFiles.map((file) => UrlExtractionApi.extractFromImagePreview(file))
+          imageFiles.map((file) =>
+            UrlExtractionApi.extractFromImagePreview(file)
+          )
         );
         return { mode: 'create', responses };
       }
       const responses = await Promise.all(
-        imageFiles.map((file) => UrlExtractionApi.extractFromImage(contactId, file))
+        imageFiles.map((file) =>
+          UrlExtractionApi.extractFromImage(contactId, file)
+        )
       );
       return { mode: 'edit', responses };
     },
@@ -59,7 +63,11 @@ export function ExtractFromScreenshotDialog({
           (acc, response) => {
             const data = (response.data as any).extracted_data || {};
             Object.entries(data).forEach(([key, value]) => {
-              if (acc[key] === undefined || acc[key] === null || acc[key] === '') {
+              if (
+                acc[key] === undefined ||
+                acc[key] === null ||
+                acc[key] === ''
+              ) {
                 acc[key] = value;
               }
             });
@@ -167,7 +175,9 @@ export function ExtractFromScreenshotDialog({
           <div className="flex gap-2">
             <Button
               onClick={() => extractImageMutation.mutate()}
-              disabled={imageFiles.length === 0 || extractImageMutation.isPending}
+              disabled={
+                imageFiles.length === 0 || extractImageMutation.isPending
+              }
               className="flex-1"
             >
               {extractImageMutation.isPending ? (
@@ -259,17 +269,18 @@ export function ExtractFromScreenshotDialog({
           )}
 
           {/* Info */}
-          {!extractImageMutation.isPending && !extractImageMutation.isSuccess && (
-            <div className="rounded-lg border bg-muted p-3">
-              <p className="text-sm text-muted-foreground">
-                <strong>How it works:</strong> Upload or paste a screenshot of
-                any profile page (LinkedIn, Twitter, resume, etc.). Our AI
-                vision model will analyze the image and extract structured
-                information like name, job title, company, skills, education,
-                and more.
-              </p>
-            </div>
-          )}
+          {!extractImageMutation.isPending &&
+            !extractImageMutation.isSuccess && (
+              <div className="rounded-lg border bg-muted p-3">
+                <p className="text-sm text-muted-foreground">
+                  <strong>How it works:</strong> Upload or paste a screenshot of
+                  any profile page (LinkedIn, Twitter, resume, etc.). Our AI
+                  vision model will analyze the image and extract structured
+                  information like name, job title, company, skills, education,
+                  and more.
+                </p>
+              </div>
+            )}
         </div>
       </DialogContent>
     </Dialog>

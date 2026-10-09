@@ -1,5 +1,9 @@
 import * as React from 'react';
-import { type FieldValues, type Path, type UseFormReturn } from 'react-hook-form';
+import {
+  type FieldValues,
+  type Path,
+  type UseFormReturn,
+} from 'react-hook-form';
 import {
   FormControl,
   FormDescription,
@@ -42,7 +46,8 @@ export function FormTextareaField<
         <FormItem>
           {label && (
             <FormLabel>
-              {label} {withAsterisk && <span className="text-destructive">*</span>}
+              {label}{' '}
+              {withAsterisk && <span className="text-destructive">*</span>}
             </FormLabel>
           )}
           <FormControl>

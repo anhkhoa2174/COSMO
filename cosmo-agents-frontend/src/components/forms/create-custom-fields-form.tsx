@@ -16,10 +16,22 @@ import {
 } from '@/components/ui/sheet';
 import { cn, snakeCase } from '@/lib/utils';
 import { CustomField } from '@/models/custom-field';
-import { createCustomField, updateCustomField } from '@/network/client/custom-field';
+import {
+  createCustomField,
+  updateCustomField,
+} from '@/network/client/custom-field';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Calendar, Link, List, Mail, Pencil, Plus, Sigma, Type } from 'lucide-react';
+import {
+  Calendar,
+  Link,
+  List,
+  Mail,
+  Pencil,
+  Plus,
+  Sigma,
+  Type,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -44,19 +56,37 @@ interface CreateCustomFieldFormProps extends React.HTMLAttributes<HTMLFormElemen
   isFormBuilder?: boolean;
 }
 
-export function CreateCustomFieldForm({ onSuccess, isEdit, data, isFormBuilder = false, ...props }: CreateCustomFieldFormProps) {
+export function CreateCustomFieldForm({
+  onSuccess,
+  isEdit,
+  data,
+  isFormBuilder = false,
+  ...props
+}: CreateCustomFieldFormProps) {
   const queryClient = useQueryClient();
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: data || {
-      name: '',
-      // data_type: '',
-      entity_type: isFormBuilder ? 'contact' : '',
-      is_required: false,
-      options: [],
-      sample_data: '',
-      fallback_value: '',
-    },
+    // The API returns null for unset sample_data / fallback_value / options,
+    // which the string/array schema rejects, so an edit could never be saved.
+    defaultValues: data
+      ? {
+          name: data.name,
+          data_type: data.data_type,
+          entity_type: data.entity_type,
+          is_required: !!data.is_required,
+          options: data.options ?? [],
+          sample_data: data.sample_data ?? '',
+          fallback_value: data.fallback_value ?? '',
+        }
+      : {
+          name: '',
+          // data_type: '',
+          entity_type: isFormBuilder ? 'contact' : '',
+          is_required: false,
+          options: [],
+          sample_data: '',
+          fallback_value: '',
+        },
   });
 
   const mutation = useMutation({
@@ -74,13 +104,20 @@ export function CreateCustomFieldForm({ onSuccess, isEdit, data, isFormBuilder =
     },
     onError: (err: any) => {
       toast.error(
-        err.error?.message || err.message || `${isEdit ? 'Edit' : 'Add'} custom field failed`
+        err.error?.message ||
+          err.message ||
+          `${isEdit ? 'Edit' : 'Add'} custom field failed`
       );
     },
   });
 
   const listType = [
-    { icon: <Link />, value: 'url', label: 'URL', textOptional: '(with validation)' },
+    {
+      icon: <Link />,
+      value: 'url',
+      label: 'URL',
+      textOptional: '(with validation)',
+    },
     {
       icon: <List />,
       value: 'select',
@@ -94,8 +131,18 @@ export function CreateCustomFieldForm({ onSuccess, isEdit, data, isFormBuilder =
       textOptional: '(single line, max 255 chars)',
     },
     // { icon: <AlignLeft />, value: 'textarea', label: 'Textarea', textOptional: '(multiple lines)' },
-    { icon: <Mail />, value: 'email', label: 'Email', textOptional: '(with validation)' },
-    { icon: <Calendar />, value: 'date', label: 'Date', textOptional: '(YYYY-MM-DD)' },
+    {
+      icon: <Mail />,
+      value: 'email',
+      label: 'Email',
+      textOptional: '(with validation)',
+    },
+    {
+      icon: <Calendar />,
+      value: 'date',
+      label: 'Date',
+      textOptional: '(YYYY-MM-DD)',
+    },
     {
       icon: <Sigma />,
       value: 'number',
@@ -110,18 +157,24 @@ export function CreateCustomFieldForm({ onSuccess, isEdit, data, isFormBuilder =
 
   return (
     <Form {...form}>
-      <form {...props} onSubmit={form.handleSubmit(onSubmit)} className={cn('space-y-6', props.className)}>
+      <form
+        {...props}
+        onSubmit={form.handleSubmit(onSubmit)}
+        className={cn('space-y-6', props.className)}
+      >
         <FormSelectField
           form={form}
           name="entity_type"
           label="Entity"
           placeholder="Select entity"
-          options={isFormBuilder ? [
-            { value: 'contact', label: 'Contact' },
-          ] : [
-            { value: 'contact', label: 'Contact' },
-            { value: 'company', label: 'Company' },
-          ]}
+          options={
+            isFormBuilder
+              ? [{ value: 'contact', label: 'Contact' }]
+              : [
+                  { value: 'contact', label: 'Contact' },
+                  { value: 'company', label: 'Company' },
+                ]
+          }
           withAsterisk
         />
         <FormTextField

@@ -15,7 +15,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-type SelectOption = { value: string; label: string; textOptional?: string; icon?: JSX.Element };
+type SelectOption = {
+  value: string;
+  label: string;
+  textOptional?: string;
+  icon?: JSX.Element;
+};
 
 interface FormSelectFieldProps {
   form: UseFormReturn<any>;
@@ -47,10 +52,15 @@ export function FormSelectField({
           <FormItem>
             {label && (
               <FormLabel>
-                {label} {withAsterisk && <span className="text-destructive">*</span>}
+                {label}{' '}
+                {withAsterisk && <span className="text-destructive">*</span>}
               </FormLabel>
             )}
-            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={disabled}>
+            <Select
+              onValueChange={field.onChange}
+              defaultValue={field.value}
+              disabled={disabled}
+            >
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder={placeholder} />
@@ -64,7 +74,9 @@ export function FormSelectField({
                       {option.textOptional ? (
                         <>
                           {option.label}{' '}
-                          <span className="text-muted-foreground">{option.textOptional}</span>
+                          <span className="text-muted-foreground">
+                            {option.textOptional}
+                          </span>
                         </>
                       ) : (
                         option.label

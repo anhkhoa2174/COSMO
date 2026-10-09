@@ -124,7 +124,7 @@ func (fo FilterOperator) String() string {
 }
 
 // DefaultPaginationLimit is the default number of items per page
-const DefaultPaginationLimit = 100
+const DefaultPaginationLimit = 1000
 
 // DefaultPagination returns default pagination params
 func DefaultPagination() *PaginationParams {

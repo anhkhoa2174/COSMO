@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
+	"github.com/rockship/cosmo-agents-go/internal/domain/base"
 	intentService "github.com/rockship/cosmo-agents-go/internal/service/intent"
 )
 
@@ -30,7 +31,7 @@ func TestProcessTask_Success(t *testing.T) {
 	factory := &stubHandlerFactory{handler: handler}
 	log := zerolog.New(nil)
 
-	worker := New(emailRepo, convRepo, campaignRepo, classifier, factory, &log)
+	worker := New(emailRepo, convRepo, campaignRepo, nil, classifier, factory, nil, &log)
 
 	payload := HandleReplyPayload{EmailID: emailID}
 	data, _ := json.Marshal(payload)
@@ -53,14 +54,19 @@ func TestProcessTask_SkipsHandledConversation(t *testing.T) {
 		email: &domain.Email{Base: domain.Base{ID: emailID}, ConversationID: &convID, CampaignID: &campaignID, Content: "hello"},
 	}
 	convRepo := &stubConversationRepo{
-		conversation: &domain.Conversation{Base: domain.Base{ID: convID}, Replied: true},
+		conversation: &domain.Conversation{
+			Base:    domain.Base{ID: convID},
+			Replied: true,
+			// Skip chỉ khi đã có draft AI thật sự (draft rỗng thì phải làm lại)
+			CMetadata: base.JSONB(`{"ai_reply":{"draft_content":"Hi, thanks for reaching out!"}}`),
+		},
 	}
 	campaignRepo := &stubCampaignRepo{campaign: &domain.Campaign{Base: domain.Base{ID: campaignID}, Status: domain.CampaignStatusActive}}
 	classifier := &stubClassifier{intent: domain.IntentInterested}
 	factory := &stubHandlerFactory{handler: &stubHandler{ok: true}}
 	log := zerolog.New(nil)
 
-	worker := New(emailRepo, convRepo, campaignRepo, classifier, factory, &log)
+	worker := New(emailRepo, convRepo, campaignRepo, nil, classifier, factory, nil, &log)
 
 	payload := HandleReplyPayload{EmailID: emailID}
 	data, _ := json.Marshal(payload)
@@ -70,7 +76,7 @@ func TestProcessTask_SkipsHandledConversation(t *testing.T) {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 	if convRepo.updated {
-		t.Fatalf("expected no updates when conversation already replied")
+		t.Fatalf("expected no updates when conversation already has an AI draft")
 	}
 }
 
@@ -90,7 +96,7 @@ func TestProcessTask_HandlerMissing(t *testing.T) {
 	factory := &stubHandlerFactory{handler: nil}
 	log := zerolog.New(nil)
 
-	worker := New(emailRepo, convRepo, campaignRepo, classifier, factory, &log)
+	worker := New(emailRepo, convRepo, campaignRepo, nil, classifier, factory, nil, &log)
 
 	payload := HandleReplyPayload{EmailID: emailID}
 	data, _ := json.Marshal(payload)
@@ -118,7 +124,7 @@ func TestProcessTask_HandlerUnsuccessful(t *testing.T) {
 	factory := &stubHandlerFactory{handler: handler}
 	log := zerolog.New(nil)
 
-	worker := New(emailRepo, convRepo, campaignRepo, classifier, factory, &log)
+	worker := New(emailRepo, convRepo, campaignRepo, nil, classifier, factory, nil, &log)
 
 	payload := HandleReplyPayload{EmailID: emailID}
 	data, _ := json.Marshal(payload)
@@ -173,6 +179,10 @@ type stubClassifier struct {
 
 func (s *stubClassifier) Classify(ctx context.Context, content string) (domain.IntentType, error) {
 	return s.intent, nil
+}
+
+func (s *stubClassifier) ClassifyDetailed(ctx context.Context, content string) (intentService.DetailedIntent, error) {
+	return intentService.DetailedIntent{Intent: s.intent, Confidence: 0.9, Reasoning: "stub"}, nil
 }
 
 type stubHandlerFactory struct {

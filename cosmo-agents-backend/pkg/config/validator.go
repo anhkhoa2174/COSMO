@@ -175,20 +175,30 @@ func (cv *ConfigValidator) validateRedis(cfg *Config, result *ValidationResult) 
 
 // validateAI validates AI service configuration
 func (cv *ConfigValidator) validateAI(cfg *Config, result *ValidationResult) {
-	// OpenAI API key validation
+	// Both checks below describe OpenAI specifically — key prefixes and model
+	// families. When the client is pointed at an API-compatible host they are
+	// wrong by construction: another provider's key does not begin with "sk-"
+	// and its models are not named "gpt-". Applying them anyway refuses to
+	// start on a configuration that would have worked.
+	compatibleHost := cfg.AI.OpenAIBaseURL != ""
+
 	if cfg.AI.OpenAIAPIKey == "" {
 		result.AddWarning("OPENAI_API_KEY is not set. AI features will be disabled.")
-	} else {
-		if !cv.isValidOpenAIAPIKey(cfg.AI.OpenAIAPIKey) {
-			result.AddError("OPENAI_API_KEY appears to be invalid. It should start with 'sk-'")
-		}
+	} else if !compatibleHost && !cv.isValidOpenAIAPIKey(cfg.AI.OpenAIAPIKey) {
+		result.AddError("OPENAI_API_KEY appears to be invalid. It should start with 'sk-'")
 	}
 
-	// Model validation
 	if cfg.AI.OpenAIModel == "" {
 		result.AddWarning("OPENAI_MODEL is not set. Using default model.")
-	} else if !cv.isValidOpenAIModel(cfg.AI.OpenAIModel) {
+	} else if !compatibleHost && !cv.isValidOpenAIModel(cfg.AI.OpenAIModel) {
 		result.AddError(fmt.Sprintf("OPENAI_MODEL '%s' is not a valid OpenAI model", cfg.AI.OpenAIModel))
+	}
+
+	if compatibleHost {
+		result.AddWarning(fmt.Sprintf(
+			"OPENAI_BASE_URL is set to %q — AI calls go to a stand-in provider, "+
+				"not OpenAI. Output will differ from the evaluated system.",
+			cfg.AI.OpenAIBaseURL))
 	}
 }
 
@@ -319,16 +329,12 @@ func (cv *ConfigValidator) isValidOpenAIOrg(org string) bool {
 }
 
 func (cv *ConfigValidator) isValidOpenAIModel(model string) bool {
-	validModels := []string{
-		"gpt-3.5-turbo", "gpt-3.5-turbo-16k",
-		"gpt-4", "gpt-4-32k", "gpt-4-turbo",
-		"gpt-4-turbo-preview", "gpt-4-1106-preview",
-		"gpt-4o", "gpt-4o-mini", // GPT-4o models
-		"text-davinci-003", "text-curie-001", "text-ada-001",
-	}
-
-	for _, validModel := range validModels {
-		if model == validModel {
+	// A fixed list goes stale with every model release (it predated the
+	// gpt-4.1/gpt-5 families and rejected them at boot). Accept the known
+	// family prefixes instead; the API remains the real authority.
+	prefixes := []string{"gpt-3.5", "gpt-4", "gpt-5", "o1", "o3", "o4", "chatgpt-"}
+	for _, p := range prefixes {
+		if strings.HasPrefix(model, p) {
 			return true
 		}
 	}

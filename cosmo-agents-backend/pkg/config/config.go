@@ -85,6 +85,26 @@ type EmailConfig struct {
 type AIConfig struct {
 	OpenAIAPIKey string `mapstructure:"OPENAI_API_KEY"`
 	OpenAIModel  string `mapstructure:"OPENAI_MODEL"`
+
+	// OpenAIBaseURL points the OpenAI clients at a different, API-compatible
+	// host. Empty means the real OpenAI, which is the default and what
+	// production runs.
+	//
+	// It exists so the system can be pointed at Google's OpenAI-compatible
+	// endpoint when the OpenAI account has no credit, which otherwise takes
+	// every AI feature down at once — classification, reply drafting, daily
+	// actions, and embeddings all share the one key. That is a stop-gap for a
+	// demonstration, not a supported configuration: the models differ, so the
+	// output differs, and any measurement taken through it is a measurement of
+	// a different system.
+	OpenAIBaseURL string `mapstructure:"OPENAI_BASE_URL"`
+
+	// EmbeddingModel and EmbeddingDimensions have to move together with the
+	// base URL. The vector index is built at a fixed width, so an embedding
+	// provider that returns a different number of dimensions cannot be dropped
+	// in without rebuilding it.
+	EmbeddingModel      string `mapstructure:"EMBEDDING_MODEL"`
+	EmbeddingDimensions int    `mapstructure:"EMBEDDING_DIMENSIONS"`
 }
 
 type HubspotConfig struct {
@@ -137,6 +157,12 @@ func Load() (*Config, error) {
 	v.SetDefault("LOG_LEVEL", "info")
 	v.SetDefault("LOGGING_CONFIG_PATH", "log.server.yaml")
 	v.SetDefault("OPENAI_MODEL", "gpt-4")
+	// Declared so viper's AutomaticEnv can see them: an environment variable
+	// with no registered key is invisible to Unmarshal and to GetString, which
+	// is why an unset default reads as empty however the process was started.
+	v.SetDefault("OPENAI_BASE_URL", "")
+	v.SetDefault("EMBEDDING_MODEL", "")
+	v.SetDefault("EMBEDDING_DIMENSIONS", 0)
 
 	// Auth defaults
 	// Do not set JWT_SECRET default to avoid insecure deployments
@@ -214,8 +240,11 @@ func Load() (*Config, error) {
 			ResendAPIKey: v.GetString("RESEND_API_KEY"),
 		},
 		AI: AIConfig{
-			OpenAIAPIKey: v.GetString("OPENAI_API_KEY"),
-			OpenAIModel:  v.GetString("OPENAI_MODEL"),
+			OpenAIAPIKey:        v.GetString("OPENAI_API_KEY"),
+			OpenAIModel:         v.GetString("OPENAI_MODEL"),
+			OpenAIBaseURL:       v.GetString("OPENAI_BASE_URL"),
+			EmbeddingModel:      v.GetString("EMBEDDING_MODEL"),
+			EmbeddingDimensions: v.GetInt("EMBEDDING_DIMENSIONS"),
 		},
 		Hubspot: HubspotConfig{
 			ClientID:     v.GetString("HUBSPOT_CLIENT_ID"),
@@ -247,13 +276,19 @@ func Load() (*Config, error) {
 
 // MustLoad loads config with proper error handling
 func MustLoad() *Config {
+	// The logger is not configured yet at this point, so logger.Fatal writes
+	// nowhere: a rejected configuration used to exit 1 having printed nothing,
+	// which is the least helpful way for a program to refuse to start. The
+	// reason goes to stderr directly as well.
 	cfg, err := Load()
 	if err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to load application configuration: "+err.Error())
 		logger.Fatal("Failed to load application configuration: " + err.Error())
 		os.Exit(1)
 	}
 
 	if err := ValidateConfig(cfg); err != nil {
+		fmt.Fprintln(os.Stderr, "Configuration validation failed: "+err.Error())
 		logger.Fatal("Configuration validation failed: " + err.Error())
 		os.Exit(1)
 	}

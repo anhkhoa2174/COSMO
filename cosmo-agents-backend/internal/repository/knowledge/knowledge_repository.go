@@ -133,6 +133,11 @@ func (r *KnowledgeRepository) UpsertByEmbeddingGID(ctx context.Context, knowledg
 			"cmetadata":   knowledge.CMetadata,
 			"is_deleted":  false,
 		}
+		// A re-upload may pick a different document type; the chunks in Redis
+		// are re-tagged with it, so the row must follow.
+		if knowledge.Type != "" {
+			updateData["type"] = knowledge.Type
+		}
 
 		if knowledge.CozeDatasetID != nil {
 			updateData["coze_dataset_id"] = knowledge.CozeDatasetID
@@ -157,6 +162,11 @@ func (r *KnowledgeRepository) UpsertByEmbeddingGID(ctx context.Context, knowledg
 		"source_type": knowledge.SourceType,
 		"cmetadata":   knowledge.CMetadata,
 		"is_deleted":  false,
+	}
+	// A re-upload may pick a different document type; the chunks in Redis
+	// are re-tagged with it, so the row must follow.
+	if knowledge.Type != "" {
+		updateData["type"] = knowledge.Type
 	}
 
 	if knowledge.CozeDatasetID != nil {

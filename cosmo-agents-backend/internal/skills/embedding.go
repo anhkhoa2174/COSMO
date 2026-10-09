@@ -46,6 +46,14 @@ func (s *EmbeddingSkill) GenerateAndStore(ctx context.Context, contactID uuid.UU
 	return vector, nil
 }
 
+// DeleteContactVector removes a contact's vector from Redis.
+func (s *EmbeddingSkill) DeleteContactVector(ctx context.Context, contactID uuid.UUID) error {
+	if s == nil || s.vectorStore == nil {
+		return nil
+	}
+	return s.vectorStore.DeleteContactVector(ctx, contactID)
+}
+
 // GenerateInteractionEmbedding creates and stores an interaction embedding
 func (s *EmbeddingSkill) GenerateInteractionEmbedding(ctx context.Context, interactionID uuid.UUID, userID uuid.UUID, text string, metadata map[string]interface{}) ([]float32, error) {
 	if s == nil || s.client == nil {

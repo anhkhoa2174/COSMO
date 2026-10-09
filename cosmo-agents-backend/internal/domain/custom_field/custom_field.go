@@ -41,6 +41,22 @@ var allowedDataTypes = map[CustomFieldDataType]struct{}{
 	CustomFieldDataTypeURL:    {},
 }
 
+// IsValid reports whether t is one of the supported data types.
+func (t CustomFieldDataType) IsValid() bool {
+	_, ok := allowedDataTypes[t]
+	return ok
+}
+
+// IsValid reports whether e is one of the supported entity types.
+func (e CustomFieldEntity) IsValid() bool {
+	return e == CustomFieldEntityContact || e == CustomFieldEntityCompany
+}
+
+// NormalizeName returns the storage key derived from a field's display name.
+func NormalizeName(name string) string {
+	return normalizeCustomFieldName(name)
+}
+
 // CustomField mirrors machine/models/custom_field.py.
 type CustomField struct {
 	base.Base

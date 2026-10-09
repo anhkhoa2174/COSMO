@@ -12,6 +12,7 @@ import (
 	"github.com/rockship/cosmo-agents-go/internal/middleware"
 	roleRepo "github.com/rockship/cosmo-agents-go/internal/repository/role"
 	userRepo "github.com/rockship/cosmo-agents-go/internal/repository/user"
+	nextstepService "github.com/rockship/cosmo-agents-go/internal/service/nextstep"
 	outreachService "github.com/rockship/cosmo-agents-go/internal/service/outreach"
 )
 
@@ -20,6 +21,7 @@ type Handler struct {
 	outreachService *outreachService.OutreachService
 	authHelper      *middleware.AuthHelper
 	responseHelper  *handler.ResponseHelper
+	nextStep        *nextstepService.Engine
 }
 
 // NewHandler creates a new outreach handler

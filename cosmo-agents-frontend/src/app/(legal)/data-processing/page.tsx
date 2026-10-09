@@ -1,10 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import NextImage from 'next/image';
 
-import { Box, Group, Text, AppShell, NavLink, Title, List } from '@mantine/core';
+import {
+  Box,
+  Text,
+  AppShell,
+  NavLink,
+  Title,
+  List,
+  Table,
+} from '@mantine/core';
 
 export default function DataProcessing() {
   const [active, setActive] = useState<string>('');
@@ -12,34 +18,16 @@ export default function DataProcessing() {
     <Box>
       <Box>
         <AppShell
-          header={{ height: 64 }}
+          header={{ height: 96 }} // chừa chỗ cho navbar chung của site
           navbar={{
             width: 300,
             breakpoint: 'sm',
           }}
         >
-          <AppShell.Header>
-            <Group h="100%" p="md">
-              <Group w="100%" align="center" gap="xs">
-                <Link href="/">
-                  <NextImage src="/favicon.svg" alt="LogoImg" width={42} height={42} />
-                </Link>
-                <Text tt="uppercase" c="#3C1988">
-                  <Text span inherit fw={800}>
-                    Cosmo
-                  </Text>{' '}
-                  <Text span inherit fw={500}>
-                    Agents
-                  </Text>
-                </Text>
-              </Group>
-            </Group>
-          </AppShell.Header>
-
           <AppShell.Navbar p="md">
             <NavLink
               href="#data-processing-addendum"
-              label="Cosmo Agents DATA PROCESSING ADDENDUM"
+              label="Cosmo DATA PROCESSING ADDENDUM"
               active={active === '#data-processing-addendum'}
               fw={active === '#data-processing-addendum' ? 700 : 400}
               onClick={() => setActive('#data-processing-addendum')}
@@ -75,19 +63,43 @@ export default function DataProcessing() {
                 id="data-processing-addendum"
                 style={{ scrollMarginTop: '90px' }}
               >
-                Cosmo Agents DATA PROCESSING ADDENDUM
+                Cosmo DATA PROCESSING ADDENDUM
               </Title>
               <Text size="md" mb="md">
                 Controller to Processor
               </Text>
+              <Box
+                mb="lg"
+                p="md"
+                style={{
+                  border: '1px solid #FCD34D',
+                  background: '#FFFBEB',
+                  borderRadius: 12,
+                }}
+              >
+                <Text size="sm" c="#78350F">
+                  <strong>Prototype notice.</strong> Cosmo is a research
+                  prototype built as a university project. This Addendum is a
+                  draft prepared for the intended operating entity and is not a
+                  binding agreement: no commercial service is offered under it,
+                  and the operating entity, its registration details, address
+                  and choice of law will be stated here before any commercial
+                  release. It is published so that anyone testing Cosmo can see
+                  how the system handles personal data, and which measures are
+                  in place today versus scheduled.
+                </Text>
+              </Box>
               <Text size="md" mb="md">
-                This Cosmo Agents Data Processing Addendum (this “
+                This Cosmo Data Processing Addendum (this “
                 <Text span size="md" fw={600}>
                   Addendum
                 </Text>
-                ” ) is entered into by and between Cosmo Agents, Inc. (“
+                ” ) is entered into by and between the team operating Cosmo
+                (the operating entity is not yet incorporated; its name,
+                registration details and address will be stated here before any
+                commercial release) (“
                 <Text span size="md" fw={600}>
-                  Cosmo Agents
+                  Cosmo
                 </Text>
                 ”) and you (the “
                 <Text span size="md" fw={600}>
@@ -101,12 +113,17 @@ export default function DataProcessing() {
                 <Text span size="md" fw={600}>
                   Parties
                 </Text>
-                ”).This Addendum is effective as of the date you agree to it (the “
+                ”). This Addendum applies to every Client whose Service
+                Agreement, order form, or other written agreement with Cosmo
+                incorporates this Addendum by reference, and takes effect on the
+                date on which that agreement takes effect (the “
                 <Text span size="md" fw={600}>
                   Effective Date
                 </Text>
-                ”) by clicking the “I Accept” button in the applicable online form or webpage that
-                makes reference to this Addendum.
+                ”). No separate act of acceptance is required for this Addendum
+                to apply. A counterpart of this Addendum for signature by both
+                Parties is available on request by contacting Cosmo at
+                dpo@cosmoagents.ai.
               </Text>
 
               <Text size="lg" mb="md" fw={600} py="lg" ta="center">
@@ -116,28 +133,30 @@ export default function DataProcessing() {
                 <Text span size="md" fw={600}>
                   WHEREAS
                 </Text>
-                , the Parties entered into the Cosmo Agents Services Order Form, which incorporates
-                by reference the Cosmo Agents Terms of Use (collectively, the “
+                , the Parties entered into the Cosmo Services Order Form, which
+                incorporates by reference the Cosmo Terms of Use (collectively,
+                the “
                 <Text span size="md" fw={600}>
                   Service Agreement
                 </Text>
-                ”) and have retained the power to alter, amend, revoke, or terminate the Service
-                Agreement; and
+                ”) and have retained the power to alter, amend, revoke, or
+                terminate the Service Agreement; and
               </Text>
               <Text size="md" mb="md">
                 <Text span size="md" fw={600}>
                   WHEREAS
                 </Text>
-                , the Parties now wish to amend the Service Agreement to ensure that Client Personal
-                Data (as defined below) transferred between the Parties is Processed (as defined
-                below) in compliance with applicable data protection principles and requirements;
+                , the Parties now wish to amend the Service Agreement to ensure
+                that Client Personal Data (as defined below) transferred between
+                the Parties is Processed (as defined below) in compliance with
+                applicable data protection principles and requirements;
               </Text>
               <Text size="md" mb="md">
                 <Text span size="md" fw={600}>
                   NOW, THEREFORE
                 </Text>
-                , in consideration of the mutual agreements set forth in this Addendum, the Parties
-                agree as follows:
+                , in consideration of the mutual agreements set forth in this
+                Addendum, the Parties agree as follows:
               </Text>
               <List type="ordered">
                 {/* 1 */}
@@ -149,146 +168,160 @@ export default function DataProcessing() {
                     {' '}
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        The definitions used in this Addendum shall have the meanings set forth or
-                        referenced in this Addendum. Capitalized definitions, not otherwise defined
-                        herein, shall have the meaning given to them in the Service Agreement.
-                        Except as modified or supplemented below, the definitions of the Service
-                        Agreement, as well as all the other terms and conditions of the Service
-                        Agreement, shall remain in full force and effect.
+                        The definitions used in this Addendum shall have the
+                        meanings set forth or referenced in this Addendum.
+                        Capitalized definitions, not otherwise defined herein,
+                        shall have the meaning given to them in the Service
+                        Agreement. Except as modified or supplemented below, the
+                        definitions of the Service Agreement, as well as all the
+                        other terms and conditions of the Service Agreement,
+                        shall remain in full force and effect.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        For the purpose of interpreting this Addendum, the following terms shall
-                        have the meanings set out below:
+                        For the purpose of interpreting this Addendum, the
+                        following terms shall have the meanings set out below:
                       </Text>{' '}
+                      <List type="ordered" listStyleType="lower-roman">
+                        <List.Item>
+                          <Text size="md" mb="md" c="black">
+                            “
+                            <Text span size="md" fw={600}>
+                              Applicable Laws
+                            </Text>
+                            ” means all laws applicable to the Processing of
+                            Client Personal Data, including EU Data Protection
+                            Laws, other laws of the European Union or any Member
+                            State thereof, the UK GDPR and the UK Data
+                            Protection Act 2018, the Singapore Personal Data
+                            Protection Act 2012, and the laws of any other
+                            country to which the Processing of Client Personal
+                            Data is subject;
+                          </Text>
+                        </List.Item>
+                        <List.Item>
+                          <Text size="md" mb="md" c="black">
+                            “
+                            <Text span size="md" fw={600}>
+                              Client
+                            </Text>
+                            ” means the party that has entered into this
+                            Addendum with Cosmo, as indicated in the opening
+                            paragraph of this Addendum, including all affiliates
+                            of that entity that are also bound by the Service
+                            Agreement, if any;
+                          </Text>
+                        </List.Item>
+                        <List.Item>
+                          <Text size="md" mb="md" c="black">
+                            “
+                            <Text span size="md" fw={600}>
+                              Client Personal Data
+                            </Text>
+                            ” means any Personal Data Processed by Cosmo or a
+                            Subprocessor on behalf of the Client pursuant to or
+                            in connection with the Service Agreement;
+                          </Text>
+                        </List.Item>
+                        <List.Item>
+                          <Text size="md" mb="md" c="black">
+                            “
+                            <Text span size="md" fw={600}>
+                              Contracted Processor
+                            </Text>
+                            ” means Cosmo, a Subprocessor, or both collectively;
+                          </Text>
+                        </List.Item>
+                        <List.Item>
+                          <Text size="md" mb="md" c="black">
+                            “
+                            <Text span size="md" fw={600}>
+                              EU Data Protection Laws
+                            </Text>
+                            ” means the GDPR, the domestic legislation of each
+                            Member State implementing and supplementing the
+                            GDPR, as well as other laws of the European Union or
+                            any Member State thereof to which the Processing of
+                            Client Personal Data is subject, as amended,
+                            replaced, or superseded from time to time;
+                          </Text>
+                        </List.Item>
+                        <List.Item>
+                          <Text size="md" mb="md" c="black">
+                            “
+                            <Text span size="md" fw={600}>
+                              GDPR
+                            </Text>
+                            ” means Regulation (EU) 2016/679 of the European
+                            Parliament and of the Council of 27 April 2016 on
+                            the Protection of Natural Persons with Regard to the
+                            Processing of Personal Data and on the Free Movement
+                            of Such Data, and Repealing Directive 95/46/EC
+                            (General Data Protection Regulation);
+                          </Text>
+                        </List.Item>
+                        <List.Item>
+                          <Text size="md" mb="md" c="black">
+                            “
+                            <Text span size="md" fw={600}>
+                              Restricted Transfer
+                            </Text>
+                            ” means any transfer of Client Personal Data that
+                            would be prohibited by EU Data Protection Laws (or
+                            by the terms of data transfer agreements put in
+                            place to address the data transfer restrictions of
+                            EU Data Protection Laws) in the absence of the
+                            execution of the Standard Contractual Clauses or
+                            another lawful data transfer mechanism, as set out
+                            in Section 12 below;
+                          </Text>
+                        </List.Item>
+                        <List.Item>
+                          <Text size="md" mb="md" c="black">
+                            “
+                            <Text span size="md" fw={600}>
+                              Services
+                            </Text>
+                            ” means the services and other activities to be
+                            supplied to or carried out by or on behalf of Cosmo
+                            for the Client pursuant to the Service Agreement;
+                            and
+                          </Text>
+                        </List.Item>
+                        <List.Item>
+                          <Text size="md" mb="md" c="black">
+                            “
+                            <Text span size="md" fw={600}>
+                              Subprocessor
+                            </Text>
+                            ” means any natural or legal person (including any
+                            third party but excluding an employee of Cosmo or an
+                            employee of any of its sub-contractors) appointed by
+                            or on behalf of Cosmo to Process Client Personal
+                            Data on behalf of the Client in connection with the
+                            Service Agreement.
+                          </Text>
+                        </List.Item>
+                      </List>
+                    </List.Item>
+                    <List.Item>
+                      <Text size="md" mb="md" c="black">
+                        The terms
+                        <Text span size="md" fw={600}>
+                          “Controller”, “Data Subject”, “Member State”,
+                          “Personal Data”, “Personal Data Breach”, “Processing”,
+                          “Processor”, “Rights of the Data Subjects”,
+                          “Supervisory Authority”, and “Third Country”
+                        </Text>
+                        whether capitalized or not, shall have the same meaning
+                        as in the GDPR, and their cognate terms shall be
+                        construed accordingly.
+                      </Text>
                     </List.Item>
                   </List>
                 </List.Item>
                 {/* 2 */}
-                <List.Item c="blue">
-                  <Text size="md" mb="md" c="black">
-                    “
-                    <Text span size="md" fw={600}>
-                      Applicable Laws
-                    </Text>
-                    ” means all laws applicable to the Processing of Client Personal Data, including
-                    EU Data Protection Laws, other laws of the European Union or any Member State
-                    thereof, and the laws of any other country to which the Processing of Client
-                    Personal Data is subject;
-                  </Text>
-                </List.Item>
-                {/* 3 */}
-                <List.Item c="blue">
-                  <Text size="md" mb="md" c="black">
-                    “
-                    <Text span size="md" fw={600}>
-                      Client
-                    </Text>
-                    ” means the party that has entered into this Addendum with Cosmo Agents, as
-                    indicated in the opening paragraph of this Addendum, including all affiliates of
-                    that entity that are also bound by the Service Agreement, if any;
-                  </Text>
-                </List.Item>
-                {/* 4 */}
-                <List.Item c="blue">
-                  <Text size="md" mb="md" c="black">
-                    “
-                    <Text span size="md" fw={600}>
-                      Client Personal Data
-                    </Text>
-                    ” means any Personal Data Processed by Cosmo Agents or a Subprocessor on behalf
-                    of the Client pursuant to or in connection with the Service Agreement;
-                  </Text>
-                </List.Item>
-                {/* 5 */}
-                <List.Item c="blue">
-                  <Text size="md" mb="md" c="black">
-                    “
-                    <Text span size="md" fw={600}>
-                      Contracted Processor
-                    </Text>
-                    ” means Cosmo Agents, a Subprocessor, or both collectively;
-                  </Text>
-                </List.Item>
-                {/* 6 */}
-                <List.Item c="blue">
-                  <Text size="md" mb="md" c="black">
-                    “
-                    <Text span size="md" fw={600}>
-                      EU Data Protection Laws
-                    </Text>
-                    ” means the GDPR, the domestic legislation of each Member State implementing and
-                    supplementing the GDPR, as well as other laws of the European Union or any
-                    Member State thereof to which the Processing of Client Personal Data is subject,
-                    as amended, replaced, or superseded from time to time;
-                  </Text>
-                </List.Item>
-                {/* 7 */}
-                <List.Item c="blue">
-                  <Text size="md" mb="md" c="black">
-                    “
-                    <Text span size="md" fw={600}>
-                      GDPR
-                    </Text>
-                    ” means Regulation (EU) 2016/679 of the European Parliament and of the Council
-                    of 27 April 2016 on the Protection of Natural Persons with Regard to the
-                    Processing of Personal Data and on the Free Movement of Such Data, and Repealing
-                    Directive 95/46/EC (General Data Protection Regulation);
-                  </Text>
-                </List.Item>
-                {/* 8 */}
-                <List.Item c="blue">
-                  <Text size="md" mb="md" c="black">
-                    “
-                    <Text span size="md" fw={600}>
-                      Restricted Transfer
-                    </Text>
-                    ” means any transfer of Client Personal Data that would be prohibited by EU Data
-                    Protection Laws (or by the terms of data transfer agreements put in place to
-                    address the data transfer restrictions of EU Data Protection Laws) in the
-                    absence of the execution of the Standard Contractual Clauses or another lawful
-                    data transfer mechanism, as set out in Section 12 below;
-                  </Text>
-                </List.Item>
-                {/* 9 */}
-                <List.Item c="blue">
-                  <Text size="md" mb="md" c="black">
-                    “
-                    <Text span size="md" fw={600}>
-                      Services
-                    </Text>
-                    ” means the services and other activities to be supplied to or carried out by or
-                    on behalf of Cosmo Agents for the Client pursuant to the Service Agreement; and
-                  </Text>
-                </List.Item>
-                {/* 10 */}
-                <List.Item c="blue">
-                  <Text size="md" mb="md" c="black">
-                    “
-                    <Text span size="md" fw={600}>
-                      Subprocessor
-                    </Text>
-                    ” means any natural or legal person (including any third party but excluding an
-                    employee of Cosmo Agents or an employee of any of its sub-contractors) appointed
-                    by or on behalf of Cosmo Agents to Process Client Personal Data on behalf of the
-                    Client in connection with the Service Agreement.
-                  </Text>
-                </List.Item>
-                {/* 11 */}
-                <List.Item c="blue">
-                  <Text size="md" mb="md" c="black">
-                    The terms
-                    <Text span size="md" fw={600}>
-                      “Controller”, “Data Subject”, “Member State”, “Personal Data”, “Personal Data
-                      Breach”, “Processing”, “Processor”, “Rights of the Data Subjects”,
-                      “Supervisory Authority”, and “Third Country”
-                    </Text>
-                    whether capitalized or not, shall have the same meaning as in the GDPR, and
-                    their cognate terms shall be construed accordingly.
-                  </Text>
-                </List.Item>
-                {/* 12 */}
                 <List.Item c="blue">
                   <Text size="md" mb="md" c="black" fw={600}>
                     Applicability.
@@ -297,32 +330,52 @@ export default function DataProcessing() {
                     {' '}
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        This Addendum will not apply to the Processing of Client Personal Data,
-                        where such Processing is not regulated by EU Data Protection Laws. The
-                        Parties to this Addendum hereby agree that the terms and conditions set out
-                        herein shall be added as an addendum to the Service Agreement. Except where
-                        the context requires otherwise, references in this Addendum to the Service
-                        Agreement are to the Service Agreement as amended or supplemented by, and
-                        including, this Addendum.
+                        This Addendum applies to the Processing of Client
+                        Personal Data that is regulated by (i) EU Data
+                        Protection Laws, (ii) the UK GDPR and the UK Data
+                        Protection Act 2018, or (iii) the Singapore Personal
+                        Data Protection Act 2012 (the “PDPA”). Where the
+                        operating entity is established in Singapore,
+                        Processing carried out by Cosmo will accordingly also
+                        be subject to the PDPA. References in this Addendum to EU Data Protection
+                        Laws shall, where the relevant Processing is regulated
+                        by the UK GDPR or the PDPA, be read as references to
+                        those laws with the changes necessary to give them
+                        effect, and references to Articles of the GDPR shall be
+                        read as references to the corresponding provisions of
+                        the UK GDPR. Where the Processing of Client Personal
+                        Data is regulated by data protection laws other than
+                        those identified in this Section 2.1, the Parties shall
+                        negotiate in good faith and agree such additional terms
+                        as those laws require. The Parties to this Addendum
+                        hereby agree that the terms and conditions set out
+                        herein shall be added as an addendum to the Service
+                        Agreement. Except where the context requires otherwise,
+                        references in this Addendum to the Service Agreement are
+                        to the Service Agreement as amended or supplemented by,
+                        and including, this Addendum.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        The Terms of this Addendum shall take effect on the Effective Date and shall
-                        continue concurrently for the term of the Service Agreement.
+                        The Terms of this Addendum shall take effect on the
+                        Effective Date and shall continue concurrently for the
+                        term of the Service Agreement.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        If you are accepting the terms of this Addendum on behalf of an entity, you
-                        represent and warrant to Cosmo Agents that you have the authority to bind
-                        that entity and its affiliates, where applicable, to the terms and
+                        If you enter into this Addendum, or enter into a Service
+                        Agreement that incorporates this Addendum by reference,
+                        on behalf of an entity, you represent and warrant to
+                        Cosmo that you have the authority to bind that entity
+                        and its affiliates, where applicable, to the terms and
                         conditions of this Addendum.
                       </Text>{' '}
                     </List.Item>
                   </List>
                 </List.Item>
-                {/* 13 */}
+                {/* 3 */}
                 <List.Item c="blue">
                   <Text size="md" mb="md" c="black" fw={600}>
                     Processing of Client Personal Data.
@@ -331,119 +384,138 @@ export default function DataProcessing() {
                     {' '}
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        In the context of this Addendum, the Client acts as a Personal Data
-                        Controller and Cosmo Agents acts as a Personal Data Processor with regard to
-                        the Processing of Client Personal Data.
+                        In the context of this Addendum, the Client acts as a
+                        Personal Data Controller and Cosmo acts as a Personal
+                        Data Processor with regard to the Processing of Client
+                        Personal Data.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        Cosmo Agents shall:
+                        Cosmo shall:
                       </Text>{' '}
                       <List type="ordered" listStyleType="lower-roman">
                         <List.Item>
                           <Text size="md" mb="md" c="black">
-                            comply with all EU Data Protection Laws in the Processing (as further
-                            elaborated in{' '}
-                            <Text span size="md" mb="md" td="underline" c="black" fw={600}>
+                            comply with all EU Data Protection Laws in the
+                            Processing (as further elaborated in{' '}
+                            <Text
+                              span
+                              size="md"
+                              mb="md"
+                              td="underline"
+                              c="black"
+                              fw={600}
+                            >
                               Exhibit A
                             </Text>
-                            , attached hereto and incorporated by reference) of Client Personal
-                            Data;
+                            , attached hereto and incorporated by reference) of
+                            Client Personal Data;
                           </Text>{' '}
                         </List.Item>
                         <List.Item>
                           <Text size="md" mb="md" c="black">
-                            not Process Client Personal Data other than on the Client’s relevant
-                            documented instructions, including with regard to transfers of Client
-                            Personal Data to a Third Country or an international organization,
-                            unless such Processing is required by EU Data Protection Laws to which
-                            the relevant Contracted Processor is subject, in which case Cosmo Agents
-                            shall, to the extent permitted by EU Data Protection Laws, inform the
-                            Client of that legal requirement before the applicable act of
-                            Processing;
+                            not Process Client Personal Data other than on the
+                            Client’s relevant documented instructions, including
+                            with regard to transfers of Client Personal Data to
+                            a Third Country or an international organization,
+                            unless such Processing is required by EU Data
+                            Protection Laws to which the relevant Contracted
+                            Processor is subject, in which case Cosmo shall, to
+                            the extent permitted by EU Data Protection Laws,
+                            inform the Client of that legal requirement before
+                            the applicable act of Processing;
                           </Text>{' '}
                         </List.Item>
                         <List.Item>
                           <Text size="md" mb="md" c="black">
-                            only conduct transfers of Client Personal Data, where such transfer
-                            would otherwise be prohibited by EU Data Protection Laws due to there
-                            being no applicable lawful exemption or derogation, in compliance with
-                            all applicable conditions, as laid down in the EU Data Protection Laws;
+                            only conduct transfers of Client Personal Data,
+                            where such transfer would otherwise be prohibited by
+                            EU Data Protection Laws due to there being no
+                            applicable lawful exemption or derogation, in
+                            compliance with all applicable conditions, as laid
+                            down in the EU Data Protection Laws;
                           </Text>{' '}
                         </List.Item>
                         <List.Item>
                           <Text size="md" mb="md" c="black">
-                            not retain, delete, or otherwise Process Client Personal Data contrary
-                            to or in the absence of the direct instructions of the Client, provided,
-                            however, that the Client expressly and irrevocably authorizes such
-                            retention, deletion or other Processing if and to the extent required or
-                            allowed by any applicable law; and
+                            not retain, delete, or otherwise Process Client
+                            Personal Data contrary to or in the absence of the
+                            direct instructions of the Client, provided,
+                            however, that the Client expressly and irrevocably
+                            authorizes such retention, deletion or other
+                            Processing if and to the extent required or allowed
+                            by any applicable law; and
                           </Text>{' '}
                         </List.Item>
                         <List.Item>
                           <Text size="md" mb="md" c="black">
-                            immediately inform the Client in the event that, in Cosmo Agents’s
-                            opinion, a Processing instruction given by the Client may infringe EU
-                            Data Protection Laws.
+                            immediately inform the Client in the event that, in
+                            Cosmo’s opinion, a Processing instruction given by
+                            the Client may infringe EU Data Protection Laws.
                           </Text>{' '}
                         </List.Item>
                       </List>
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        The Client warrants that it will promptly update, when necessary, all
-                        information provided during the process of acceptance of this Addendum,
-                        including, where applicable, the contact details of its Data Protection
-                        Officer and/or European Union Representative. Any such updates shall be sent
-                        by email to{' '}
+                        The Client warrants that it will promptly update, when
+                        necessary, all information provided in the course of
+                        entering into this Addendum, including, where
+                        applicable, the contact details of its Data Protection
+                        Officer and/or European Union Representative. Any such
+                        updates shall be sent by email to{' '}
                         <Text size="md" mb="md" c="blue" td="underline" span>
-                          dpo@Cosmo Agents.com.
+                          dpo@cosmoagents.ai.
                         </Text>{' '}
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        The Client instructs Cosmo Agents (and authorizes Cosmo Agents to instruct
-                        each Subprocessor) to Process Client Personal Data, and in particular,
-                        transfer Client Personal Data to any country or territory, as reasonably
-                        necessary for the provision of the Services and consistent with the Service
-                        Agreement and this Addendum.
+                        The Client instructs Cosmo (and authorizes Cosmo to
+                        instruct each Subprocessor) to Process Client Personal
+                        Data, and in particular, transfer Client Personal Data
+                        to any country or territory, as reasonably necessary for
+                        the provision of the Services and consistent with the
+                        Service Agreement and this Addendum.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        The Client represents and warrants that it has all necessary rights to
-                        provide the Client Personal Data to Cosmo Agents for the purpose of
-                        Processing such data within the scope of this Addendum and the Service
-                        Agreement.
+                        The Client represents and warrants that it has all
+                        necessary rights to provide the Client Personal Data to
+                        Cosmo for the purpose of Processing such data within the
+                        scope of this Addendum and the Service Agreement.
                       </Text>{' '}
                     </List.Item>
                   </List>
                 </List.Item>
-                {/* 14 */}
+                {/* 4 */}
                 <List.Item c="blue">
                   <Text size="md" mb="md" c="black" fw={600}>
-                    Cosmo Agents Personnel.
+                    Cosmo Personnel.
                   </Text>
                   <List type="ordered" listStyleType="lower-alpha">
                     {' '}
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        Cosmo Agents shall take reasonable steps to ensure the reliability of any
-                        employee, agent, or contractor of any Contracted Processor who may have
-                        access to the Client Personal Data, ensuring in each case that access is
-                        strictly limited to those individuals who need to know or access the
-                        relevant Client Personal Data, as strictly necessary for the purposes of the
-                        Service Agreement, and to comply with EU Data Protection Laws in the context
-                        of that individual’s duties to the Contracted Processor, ensuring that all
-                        such individuals are subject to formal confidentiality undertakings or
-                        professional or statutory obligations of confidentiality.
+                        Cosmo shall take reasonable steps to ensure the
+                        reliability of any employee, agent, or contractor of any
+                        Contracted Processor who may have access to the Client
+                        Personal Data, ensuring in each case that access is
+                        strictly limited to those individuals who need to know
+                        or access the relevant Client Personal Data, as strictly
+                        necessary for the purposes of the Service Agreement, and
+                        to comply with EU Data Protection Laws in the context of
+                        that individual’s duties to the Contracted Processor,
+                        ensuring that all such individuals are subject to formal
+                        confidentiality undertakings or professional or
+                        statutory obligations of confidentiality.
                       </Text>{' '}
                     </List.Item>
                   </List>
                 </List.Item>
-                {/* 15 */}
+                {/* 5 */}
                 <List.Item c="blue">
                   <Text size="md" mb="md" c="black" fw={600}>
                     Security of Processing.
@@ -452,31 +524,53 @@ export default function DataProcessing() {
                     {' '}
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        Taking into account the state of the art, the costs of implementation and
-                        the nature, scope, context, and purposes of Processing, as well as the risk
-                        of varying likelihood and severity to the rights and freedoms of natural
-                        persons, Cosmo Agents shall, with regard to Client Personal Data, implement
-                        and maintain{' '}
+                        Taking into account the state of the art, the costs of
+                        implementation and the nature, scope, context, and
+                        purposes of Processing, as well as the risk of varying
+                        likelihood and severity to the rights and freedoms of
+                        natural persons, Cosmo shall, with regard to Client
+                        Personal Data, implement and maintain{' '}
                         <Text size="md" c="blue" span>
-                          appropriate technical and organizational security measures
+                          appropriate technical and organizational security
+                          measures
                         </Text>{' '}
-                        to ensure a level of security appropriate to that risk, including, as
-                        appropriate, the measures referred to in Article 32(1) of the GDPR as well
-                        as assist the Client with regard to ensuring compliance with the obligations
-                        pursuant to Article 32 of the GDPR borne directly by the Client.
+                        to ensure a level of security appropriate to that risk,
+                        having regard to the measures referred to in Article
+                        32(1) of the GDPR. The technical and organizational
+                        measures that are in place as of the Effective Date, and
+                        those that Cosmo has committed to implement and the
+                        horizon for doing so, are described in Appendix 2 to the
+                        Standard Contractual Clauses set out in{' '}
+                        <Text
+                          span
+                          size="md"
+                          mb="md"
+                          td="underline"
+                          c="black"
+                          fw={600}
+                        >
+                          Exhibit C
+                        </Text>
+                        . Cosmo shall not materially reduce the overall level of
+                        security described in Appendix 2 during the term of the
+                        Service Agreement, and shall assist the Client with
+                        regard to ensuring compliance with the obligations
+                        pursuant to Article 32 of the GDPR borne directly by the
+                        Client.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        In assessing the appropriate level of security, Cosmo Agents shall take
-                        account, in particular, of the risks that are presented by the nature of
-                        such Processing activities, and particularly those related to possible
-                        Personal Data Breaches.
+                        In assessing the appropriate level of security, Cosmo
+                        shall take account, in particular, of the risks that are
+                        presented by the nature of such Processing activities,
+                        and particularly those related to possible Personal Data
+                        Breaches.
                       </Text>{' '}
                     </List.Item>
                   </List>
                 </List.Item>
-                {/* 16 */}
+                {/* 6 */}
                 <List.Item c="blue">
                   <Text size="md" mb="md" c="black" fw={600}>
                     Subprocessing.
@@ -485,18 +579,20 @@ export default function DataProcessing() {
                     {' '}
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        The Client authorizes Cosmo Agents to appoint (and permit each Subprocessor
-                        appointed in accordance with this Section 6 to appoint) Subprocessors in
-                        accordance with this Section 6 and any possible further restrictions, as set
+                        The Client authorizes Cosmo to appoint (and permit each
+                        Subprocessor appointed in accordance with this Section 6
+                        to appoint) Subprocessors in accordance with this
+                        Section 6 and any possible further restrictions, as set
                         out in the Service Agreement and this Addendum.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        Cosmo Agents may continue to use those Subprocessors already engaged by
-                        Cosmo Agents as of the Effective Date subject to Cosmo Agents meeting the
-                        obligations set out in Section 6.4. The list of Cosmo Agents’s
-                        Subprocessors, current as of the Effective Date, is laid down in{' '}
+                        Cosmo may continue to use those Subprocessors already
+                        engaged by Cosmo as of the Effective Date subject to
+                        Cosmo meeting the obligations set out in Section 6.4.
+                        The list of Cosmo’s Subprocessors, current as of the
+                        Effective Date, is laid down in{' '}
                         <Text size="md" mb="md" c="black" span fw={600}>
                           Exhibit B
                         </Text>{' '}
@@ -505,48 +601,55 @@ export default function DataProcessing() {
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        Cosmo Agents shall give the Client prior written notice of the appointment
-                        of any new Subprocessor, by way of sending a notice. If, within 14 days of
-                        sending of each such notice, the Client notifies Cosmo Agents in writing of
-                        any reasonable objections to the proposed appointment, Cosmo Agents shall
-                        not appoint or disclose any Client Personal Data to that proposed
-                        Subprocessor until reasonable steps have been taken to address the
-                        objections raised by the Client and, in turn, the Client has been provided
-                        with a reasonable written explanation of the steps taken to account for any
-                        such objections. If the Client, nevertheless, objects to the proposed
-                        appointment, it shall be entitled to terminate the Service Agreement as a
-                        remedy.
+                        Cosmo shall give the Client prior written notice of the
+                        appointment of any new Subprocessor, by way of sending a
+                        notice. If, within 14 days of sending of each such
+                        notice, the Client notifies Cosmo in writing of any
+                        reasonable objections to the proposed appointment, Cosmo
+                        shall not appoint or disclose any Client Personal Data
+                        to that proposed Subprocessor until reasonable steps
+                        have been taken to address the objections raised by the
+                        Client and, in turn, the Client has been provided with a
+                        reasonable written explanation of the steps taken to
+                        account for any such objections. If the Client,
+                        nevertheless, objects to the proposed appointment, it
+                        shall be entitled to terminate the Service Agreement as
+                        a remedy.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        With respect to each Subprocessor, Cosmo Agents shall:
+                        With respect to each Subprocessor, Cosmo shall:
                       </Text>{' '}
                       <List type="ordered" listStyleType="lower-roman">
                         <List.Item>
                           <Text size="md" mb="md" c="black">
-                            carry out adequate due diligence to ensure that the Subprocessor is
-                            capable of providing the level of protection for Client Personal Data
-                            required by this Addendum, the Service Agreement, and EU Data Protection
-                            Laws before the Subprocessor first Processes Client Personal Data or,
-                            where applicable, in accordance with Section 6.2; and
+                            carry out adequate due diligence to ensure that the
+                            Subprocessor is capable of providing the level of
+                            protection for Client Personal Data required by this
+                            Addendum, the Service Agreement, and EU Data
+                            Protection Laws before the Subprocessor first
+                            Processes Client Personal Data or, where applicable,
+                            in accordance with Section 6.2; and
                           </Text>{' '}
                         </List.Item>
                         <List.Item>
                           <Text size="md" mb="md" c="black">
-                            ensure that the arrangement between: on the one hand, (i) Cosmo Agents,
-                            or (ii) the relevant intermediate Subprocessor; and on the other hand,
-                            the respective prospective Subprocessor, is governed by a written
-                            contract, including terms which offer at least the same level of
-                            protection for Client Personal Data as those set out in this Addendum,
-                            and that such terms meet the requirements of Article 28(3) of the GDPR.
+                            ensure that the arrangement between: on the one
+                            hand, (i) Cosmo, or (ii) the relevant intermediate
+                            Subprocessor; and on the other hand, the respective
+                            prospective Subprocessor, is governed by a written
+                            contract, including terms which offer at least the
+                            same level of protection for Client Personal Data as
+                            those set out in this Addendum, and that such terms
+                            meet the requirements of Article 28(3) of the GDPR.
                           </Text>{' '}
                         </List.Item>
                       </List>
                     </List.Item>
                   </List>
                 </List.Item>
-                {/* 17 */}
+                {/* 7 */}
                 <List.Item c="blue">
                   <Text size="md" mb="md" c="black" fw={600}>
                     Rights of the Data Subjects.
@@ -555,79 +658,78 @@ export default function DataProcessing() {
                     {' '}
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        Taking into account the nature of the Processing, Cosmo Agents shall assist
-                        the Client by implementing appropriate technical and organizational
-                        measures, insofar as this is possible, for the fulfilment of the Client’s
-                        obligations, as reasonably understood by the Client, to respond to requests
-                        to exercise Rights of the Data Subjects under the EU Data Protection Laws.
+                        Taking into account the nature of the Processing, Cosmo
+                        shall assist the Client by implementing appropriate
+                        technical and organizational measures, insofar as this
+                        is possible, for the fulfilment of the Client’s
+                        obligations, as reasonably understood by the Client, to
+                        respond to requests to exercise Rights of the Data
+                        Subjects under the EU Data Protection Laws.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        With regard to Rights of the Data Subjects within the scope of this Section
-                        7, Cosmo Agents shall:
+                        With regard to Rights of the Data Subjects within the
+                        scope of this Section 7, Cosmo shall:
                       </Text>{' '}
                       <List type="ordered" listStyleType="lower-roman">
                         <List.Item>
                           <Text size="md" mb="md" c="black">
-                            promptly notify the Client if any Contracted Processor receives a
-                            request from a Data Subject under any EU Data Protection Laws in respect
-                            of Client Personal Data; and
+                            promptly notify the Client if any Contracted
+                            Processor receives a request from a Data Subject
+                            under any EU Data Protection Laws in respect of
+                            Client Personal Data; and
                           </Text>{' '}
                         </List.Item>
                         <List.Item>
                           <Text size="md" mb="md" c="black">
-                            ensure that the Contracted Processor does not respond to that request,
-                            except on the documented instructions of the Client, or as required by
-                            EU Data Protection Laws to which the Contracted Processor is subject, in
-                            which case Cosmo Agents shall, to the extent permitted by EU Data
-                            Protection Laws, inform the Client of that legal requirement before the
-                            Contracted Processor responds to the request.
+                            ensure that the Contracted Processor does not
+                            respond to that request, except on the documented
+                            instructions of the Client, or as required by EU
+                            Data Protection Laws to which the Contracted
+                            Processor is subject, in which case Cosmo shall, to
+                            the extent permitted by EU Data Protection Laws,
+                            inform the Client of that legal requirement before
+                            the Contracted Processor responds to the request.
                           </Text>{' '}
                         </List.Item>
                       </List>
                     </List.Item>
                   </List>
                 </List.Item>
-                {/* 18 */}
+                {/* 8 */}
                 <List.Item c="blue">
                   <Text size="md" mb="md" c="black" fw={600}>
-                    Restricted Transfers.
+                    Personal Data Breach.
                   </Text>
                   <List type="ordered" listStyleType="lower-alpha">
                     {' '}
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        Cosmo Agents shall notify the Client without undue delay upon Cosmo Agents
-                        becoming aware of a Personal Data Breach affecting Client Personal Data
-                        under Salewhale’s direct control or upon Cosmo Agents being notified of a
-                        Personal Data Breach affecting Client Personal Data under the direct control
-                        of a Subprocessor, providing the Client with sufficient information to allow
-                        the Client to meet any applicable obligations pursuant to the EU Data
-                        Protection Laws, such as to report to the Supervisory Authorities or any
-                        other competent authorities, or inform the Data Subjects of the Personal
-                        Data Breach.
+                        Cosmo shall notify the Client without undue delay upon
+                        Cosmo becoming aware of a Personal Data Breach affecting
+                        Client Personal Data under Cosmo’s direct control or
+                        upon Cosmo being notified of a Personal Data Breach
+                        affecting Client Personal Data under the direct control
+                        of a Subprocessor, providing the Client with sufficient
+                        information to allow the Client to meet any applicable
+                        obligations pursuant to the EU Data Protection Laws,
+                        such as to report to the Supervisory Authorities or any
+                        other competent authorities, or inform the Data Subjects
+                        of the Personal Data Breach.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        Cosmo Agents shall co-operate with the Client and take all reasonable
-                        commercial steps to assist the Client in the investigation, mitigation, and
-                        remediation of each such Personal Data Breach.
-                      </Text>{' '}
-                    </List.Item>
-                    <List.Item>
-                      <Text size="md" mb="md" c="black">
-                        <Text size="md" mb="md" c="black" span>
-                          Cosmo Agents shall co-operate with the Client and take all reasonable
-                          commercial steps to assist the Client in the investigation, mitigation,
-                          and remediation of each such Personal Data Breach.
-                        </Text>{' '}
+                        Cosmo shall co-operate with the Client and take all
+                        reasonable commercial steps to assist the Client in the
+                        investigation, mitigation, and remediation of each such
+                        Personal Data Breach.
                       </Text>{' '}
                     </List.Item>
                   </List>
                 </List.Item>
-                {/* 19 */}
+                {/* 9 */}
                 <List.Item c="blue">
                   <Text size="md" mb="md" c="black" fw={600}>
                     Data Protection Impact Assessment and Prior Consultation.
@@ -636,22 +738,26 @@ export default function DataProcessing() {
                     {' '}
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        Cosmo Agents shall provide the Client with relevant documentation, such as,
-                        if available, an audit report (upon a written request and subject to
-                        obligations of confidentiality), with regard to any data protection impact
-                        assessments, and prior consultations with Supervisory Authorities or other
-                        competent data privacy authorities, when the Client reasonably considers
-                        that such data protection impact assessments or prior consultations are
-                        required pursuant to Article 35 or 36 of the GDPR, or pursuant to the
-                        equivalent provisions of any other EU Data Protection Laws but, in each such
-                        case, solely with regard to Processing of Client Personal Data by, and
-                        taking into account the nature of the Processing and information available
-                        to, the respective Contracted Processors.
+                        Cosmo shall provide the Client with relevant
+                        documentation, such as, if available, an audit report
+                        (upon a written request and subject to obligations of
+                        confidentiality), with regard to any data protection
+                        impact assessments, and prior consultations with
+                        Supervisory Authorities or other competent data privacy
+                        authorities, when the Client reasonably considers that
+                        such data protection impact assessments or prior
+                        consultations are required pursuant to Article 35 or 36
+                        of the GDPR, or pursuant to the equivalent provisions of
+                        any other EU Data Protection Laws but, in each such
+                        case, solely with regard to Processing of Client
+                        Personal Data by, and taking into account the nature of
+                        the Processing and information available to, the
+                        respective Contracted Processors.
                       </Text>{' '}
                     </List.Item>
                   </List>
                 </List.Item>
-                {/* 20 */}
+                {/* 10 */}
                 <List.Item c="blue">
                   <Text size="md" mb="md" c="black" fw={600}>
                     Deletion or Return of Client Personal Data.
@@ -660,25 +766,70 @@ export default function DataProcessing() {
                     {' '}
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        Cosmo Agents shall provide the Client with the technical means, consistent
-                        with the way the Services are provided, to request the deletion of Client
-                        Personal Data within the term of this Addendum and the Service Agreement,
-                        unless EU Data Protection Laws require or allow storage of any such Client
-                        Personal Data.
+                        Cosmo shall provide the Client with the technical means,
+                        consistent with the way the Services are provided, to
+                        request the deletion of Client Personal Data within the
+                        term of this Addendum and the Service Agreement, unless
+                        Applicable Laws require or allow storage of any such
+                        Client Personal Data. A deletion request may also be
+                        made in writing to{' '}
+                        <Text size="md" mb="md" c="blue" td="underline" span>
+                          dpo@cosmoagents.ai
+                        </Text>
+                        . Cosmo shall acknowledge each such request within five
+                        (5) business days of receipt and shall action it in
+                        accordance with Section 10.2.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        Cosmo Agents shall promptly following the date of cessation of Services
-                        involving the Processing of Client Personal Data, at the choice of the
-                        Client, delete or return all Client Personal Data to the Client, as well as
-                        delete existing copies, unless EU Data Protection Laws require or allow
-                        storage of any such Client Personal Data.
+                        On receipt of a deletion request, the relevant records
+                        are first marked as deleted and withdrawn from active
+                        Processing, so that they cease to be accessible through
+                        the Services and are no longer used to provide them.
+                        Cosmo shall then complete the erasure of those records
+                        and of the data derived from them, including vector
+                        embeddings, indexed knowledge content, and AI-generated
+                        summaries, and shall instruct each Subprocessor listed
+                        in Exhibit B that holds the corresponding data to do the
+                        same, in each case within thirty (30) days of the
+                        request. As of the Effective Date, the erasure step is
+                        performed by Cosmo personnel on request rather than by
+                        an automated process; automated retention windows and
+                        scheduled purging of records marked as deleted, together
+                        with the automated expiry of derived data held in the
+                        vector store, are scheduled for implementation before
+                        general availability of the Services.
+                      </Text>{' '}
+                    </List.Item>
+                    <List.Item>
+                      <Text size="md" mb="md" c="black">
+                        Following the date of cessation of the Services
+                        involving the Processing of Client Personal Data, Cosmo
+                        shall, at the choice of the Client, delete or return all
+                        Client Personal Data to the Client, and delete existing
+                        copies, in each case within thirty (30) days of that
+                        date, unless Applicable Laws require or allow storage of
+                        any such Client Personal Data. Where Applicable Laws
+                        require continued storage, Cosmo shall inform the Client
+                        of the requirement and shall Process the retained data
+                        only for the purpose, and for the period, that those
+                        laws require.
+                      </Text>{' '}
+                    </List.Item>
+                    <List.Item>
+                      <Text size="md" mb="md" c="black">
+                        Backup copies containing Client Personal Data are not
+                        erased individually. They are overwritten in the
+                        ordinary course of the backup rotation cycle and remain
+                        subject to the terms of this Addendum, and to the
+                        confidentiality and security obligations set out in
+                        Section 4 and Section 5, until they are overwritten.
                       </Text>{' '}
                     </List.Item>
                   </List>
                 </List.Item>
-                {/* 21 */}
+                {/* 11 */}
                 <List.Item c="blue">
                   <Text size="md" mb="md" c="black" fw={600}>
                     Audit Rights.
@@ -687,38 +838,46 @@ export default function DataProcessing() {
                     {' '}
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        Where the Client is entitled to and desires to review Cosmo Agents’s
-                        compliance with the EU Data Protection Laws, the Client may request, and
-                        Cosmo Agents will provide (subject to obligations of confidentiality)
-                        relevant documentation, or any relevant audit report Cosmo Agents might have
-                        been issued. If the Client, after having reviewed such audit report(s),
-                        still reasonably deems that it requires additional information, Cosmo Agents
-                        shall further reasonably assist and make available to the Client, upon a
-                        written request and subject to obligations of confidentiality, all other
-                        information (excluding legal advice) and/or documentation necessary to
-                        demonstrate compliance with this Addendum, and the obligations pursuant to
-                        Articles 32 to 36 of the GDPR in particular, and shall allow for and
-                        contribute to audits, including remote inspections of the Services, by the
-                        Client or an auditor mandated by the Client with regard to the Processing of
-                        the Client Personal Data by the Contracted Processors. Cosmo Agents shall
-                        provide the assistance described in this Section 11, insofar as in Cosmo
-                        Agents’s reasonable opinion such audits, and the specific requests of the
-                        Client, do not interfere with Cosmo Agents’s business operations or cause
-                        Cosmo Agents to breach any legal or contractual obligation to which it is
-                        subject.
+                        Where the Client is entitled to and desires to review
+                        Cosmo’s compliance with the EU Data Protection Laws, the
+                        Client may request, and Cosmo will provide (subject to
+                        obligations of confidentiality) relevant documentation,
+                        or any relevant audit report Cosmo might have been
+                        issued. If the Client, after having reviewed such audit
+                        report(s), still reasonably deems that it requires
+                        additional information, Cosmo shall further reasonably
+                        assist and make available to the Client, upon a written
+                        request and subject to obligations of confidentiality,
+                        all other information (excluding legal advice) and/or
+                        documentation necessary to demonstrate compliance with
+                        this Addendum, and the obligations pursuant to Articles
+                        32 to 36 of the GDPR in particular, and shall allow for
+                        and contribute to audits, including remote inspections
+                        of the Services, by the Client or an auditor mandated by
+                        the Client with regard to the Processing of the Client
+                        Personal Data by the Contracted Processors. Cosmo shall
+                        provide the assistance described in this Section 11,
+                        insofar as in Cosmo’s reasonable opinion such audits,
+                        and the specific requests of the Client, do not
+                        interfere with Cosmo’s business operations or cause
+                        Cosmo to breach any legal or contractual obligation to
+                        which it is subject.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        The Client agrees to pay Cosmo Agents, upon receipt of invoice, a reasonable
-                        fee based on the time spent, as well as to account for the materials
-                        expended, in relation to the Client exercising its rights under this Section
-                        11 or Clause 5(f) of the Standard Contractual Clauses, as set out in{' '}
+                        The Client agrees to pay Cosmo, upon receipt of invoice,
+                        a reasonable fee based on the time spent, as well as to
+                        account for the materials expended, in relation to the
+                        Client exercising its rights under this Section 11 or
+                        Clause 8.9 of the Standard Contractual Clauses, as set
+                        out in{' '}
                         <Text size="md" fw={600} td="underline" span>
                           Exhibit C
                         </Text>{' '}
-                        , attached hereto and incorporated by reference, and which constitute an
-                        integral part of this Addendum (the “
+                        , attached hereto and incorporated by reference, and
+                        which constitute an integral part of this Addendum (the
+                        “
                         <Text size="md" fw={600} td="underline" span>
                           Standard Contractual Clauses
                         </Text>{' '}
@@ -727,7 +886,7 @@ export default function DataProcessing() {
                     </List.Item>
                   </List>
                 </List.Item>
-                {/* 22 */}
+                {/* 12 */}
                 <List.Item c="blue">
                   <Text size="md" mb="md" c="black" fw={600}>
                     Restricted Transfers.
@@ -736,50 +895,62 @@ export default function DataProcessing() {
                     {' '}
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        The Client (as “data exporter”) and Cosmo Agents (as “data importer”) hereby
-                        enter into, as of the Effective Date, the Standard Contractual Clauses. The
-                        Parties are deemed to have accepted and executed the Standard Contractual
+                        The Client (as “data exporter”) and Cosmo (as “data
+                        importer”) hereby enter into, as of the Effective Date,
+                        the Standard Contractual Clauses. The Parties are deemed
+                        to have accepted and executed the Standard Contractual
                         Clauses in their entirety, including the appendices.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        With regard to any Restricted Transfer from the Client to Cosmo Agents
-                        within the scope of this Addendum, one of the following transfer mechanisms
-                        shall apply, in the following order of precedence:
+                        With regard to any Restricted Transfer from the Client
+                        to Cosmo within the scope of this Addendum, one of the
+                        following transfer mechanisms shall apply, in the
+                        following order of precedence:
                       </Text>{' '}
                       <List type="ordered" listStyleType="lower-roman">
                         <List.Item>
                           <Text size="md" mb="md" c="black">
-                            Cosmo Agents’s EU-U.S. and Swiss-U.S. Privacy Shield Framework
-                            self-certifications (if any and insofar as the prospective Restricted
-                            Transfer would be considered lawful under this mechanism);
+                            the Standard Contractual Clauses, as set out in
+                            Exhibit C, which shall be the primary transfer
+                            mechanism for every Restricted Transfer from the
+                            Client to Cosmo and which apply in every case in
+                            which no adequacy decision covers the transfer;
                           </Text>{' '}
                         </List.Item>
                         <List.Item>
                           <Text size="md" mb="md" c="black">
-                            the Standard Contractual Clauses (insofar as the prospective Restricted
-                            Transfer would be considered lawful under this mechanism); or
+                            where the European Commission has adopted a decision
+                            under Article 45 of the GDPR (or the competent UK or
+                            Singapore authority has made an equivalent finding)
+                            that the country or territory of destination ensures
+                            an adequate level of protection, and that decision
+                            is in force and covers the transfer, that adequacy
+                            decision; or
                           </Text>{' '}
                         </List.Item>
                         <List.Item>
                           <Text size="md" mb="md" c="black">
-                            any other lawful basis, as laid down in EU Data Protection Laws.
+                            any other lawful transfer mechanism available under
+                            Applicable Laws, including the derogations laid down
+                            in Article 49 of the GDPR where they apply.
                           </Text>{' '}
                         </List.Item>
                       </List>
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        In cases where the Standard Contractual Clauses apply and there is a
-                        conflict between the terms of the Addendum and the terms of the Standard
-                        Contractual Clauses, the terms of the Standard Contractual Clauses shall
-                        control.
+                        In cases where the Standard Contractual Clauses apply
+                        and there is a conflict between the terms of the
+                        Addendum and the terms of the Standard Contractual
+                        Clauses, the terms of the Standard Contractual Clauses
+                        shall control.
                       </Text>{' '}
                     </List.Item>
                   </List>
                 </List.Item>
-                {/* 23 */}
+                {/* 13 */}
                 <List.Item c="blue">
                   <Text size="md" mb="md" c="black" fw={600}>
                     General Terms.
@@ -788,72 +959,87 @@ export default function DataProcessing() {
                     {' '}
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        All clauses of the Service Agreement that are not explicitly amended or
-                        supplemented by the clauses of this Addendum shall remain in full force and
-                        effect and shall apply so long as they do not contradict Applicable Laws.
+                        All clauses of the Service Agreement that are not
+                        explicitly amended or supplemented by the clauses of
+                        this Addendum shall remain in full force and effect and
+                        shall apply so long as they do not contradict Applicable
+                        Laws.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        Cosmo Agents may amend the terms of this Addendum, insofar as the revised
-                        Addendum continues to comply with the relevant requirements of the EU Data
-                        Protection Laws, upon notice to the Client by email to the primary contact
-                        on the account. Any such amendments will automatically become effective 10
-                        days after Cosmo Agents’s transmission of each such notice.
+                        Cosmo may amend the terms of this Addendum, insofar as
+                        the revised Addendum continues to comply with the
+                        relevant requirements of the EU Data Protection Laws,
+                        upon notice to the Client by email to the primary
+                        contact on the account. Any such amendments will
+                        automatically become effective 10 days after Cosmo’s
+                        transmission of each such notice.
                       </Text>{' '}
                     </List.Item>
                     <List.Item>
                       <Text size="md" mb="md" c="black">
-                        In the event of any conflict between the Service Agreement (including any
-                        annexes and appendices thereto) and this Addendum, the provisions of this
-                        Addendum shall control.
+                        In the event of any conflict between the Service
+                        Agreement (including any annexes and appendices thereto)
+                        and this Addendum, the provisions of this Addendum shall
+                        control.
                       </Text>{' '}
                     </List.Item>
                   </List>
                 </List.Item>
               </List>
               <Text size="md" mb="md">
-                Should any provision of this Addendum be found invalid or unenforceable pursuant to
-                any applicable law, then the invalid or unenforceable provision will be deemed
-                superseded by a valid, enforceable provision that most closely matches the intent of
-                the original provision and the remainder of the Addendum will continue in effect.
+                Should any provision of this Addendum be found invalid or
+                unenforceable pursuant to any applicable law, then the invalid
+                or unenforceable provision will be deemed superseded by a valid,
+                enforceable provision that most closely matches the intent of
+                the original provision and the remainder of the Addendum will
+                continue in effect.
               </Text>
               <Text size="md" mb="md">
-                If Cosmo Agents makes a determination that it can no longer meet its obligations in
-                accordance with this Addendum, it shall promptly notify the Client of that
-                determination, and cease the Processing or take other reasonable and appropriate
-                steps to remediate.
+                If Cosmo makes a determination that it can no longer meet its
+                obligations in accordance with this Addendum, it shall promptly
+                notify the Client of that determination, and cease the
+                Processing or take other reasonable and appropriate steps to
+                remediate.
               </Text>
-              {/* Data Protection Officer */}
-              {/* <Box>
+              {/* Data Protection Officer and EU Representative */}
+              <Box>
                 <Text size="md" mb="md" fw={600}>
-                  Data Protection Officer.
+                  Data Protection Officer and EU Representative.
                 </Text>
                 <Text size="md" mb="md">
-                  Cosmo Agents appointed{' '}
+                  Questions about this Addendum, requests relating to Rights of
+                  the Data Subjects, and deletion requests may be addressed to
+                  Cosmo’s data protection contact at{' '}
                   <Text size="md" mb="md" c="blue" td="underline" span>
-                    VeraSafe
-                  </Text>{' '}
-                  as its Data Protection Officer (DPO): VeraSafe
-                </Text>
-                <Text size="md" mb="md">
-                  22 Essex Way #8203
-                </Text>
-                <Text size="md" mb="md">
-                  Essex, VT 05451 USA
-                </Text>
-                <Text size="md" mb="md">
-                  Phone: +1 (617) 398-7069
-                </Text>
-                <Text size="md" mb="md">
-                  Email:{' '}
-                  <Text size="md" mb="md" c="blue" td="underline" span>
-                    experts@verasafe.com
+                    dpo@cosmoagents.ai
                   </Text>
+                  , or by post to Cosmo,
+                  Singapore.
                 </Text>
-              </Box> */}
+                <Text size="md" mb="md">
+                  Where Article 27 of the GDPR or Article 27 of the UK GDPR
+                  requires it, Cosmo will appoint a representative in the
+                  European Union and in the United Kingdom respectively, and
+                  will publish that representative’s contact details in this
+                  Addendum before the appointment is required to be in place. No
+                  such representative has been appointed as of the Effective
+                  Date. Cosmo has not appointed a Data Protection Officer under
+                  Article 37 of the GDPR and will appoint one if and when
+                  Article 37 requires it; the address above is a contact point
+                  and its use does not imply that such an appointment has been
+                  made.
+                </Text>
+              </Box>
 
-              <Title order={2} mt="lg" mb="md" id="exhibit-a" style={{ scrollMarginTop: '80px' }}>
+              <Title
+                order={2}
+                mt="lg"
+                mb="md"
+                id="exhibit-a"
+                style={{ scrollMarginTop: '80px' }}
+              >
                 Exhibit A
               </Title>
               {/* Exhibit A Content */}
@@ -861,16 +1047,18 @@ export default function DataProcessing() {
                 <List type="ordered" c="blue">
                   <List.Item>
                     <Text size="md" mb="md" c="black">
-                      Pursuant to Article 28(3) of the GDPR, further details of the Processing, in
-                      addition to the ones laid down in the Service Agreement and this Addendum,
-                      include:
+                      Pursuant to Article 28(3) of the GDPR, further details of
+                      the Processing, in addition to the ones laid down in the
+                      Service Agreement and this Addendum, include:
                     </Text>
                     <Text size="md" mb="md" c="black">
-                      The subject matter of the Processing of Client Personal Data is:
+                      The subject matter of the Processing of Client Personal
+                      Data is:
                     </Text>
                     <Text size="md" mb="md" c="black">
-                      The subject matter of the Processing of Client Personal Data pertains to the
-                      provision of Services, as requested by the Client.
+                      The subject matter of the Processing of Client Personal
+                      Data pertains to the provision of Services, as requested
+                      by the Client.
                     </Text>
                   </List.Item>
                   <List.Item>
@@ -878,20 +1066,23 @@ export default function DataProcessing() {
                       The duration of the Processing of Client Personal Data is:
                     </Text>
                     <Text size="md" mb="md" c="black">
-                      The duration of the Processing of Client Personal Data is generally determined
-                      by the Client and is further subject to the term of this Addendum and the
-                      Service Agreement, respectively, in the context of the contractual
-                      relationship between Cosmo Agents and the Client.
+                      The duration of the Processing of Client Personal Data is
+                      generally determined by the Client and is further subject
+                      to the term of this Addendum and the Service Agreement,
+                      respectively, in the context of the contractual
+                      relationship between Cosmo and the Client.
                     </Text>
                   </List.Item>
                   <List.Item>
                     <Text size="md" mb="md" c="black">
-                      The nature and purpose of the Processing of Client Personal Data is:
+                      The nature and purpose of the Processing of Client
+                      Personal Data is:
                     </Text>
                     <Text size="md" mb="md" c="black">
-                      The purpose of Processing of Client Personal Data pertains to the provision of
-                      sales assistance, as requested by the Client. The nature of such Processing is
-                      related to these purposes and is elaborated on in this Addendum and the
+                      The purpose of Processing of Client Personal Data pertains
+                      to the provision of sales assistance, as requested by the
+                      Client. The nature of such Processing is related to these
+                      purposes and is elaborated on in this Addendum and the
                       Service Agreement.
                     </Text>
                   </List.Item>
@@ -900,17 +1091,83 @@ export default function DataProcessing() {
                       The types of Client Personal Data to be Processed include:
                     </Text>
                     <Text size="md" mb="md" c="black">
-                      Biographical data, such as name, email address, phone number; meta data; any
-                      other category of Personal Data that could be included in an email.
+                      The types of Client Personal Data Processed by Cosmo
+                      comprise:
+                    </Text>
+                    <List c="black" mb="md">
+                      <List.Item>
+                        <Text size="md" c="black">
+                          business contact details, including first and last
+                          name, work email address, telephone number, job title,
+                          seniority, employer or company name, and industry;
+                        </Text>
+                      </List.Item>
+                      <List.Item>
+                        <Text size="md" c="black">
+                          postal address fields, including street address, city,
+                          state or province, postal or zip code, and country;
+                        </Text>
+                      </List.Item>
+                      <List.Item>
+                        <Text size="md" c="black">
+                          LinkedIn profile URLs and publicly available profile
+                          information collected from those profiles, including
+                          role history and profile summaries;
+                        </Text>
+                      </List.Item>
+                      <List.Item>
+                        <Text size="md" c="black">
+                          interaction history and email content, including the
+                          subject lines and bodies of messages sent and received
+                          through the connected mailbox, the conversation
+                          threads to which they belong, sender and recipient
+                          details, timestamps, and engagement events such as
+                          opens, replies, and bounces;
+                        </Text>
+                      </List.Item>
+                      <List.Item>
+                        <Text size="md" c="black">
+                          notes, tags, and other free-text records entered about
+                          a Data Subject by the Client’s personnel;
+                        </Text>
+                      </List.Item>
+                      <List.Item>
+                        <Text size="md" c="black">
+                          enrichment data obtained from third-party data
+                          providers, including firmographic and role information
+                          about the Data Subject and the Data Subject’s
+                          employer;
+                        </Text>
+                      </List.Item>
+                      <List.Item>
+                        <Text size="md" c="black">
+                          data derived from the above by Cosmo or its
+                          Subprocessors, including AI-generated summaries,
+                          classifications, and vector embeddings; and
+                        </Text>
+                      </List.Item>
+                      <List.Item>
+                        <Text size="md" c="black">
+                          metadata, and any other category of Personal Data that
+                          the Client or a Data Subject includes in an email or
+                          uploads to the Services.
+                        </Text>
+                      </List.Item>
+                    </List>
+                    <Text size="md" mb="md" c="black">
+                      The Services are not designed for, and the Client shall
+                      not submit, special categories of Personal Data within the
+                      meaning of Article 9 of the GDPR or Personal Data relating
+                      to criminal convictions and offences.
                     </Text>
                   </List.Item>
                   <List.Item>
                     <Text size="md" mb="md" c="black">
-                      The categories of Data Subjects to whom the Client Personal Data relates
-                      include:
+                      The categories of Data Subjects to whom the Client
+                      Personal Data relates include:
                     </Text>
                     <Text size="md" mb="md" c="black">
-                      Sales prospects of the Client (Cosmo Agents’s customer).
+                      Sales prospects of the Client (Cosmo’s customer).
                     </Text>
                   </List.Item>
                   <List.Item>
@@ -918,13 +1175,19 @@ export default function DataProcessing() {
                       The obligations and rights of the Client are:
                     </Text>
                     <Text size="md" mb="md" c="black">
-                      The rights and obligations of the Client are set out in the Service Agreement
-                      and this Addendum.
+                      The rights and obligations of the Client are set out in
+                      the Service Agreement and this Addendum.
                     </Text>
                   </List.Item>
                 </List>
               </Box>
-              <Title order={2} mt="lg" mb="md" id="exhibit-b" style={{ scrollMarginTop: '80px' }}>
+              <Title
+                order={2}
+                mt="lg"
+                mb="md"
+                id="exhibit-b"
+                style={{ scrollMarginTop: '80px' }}
+              >
                 Exhibit B
               </Title>
               {/* Exhibit B Content */}
@@ -933,585 +1196,551 @@ export default function DataProcessing() {
                   List of Subprocessors
                 </Text>
                 <Text size="md" mb="md">
-                  Below is a list of the Subprocessors of Cosmo Agents, current as of the Effective
-                  Date, pursuant to Article 6.2 of the Addendum:
+                  Below is the list of the Subprocessors engaged by Cosmo,
+                  current as of the Effective Date, pursuant to Section 6.2 of
+                  the Addendum. Where the table states that a Subprocessor is
+                  engaged only on the Client’s election, that Subprocessor
+                  Processes Client Personal Data solely where the Client enables
+                  the corresponding integration.
                 </Text>
-                <List type="ordered" c="blue">
-                  <List.Item>
-                    <Text size="md" mb="md" c="black">
-                      AWS, Inc. (Amazon Web Services) – U.S.A.
-                    </Text>
-                  </List.Item>
-                  <List.Item>
-                    <Text size="md" mb="md" c="black">
-                      Google LLC (Google Drive) – U.S.A.
-                    </Text>
-                  </List.Item>
-                  <List.Item>
-                    <Text size="md" mb="md" c="black">
-                      Rockship Pte. Ltd. ‒ Singapore.
-                    </Text>
-                  </List.Item>
-                </List>
+                <Table
+                  withTableBorder
+                  withColumnBorders
+                  striped
+                  mb="md"
+                  verticalSpacing="sm"
+                >
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Sub-processor</Table.Th>
+                      <Table.Th>Purpose</Table.Th>
+                      <Table.Th>Location</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    <Table.Tr>
+                      <Table.Td>Amazon Web Services, Inc.</Table.Td>
+                      <Table.Td>
+                        Cloud infrastructure hosting for the application
+                        servers, database, object storage, queues, and backups.
+                      </Table.Td>
+                      <Table.Td>Singapore (AWS region ap-southeast-1)</Table.Td>
+                    </Table.Tr>
+                    <Table.Tr>
+                      <Table.Td>Google LLC</Table.Td>
+                      <Table.Td>
+                        Gmail API and Cloud Pub/Sub: sending, reading, and
+                        labelling messages in the Client user’s connected Google
+                        mailbox and receiving mailbox change notifications.
+                        Engaged only where the Client user connects a Google
+                        mailbox.
+                      </Table.Td>
+                      <Table.Td>United States</Table.Td>
+                    </Table.Tr>
+                    <Table.Tr>
+                      <Table.Td>OpenAI, L.L.C.</Table.Td>
+                      <Table.Td>
+                        Large language model inference and generation of text
+                        embeddings used for search, classification, and message
+                        personalization.
+                      </Table.Td>
+                      <Table.Td>United States</Table.Td>
+                    </Table.Tr>
+                    <Table.Tr>
+                      <Table.Td>Anthropic PBC</Table.Td>
+                      <Table.Td>
+                        Large language model inference for the in-app assistant.
+                      </Table.Td>
+                      <Table.Td>United States</Table.Td>
+                    </Table.Tr>
+                    <Table.Tr>
+                      <Table.Td>Coze (ByteDance Ltd.)</Table.Td>
+                      <Table.Td>
+                        AI agent platform powering the in-app message writer and
+                        reply drafting, and hosting the knowledge datasets those
+                        agents query.
+                      </Table.Td>
+                      <Table.Td>United States</Table.Td>
+                    </Table.Tr>
+                    <Table.Tr>
+                      <Table.Td>Apollo.io</Table.Td>
+                      <Table.Td>
+                        Prospect data enrichment and the supply of business
+                        contact records.
+                      </Table.Td>
+                      <Table.Td>United States</Table.Td>
+                    </Table.Tr>
+                    <Table.Tr>
+                      <Table.Td>Resend, Inc.</Table.Td>
+                      <Table.Td>
+                        Transactional and system email delivery.
+                      </Table.Td>
+                      <Table.Td>United States</Table.Td>
+                    </Table.Tr>
+                    <Table.Tr>
+                      <Table.Td>HubSpot, Inc.</Table.Td>
+                      <Table.Td>
+                        Optional CRM synchronization. Engaged only where the
+                        Client connects a HubSpot account.
+                      </Table.Td>
+                      <Table.Td>United States</Table.Td>
+                    </Table.Tr>
+                    <Table.Tr>
+                      <Table.Td>Microsoft Corporation</Table.Td>
+                      <Table.Td>
+                        Optional Outlook and Microsoft 365 mailbox integration
+                        via Microsoft Graph. Engaged only where the Client user
+                        connects an Outlook mailbox.
+                      </Table.Td>
+                      <Table.Td>United States</Table.Td>
+                    </Table.Tr>
+                    <Table.Tr>
+                      <Table.Td>Sentry</Table.Td>
+                      <Table.Td>
+                        Application error monitoring, including session replay
+                        of the Client user’s interactions with the web
+                        application.
+                      </Table.Td>
+                      <Table.Td>United States</Table.Td>
+                    </Table.Tr>
+                  </Table.Tbody>
+                </Table>
+                <Text size="md" mb="md">
+                  Cosmo is the contracting party under this
+                  Addendum and is therefore not listed as a Subprocessor.
+                  Changes to this list are notified in accordance with Section
+                  6.3 of the Addendum.
+                </Text>
               </Box>
 
-              <Title order={2} mt="lg" mb="md" id="exhibit-c" style={{ scrollMarginTop: '80px' }}>
+              <Title
+                order={2}
+                mt="lg"
+                mb="md"
+                id="exhibit-c"
+                style={{ scrollMarginTop: '80px' }}
+              >
                 Exhibit C
               </Title>
-              {/* Exhibit C Content  */}
+              {/* Exhibit C Content */}
               <Box>
                 <Text size="md" ta="center" fw={600}>
-                  Commission Decision C(2010)593
+                  Commission Implementing Decision (EU) 2021/914 of 4 June 2021
                 </Text>
                 <Text size="md" mb="md" ta="center" fw={600}>
-                  Standard Contractual Clauses (processors)
+                  Standard Contractual Clauses – Module Two (Controller to
+                  Processor)
                 </Text>
                 <Text size="md" mb="md">
-                  For the purposes of Article 26(2) of Directive 95/46/EC for the transfer of
-                  personal data to processors established in third countries which do not ensure an
-                  adequate level of data protection,
+                  For the purposes of Article 46(2)(c) of the GDPR, for the
+                  transfer of personal data to processors established in third
+                  countries that are not the subject of an adequacy decision
+                  under Article 45 of the GDPR,
                 </Text>
                 <Text size="md" mb="md">
                   the Client, as defined in the Addendum (as “data exporter”),
                 </Text>
                 <Text size="md" mb="md">
-                  and Cosmo Agents, as defined in the Addendum (as “data importer”) each a “party”;
-                  together “the parties”,
+                  and Cosmo, as defined in the Addendum (as “data importer”),
+                  each a “party”; together “the parties”,
                 </Text>
                 <Text size="md" mb="md">
-                  HAVE AGREED on the following Contractual Clauses (the Clauses) in order to adduce
-                  adequate safeguards with respect to the protection of privacy and fundamental
-                  rights and freedoms of individuals for the transfer by the data exporter to the
-                  data importer of the personal data specified in Appendix 1.
+                  HAVE AGREED to the standard contractual clauses set out in the
+                  Annex to Commission Implementing Decision (EU) 2021/914 of 4
+                  June 2021 on standard contractual clauses for the transfer of
+                  personal data to third countries pursuant to Regulation (EU)
+                  2016/679 (the “Standard Contractual Clauses”), in order to
+                  adduce adequate safeguards with respect to the protection of
+                  privacy and fundamental rights and freedoms of individuals for
+                  the transfer by the data exporter to the data importer of the
+                  personal data described in Appendix 1 below.
                 </Text>
-                {/* Clause 1 */}
-                <Box>
-                  <Text size="md" mb="md" fs="italic" ta="center">
-                    Clause 1
-                  </Text>
-                  <Text size="md" mb="md" fs="italic" ta="center" fw={600}>
-                    Definitions
-                  </Text>
-                  <Text size="md" mb="md">
-                    For the purposes of the Clauses:
-                  </Text>
-                  <Text size="md" mb="md">
-                    (a)
-                    <Text size="md" mb="md" fs="italic" span>
-                      ‘personal data’, ‘special categories of data’, ‘process/processing’,
-                      ‘controller’, ‘processor’, ‘data subject’ and ‘supervisory authority’
+                <Text size="md" mb="md">
+                  The Standard Contractual Clauses are incorporated into this
+                  Addendum by reference and form an integral part of it. The
+                  full text is published in the Official Journal of the European
+                  Union (OJ L 199, 7.6.2021, p. 31) and a copy will be provided
+                  by Cosmo on request. The Standard Contractual Clauses are not
+                  reproduced here; nothing in this Exhibit C varies them, and in
+                  the event of any conflict between this Addendum and the
+                  Standard Contractual Clauses, the Standard Contractual Clauses
+                  prevail.
+                </Text>
+                <Text size="md" mb="md" fw={600}>
+                  Modules and options selected
+                </Text>
+                <Text size="md" mb="md">
+                  The parties agree that the following modules, options, and
+                  specifications apply to the Standard Contractual Clauses as
+                  incorporated by this Exhibit C:
+                </Text>
+                <List type="ordered" listStyleType="lower-alpha" mb="md">
+                  <List.Item>
+                    <Text size="md" c="black">
+                      Module Two (transfer controller to processor) applies. The
+                      Client is the data exporter and controller; Cosmo is the
+                      data importer and processor. No other module applies.
                     </Text>
-                    shall have the same meaning as in Directive 95/46/EC of the European Parliament
-                    and of the Council of 24 October 1995 on the protection of individuals with
-                    regard to the processing of personal data and on the free movement of such data;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (b)
-                    <Text size="md" mb="md" fs="italic" span>
-                      ‘the data exporter’{' '}
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      Clause 7 (the optional docking clause) applies.
                     </Text>
-                    means the controller who transfers the personal data;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (c)
-                    <Text size="md" mb="md" fs="italic" span>
-                      ‘the data importer’{' '}
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      In Clause 9, Option 2 (general written authorisation)
+                      applies. The time period for prior notice of Subprocessor
+                      changes is the period specified in Section 6.3 of the
+                      Addendum.
                     </Text>
-                    means the processor who agrees to receive from the data exporter personal data
-                    intended for processing on his behalf after the transfer in accordance with his
-                    instructions and the terms of the Clauses and who is not subject to a third
-                    country’s system ensuring adequate protection within the meaning of Article
-                    25(1) of Directive 95/46/EC;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (d)
-                    <Text size="md" mb="md" fs="italic" span>
-                      ‘the subprocessor’{' '}
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      In Clause 11, the optional independent dispute resolution
+                      body wording does not apply.
                     </Text>
-                    means any processor engaged by the data importer or by any other subprocessor of
-                    the data importer who agrees to receive from the data importer or from any other
-                    subprocessor of the data importer personal data exclusively intended for
-                    processing activities to be carried out on behalf of the data exporter after the
-                    transfer in accordance with his instructions, the terms of the Clauses and the
-                    terms of the written subcontract;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (e)
-                    <Text size="md" mb="md" fs="italic" span>
-                      ‘the applicable data protection law’{' '}
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      In Clause 13 and Annex I.C, the competent supervisory
+                      authority is identified in Appendix 1 below.
                     </Text>
-                    means the legislation protecting the fundamental rights and freedoms of
-                    individuals and, in particular, their right to privacy with respect to the
-                    processing of personal data applicable to a data controller in the Member State
-                    in which the data exporter is established;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (f)
-                    <Text size="md" mb="md" fs="italic" span>
-                      ‘technical and organisational security measures’{' '}
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      In Clause 17, Option 1 applies and the governing law is
+                      the law of the Member State selected before commercial release. In Clause 18(b), the courts of the Member State selected under Clause 17
+                      are the chosen forum. Where the transfer is subject to the
+                      law of an EU Member State that allows for third-party
+                      beneficiary rights, the parties may instead agree in the
+                      Service Agreement on the law and forum of that Member
+                      State.
                     </Text>
-                    means those measures aimed at protecting personal data against accidental or
-                    unlawful destruction or accidental loss, alteration, unauthorised disclosure or
-                    access, in particular where the processing involves the transmission of data
-                    over a network, and against all other unlawful forms of processing.
-                  </Text>
-                </Box>
-                {/* Clause 2 */}
-                <Box>
-                  <Text size="md" mb="md" fs="italic" ta="center">
-                    Clause 2
-                  </Text>
-                  <Text size="md" mb="md" fs="italic" ta="center" fw={600}>
-                    Details of the transfer
-                  </Text>
-                  <Text size="md" mb="md">
-                    The details of the transfer and in particular the special categories of personal
-                    data where applicable are specified in Appendix 1 which forms an integral part
-                    of the Clauses.
-                  </Text>
-                </Box>
-                {/* Clause 3 */}
-                <Box>
-                  <Text size="md" mb="md" fs="italic" ta="center">
-                    Clause 3
-                  </Text>
-                  <Text size="md" mb="md" fs="italic" ta="center" fw={600}>
-                    Third-party beneficiary clause
-                  </Text>
-                  <Text size="md" mb="md">
-                    (a) The data subject can enforce against the data exporter this Clause, Clause
-                    4(b) to (i), Clause 5(a) to (e), and (g) to (j), Clause 6(1) and (2), Clause 7,
-                    Clause 8(2), and Clauses 9 to 12 as third-party beneficiary.
-                  </Text>
-                  <Text size="md" mb="md">
-                    (b) The data subject can enforce against the data importer this Clause, Clause
-                    5(a) to (e) and (g), Clause 6, Clause 7, Clause 8(2), and Clauses 9 to 12, in
-                    cases where the data exporter has factually disappeared or has ceased to exist
-                    in law unless any successor entity has assumed the entire legal obligations of
-                    the data exporter by contract or by operation of law, as a result of which it
-                    takes on the rights and obligations of the data exporter, in which case the data
-                    subject can enforce them against such entity.
-                  </Text>
-                  <Text size="md" mb="md">
-                    (c) The data subject can enforce against the subprocessor this Clause, Clause
-                    5(a) to (e) and (g), Clause 6, Clause 7, Clause 8(2), and Clauses 9 to 12, in
-                    cases where both the data exporter and the data importer have factually
-                    disappeared or ceased to exist in law or have become insolvent, unless any
-                    successor entity has assumed the entire legal obligations of the data exporter
-                    by contract or by operation of law as a result of which it takes on the rights
-                    and obligations of the data exporter, in which case the data subject can enforce
-                    them against such entity. Such third-party liability of the subprocessor shall
-                    be limited to its own processing operations under the Clauses.
-                  </Text>
-                  <Text size="md" mb="md">
-                    (d) The parties do not object to a data subject being represented by an
-                    association or other body if the data subject so expressly wishes and if
-                    permitted by national law.
-                  </Text>
-                </Box>
-                {/* Clause 4 */}
-                <Box>
-                  <Text size="md" mb="md" fs="italic" ta="center">
-                    Clause 4
-                  </Text>
-                  <Text size="md" mb="md" fs="italic" ta="center" fw={600}>
-                    Obligations of the data exporter
-                  </Text>
-                  <Text size="md" mb="md">
-                    The data exporter agrees and warrants:
-                  </Text>
-                  <Text size="md" mb="md">
-                    (a) that the processing, including the transfer itself, of the personal data has
-                    been and will continue to be carried out in accordance with the relevant
-                    provisions of the applicable data protection law (and, where applicable, has
-                    been notified to the relevant authorities of the Member State where the data
-                    exporter is established) and does not violate the relevant provisions of that
-                    State;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (b) that it has instructed and throughout the duration of the personal data
-                    processing services will instruct the data importer to process the personal data
-                    transferred only on the data exporter’s behalf and in accordance with the
-                    applicable data protection law and the Clauses;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (c) that the data importer will provide sufficient guarantees in respect of the
-                    technical and organisational security measures specified in Appendix 2 to this
-                    contract;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (d) that after assessment of the requirements of the applicable data protection
-                    law, the security measures are appropriate to protect personal data against
-                    accidental or unlawful destruction or accidental loss, alteration, unauthorised
-                    disclosure or access, in particular where the processing involves the
-                    transmission of data over a network, and against all other unlawful forms of
-                    processing, and that these measures ensure a level of security appropriate to
-                    the risks presented by the processing and the nature of the data to be protected
-                    having regard to the state of the art and the cost of their implementation;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (e) that it will ensure compliance with the security measures;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (f) that, if the transfer involves special categories of data, the data subject
-                    has been informed or will be informed before, or as soon as possible after, the
-                    transfer that its data could be transmitted to a third country not providing
-                    adequate protection within the meaning of Directive 95/46/EC;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (g) to forward any notification received from the data importer or any
-                    subprocessor pursuant to Clause 5(b) and Clause 8(3) to the data protection
-                    supervisory authority if the data exporter decides to continue the transfer or
-                    to lift the suspension;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (h) to make available to the data subjects upon request a copy of the Clauses,
-                    with the exception of Appendix 2, and a summary description of the security
-                    measures, as well as a copy of any contract for subprocessing services which has
-                    to be made in accordance with the Clauses, unless the Clauses or the contract
-                    contain commercial information, in which case it may remove such commercial
-                    information;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (i) that, in the event of subprocessing, the processing activity is carried out
-                    in accordance with Clause 11 by a subprocessor providing at least the same level
-                    of protection for the personal data and the rights of data subject as the data
-                    importer under the Clauses; and
-                  </Text>
-                  <Text size="md" mb="md">
-                    (j) that it will ensure compliance with Clause 4(a) to (i).
-                  </Text>
-                </Box>
-                {/* Clause 5 */}
-                <Box>
-                  <Text size="md" mb="md" fs="italic" ta="center">
-                    Clause 5
-                  </Text>
-                  <Text size="md" mb="md" fs="italic" ta="center" fw={600}>
-                    Obligations of the data importer
-                  </Text>
-                  <Text size="md" mb="md">
-                    The data importer agrees and warrants:
-                  </Text>
-                  <Text size="md" mb="md">
-                    (a) to process the personal data only on behalf of the data exporter and in
-                    compliance with its instructions and the Clauses; if it cannot provide such
-                    compliance for whatever reasons, it agrees to inform promptly the data exporter
-                    of its inability to comply, in which case the data exporter is entitled to
-                    suspend the transfer of data and/or terminate the contract;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (b) that it has no reason to believe that the legislation applicable to it
-                    prevents it from fulfilling the instructions received from the data exporter and
-                    its obligations under the contract and that in the event of a change in this
-                    legislation which is likely to have a substantial adverse effect on the
-                    warranties and obligations provided by the Clauses, it will promptly notify the
-                    change to the data exporter as soon as it is aware, in which case the data
-                    exporter is entitled to suspend the transfer of data and/or terminate the
-                    contract;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (c) that it has implemented the technical and organisational security measures
-                    specified in Appendix 2 before processing the personal data transferred;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (d) that it will promptly notify the data exporter about:
-                  </Text>
-                  <Text size="md" ml="xl" my="md">
-                    (1) any legally binding request for disclosure of the personal data by a law
-                    enforcement authority unless otherwise prohibited, such as a prohibition under
-                    criminal law to preserve the confidentiality of a law enforcement investigation,
-                  </Text>
-                  <Text size="md" ml="xl" my="md">
-                    (2) any accidental or unauthorised access, and
-                  </Text>
-                  <Text size="md" ml="xl" my="md">
-                    (3) any request received directly from the data subjects without responding to
-                    that request, unless it has been otherwise authorised to do so;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (e) to deal promptly and properly with all inquiries from the data exporter
-                    relating to its processing of the personal data subject to the transfer and to
-                    abide by the advice of the supervisory authority with regard to the processing
-                    of the data transferred;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (f) at the request of the data exporter to submit its data processing facilities
-                    for audit of the processing activities covered by the Clauses which shall be
-                    carried out by the data exporter or an inspection body composed of independent
-                    members and in possession of the required professional qualifications bound by a
-                    duty of confidentiality, selected by the data exporter, where applicable, in
-                    agreement with the supervisory authority;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (g) to make available to the data subject upon request a copy of the Clauses, or
-                    any existing contract for subprocessing, unless the Clauses or contract contain
-                    commercial information, in which case it may remove such commercial information,
-                    with the exception of Appendix 2 which shall be replaced by a summary
-                    description of the security measures in those cases where the data subject is
-                    unable to obtain a copy from the data exporter;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (h) that, in the event of subprocessing, it has previously informed the data
-                    exporter and obtained its prior written consent;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (i) that the processing services by the subprocessor will be carried out in
-                    accordance with Clause 11;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (j) to send promptly a copy of any subprocessor agreement it concludes under the
-                    Clauses to the data exporter.
-                  </Text>
-                </Box>
-                {/* Clause 6 */}
-                <Box>
-                  <Text size="md" mb="md" fs="italic" ta="center">
-                    Clause 6
-                  </Text>
-                  <Text size="md" mb="md" fs="italic" ta="center" fw={600}>
-                    Liability
-                  </Text>
-                  <Text size="md" mb="md">
-                    (a) The parties agree that any data subject, who has suffered damage as a result
-                    of any breach of the obligations referred to in Clause 3 or in Clause 11 by any
-                    party or subprocessor is entitled to receive compensation from the data exporter
-                    for the damage suffered.
-                  </Text>
-                  <Text size="md" mb="md">
-                    (b) If a data subject is not able to bring a claim for compensation in
-                    accordance with paragraph 1 against the data exporter, arising out of a breach
-                    by the data importer or his subprocessor of any of their obligations referred to
-                    in Clause 3 or in Clause 11, because the data exporter has factually disappeared
-                    or ceased to exist in law or has become insolvent, the data importer agrees that
-                    the data subject may issue a claim against the data importer as if it were the
-                    data exporter, unless any successor entity has assumed the entire legal
-                    obligations of the data exporter by contract of by operation of law, in which
-                    case the data subject can enforce its rights against such entity.
-                  </Text>
-                  <Text size="md" mb="md">
-                    The data importer may not rely on a breach by a subprocessor of its obligations
-                    in order to avoid its own liabilities.
-                  </Text>
-                  <Text size="md" mb="md">
-                    (c) If a data subject is not able to bring a claim against the data exporter or
-                    the data importer referred to in paragraphs 1 and 2, arising out of a breach by
-                    the subprocessor of any of their obligations referred to in Clause 3 or in
-                    Clause 11 because both the data exporter and the data importer have factually
-                    disappeared or ceased to exist in law or have become insolvent, the subprocessor
-                    agrees that the data subject may issue a claim against the data subprocessor
-                    with regard to its own processing operations under the Clauses as if it were the
-                    data exporter or the data importer, unless any successor entity has assumed the
-                    entire legal obligations of the data exporter or data importer by contract or by
-                    operation of law, in which case the data subject can enforce its rights against
-                    such entity. The liability of the subprocessor shall be limited to its own
-                    processing operations under the Clauses.
-                  </Text>
-                </Box>
-                {/* Clause 7 */}
-                <Box>
-                  <Text size="md" mb="md" fs="italic" ta="center">
-                    Clause 7
-                  </Text>
-                  <Text size="md" mb="md" fs="italic" ta="center" fw={600}>
-                    Mediation and jurisdiction
-                  </Text>
-                  <Text size="md" mb="md">
-                    (a) The data importer agrees that if the data subject invokes against it
-                    third-party beneficiary rights and/or claims compensation for damages under the
-                    Clauses, the data importer will accept the decision of the data subject:
-                  </Text>
-                  <Text size="md" mb="md">
-                    (b) to refer the dispute to mediation, by an independent person or, where
-                    applicable, by the supervisory authority;
-                  </Text>
-                  <Text size="md" mb="md">
-                    (c) to refer the dispute to the courts in the Member State in which the data
-                    exporter is established.
-                  </Text>
-                  <Text size="md" mb="md">
-                    (d) The parties agree that the choice made by the data subject will not
-                    prejudice its substantive or procedural rights to seek remedies in accordance
-                    with other provisions of national or international law.
-                  </Text>
-                </Box>
-                {/* Clause 8 */}
-                <Box>
-                  <Text size="md" mb="md" fs="italic" ta="center">
-                    Clause 8
-                  </Text>
-                  <Text size="md" mb="md" fs="italic" ta="center" fw={600}>
-                    Cooperation with supervisory authorities
-                  </Text>
-                  <Text size="md" mb="md">
-                    (a) The data exporter agrees to deposit a copy of this contract with the
-                    supervisory authority if it so requests or if such deposit is required under the
-                    applicable data protection law.
-                  </Text>
-                  <Text size="md" mb="md">
-                    (b) The parties agree that the supervisory authority has the right to conduct an
-                    audit of the data importer, and of any subprocessor, which has the same scope
-                    and is subject to the same conditions as would apply to an audit of the data
-                    exporter under the applicable data protection law.
-                  </Text>
-                  <Text size="md" mb="md">
-                    (c) The data importer shall promptly inform the data exporter about the
-                    existence of legislation applicable to it or any subprocessor preventing the
-                    conduct of an audit of the data importer, or any subprocessor, pursuant to
-                    paragraph 2. In such a case the data exporter shall be entitled to take the
-                    measures foreseen in Clause 5 (b).
-                  </Text>
-                </Box>
-                {/* Clause 9 */}
-                <Box>
-                  <Text size="md" mb="md" fs="italic" ta="center">
-                    Clause 9
-                  </Text>
-                  <Text size="md" mb="md" fs="italic" ta="center" fw={600}>
-                    Governing Law
-                  </Text>
-                  <Text size="md" mb="md">
-                    The Clauses shall be governed by the law of the Member State in which the data
-                    exporter is established.
-                  </Text>
-                </Box>
-                {/* Clause 10 */}
-                <Box>
-                  <Text size="md" mb="md" fs="italic" ta="center">
-                    Clause 10
-                  </Text>
-                  <Text size="md" mb="md" fs="italic" ta="center" fw={600}>
-                    Variation of the contract
-                  </Text>
-                  <Text size="md" mb="md">
-                    The parties undertake not to vary or modify the Clauses. This does not preclude
-                    the parties from adding clauses on business related issues where required as
-                    long as they do not contradict the Clause.
-                  </Text>
-                </Box>
-                {/* Clause 11 */}
-                <Box>
-                  <Text size="md" mb="md" fs="italic" ta="center">
-                    Clause 11
-                  </Text>
-                  <Text size="md" mb="md" fs="italic" ta="center" fw={600}>
-                    Subprocessing
-                  </Text>
-                  <Text size="md" mb="md">
-                    (a) The data importer shall not subcontract any of its processing operations
-                    performed on behalf of the data exporter under the Clauses without the prior
-                    written consent of the data exporter. Where the data importer subcontracts its
-                    obligations under the Clauses, with the consent of the data exporter, it shall
-                    do so only by way of a written agreement with the subprocessor which imposes the
-                    same obligations on the subprocessor as are imposed on the data importer under
-                    the Clauses. Where the subprocessor fails to fulfil its data protection
-                    obligations under such written agreement the data importer shall remain fully
-                    liable to the data exporter for the performance of the subprocessor’s
-                    obligations under such agreement.
-                  </Text>
-                  <Text size="md" mb="md">
-                    (b) The prior written contract between the data importer and the subprocessor
-                    shall also provide for a third-party beneficiary clause as laid down in Clause 3
-                    for cases where the data subject is not able to bring the claim for compensation
-                    referred to in paragraph 1 of Clause 6 against the data exporter or the data
-                    importer because they have factually disappeared or have ceased to exist in law
-                    or have become insolvent and no successor entity has assumed the entire legal
-                    obligations of the data exporter or data importer by contract or by operation of
-                    law. Such third-party liability of the subprocessor shall be limited to its own
-                    processing operations under the Clauses.
-                  </Text>
-                  <Text size="md" mb="md">
-                    (c) The provisions relating to data protection aspects for subprocessing of the
-                    contract referred to in paragraph 1 shall be governed by the law of the Member
-                    State in which the data exporter is established.
-                  </Text>
-                  <Text size="md" mb="md">
-                    (d) The data exporter shall keep a list of subprocessing agreements concluded
-                    under the Clauses and notified by the data importer pursuant to Clause 5 (j),
-                    which shall be updated at least once a year. The list shall be available to the
-                    data exporter’s data protection supervisory authority.
-                  </Text>
-                </Box>
-                {/* Clause 12 */}
-                <Box>
-                  <Text size="md" mb="md" fs="italic" ta="center">
-                    Clause 12
-                  </Text>
-                  <Text size="md" mb="md" fs="italic" ta="center" fw={600}>
-                    Obligation after the termination of personal data processing services
-                  </Text>
-                  <Text size="md" mb="md">
-                    (a) The parties agree that on the termination of the provision of data
-                    processing services, the data importer and the subprocessor shall, at the choice
-                    of the data exporter, return all the personal data transferred and the copies
-                    thereof to the data exporter or shall destroy all the personal data and certify
-                    to the data exporter that it has done so, unless legislation imposed upon the
-                    data importer prevents it from returning or destroying all or part of the
-                    personal data transferred. In that case, the data importer warrants that it will
-                    guarantee the confidentiality of the personal data transferred and will not
-                    actively process the personal data transferred anymore.
-                  </Text>
-                  <Text size="md" mb="md">
-                    (b) The data importer and the subprocessor warrant that upon request of the data
-                    exporter and/or of the supervisory authority, it will submit its data processing
-                    facilities for an audit of the measures referred to in paragraph 1.
-                  </Text>
-                  <Text size="md" mb="md" td="underline" ta="center" fw={600}>
-                    Appendix 1 to the Standard Contractual Clauses
-                  </Text>
-                  <Text size="md" mb="md" td="underline" fw={600}>
-                    By entering into the Standard Contractual Clauses, pursuant to Section 12.1 of
-                    the Addendum, the parties are deemed to have signed this Appendix 1.
-                  </Text>
-                  <Text size="md" mb="md" fw={600}>
-                    Data exporter
-                  </Text>
-                  <Text size="md" mb="md">
-                    The data exporter is the Client, as defined in the Addendum
-                  </Text>
-                  <Text size="md" mb="md" fw={600}>
-                    Data importer
-                  </Text>
-                  <Text size="md" mb="md">
-                    The data importer is Cosmo Agents, as defined in the Addendum
-                  </Text>
-                  <Text size="md" mb="md" fw={600}>
-                    Data subjects
-                  </Text>
-                  <Text size="md" mb="md">
-                    As indicated under Section 1.5 of Exhibit A of the Addendum.
-                  </Text>
-                  <Text size="md" mb="md" fw={600}>
-                    Categories of data
-                  </Text>
-                  <Text size="md" mb="md">
-                    As indicated under Section 1.4 of Exhibit A of the Addendum.
-                  </Text>
-                  <Text size="md" mb="md" fw={600}>
-                    Processing operations
-                  </Text>
-                  <Text size="md" mb="md">
-                    As indicated under Section 1.3 of Exhibit A of the Addendum.
-                  </Text>
-                  <Text size="md" mb="md" td="underline" ta="center" fw={600}>
-                    Appendix 2 to the Standard Contractual Clauses
-                  </Text>
-                  <Text size="md" mb="md" td="underline" fw={600}>
-                    By entering into the Standard Contractual Clauses, pursuant to Section 12.1 of
-                    the Addendum, the parties are deemed to have signed this Appendix 2.
-                  </Text>
-                  <Text size="md" mb="md" fw={600}>
-                    Description of the technical and organisational security measures implemented by
-                    the data importer in accordance with Clauses 4(d) and 5(c) (or
-                    document/legislation attached):
-                  </Text>
-                  <Text size="md" mb="md">
-                    Data importer has implemented and will maintain the technical and organizational
-                    security measures to ensure a level of security appropriate to the risk,
-                    including, as appropriate, the measures referred to in Article 32(1) of the
-                    GDPR.
-                  </Text>
-                </Box>
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      Annexes I, II, and III to the Standard Contractual Clauses
+                      are populated as follows: Annex I (list of parties,
+                      description of the transfer, and competent supervisory
+                      authority) by Exhibit A of the Addendum and Appendix 1
+                      below; Annex II (technical and organisational measures) by
+                      Appendix 2 below; and Annex III (list of sub-processors)
+                      by Exhibit B of the Addendum.
+                    </Text>
+                  </List.Item>
+                </List>
+                <Text size="md" mb="md" fw={600}>
+                  Transfers subject to the UK GDPR
+                </Text>
+                <Text size="md" mb="md">
+                  For any Restricted Transfer that is subject to the UK GDPR,
+                  the Standard Contractual Clauses apply as varied by the
+                  International Data Transfer Addendum to the EU Commission
+                  Standard Contractual Clauses issued by the UK Information
+                  Commissioner under section 119A of the UK Data Protection Act
+                  2018, version B1.0 in force 21 March 2022 (the “UK Addendum”),
+                  which is likewise incorporated by reference and which the
+                  parties are deemed to have executed. Table 1 of the UK
+                  Addendum is populated by the details of the parties set out in
+                  Appendix 1 below; Table 2 identifies the Standard Contractual
+                  Clauses described in this Exhibit C; Table 3 is populated by
+                  Exhibits A and B of the Addendum and Appendix 2 below; and in
+                  Table 4 neither party may end the UK Addendum as set out in
+                  Section 19 of the UK Addendum. Where the UK Addendum applies,
+                  references in the Standard Contractual Clauses to the GDPR, to
+                  Member States, and to supervisory authorities are read in
+                  accordance with the UK Addendum.
+                </Text>
+                <Text size="md" mb="md" fw={600}>
+                  Transfers subject to Swiss law
+                </Text>
+                <Text size="md" mb="md">
+                  For any Restricted Transfer that is subject to the Swiss
+                  Federal Act on Data Protection (the “FADP”), the Standard
+                  Contractual Clauses apply with the amendments recognised by
+                  the Swiss Federal Data Protection and Information Commissioner
+                  (the “FDPIC”), namely: references to the GDPR are read as
+                  references to the FADP; the FDPIC is the competent supervisory
+                  authority under Clause 13 and Annex I.C in respect of
+                  transfers governed exclusively by the FADP; the term “Member
+                  State” shall not be interpreted so as to prevent data subjects
+                  in Switzerland from bringing proceedings in their place of
+                  habitual residence in accordance with Clause 18(c); and, for
+                  as long as the FADP so provides, the Standard Contractual
+                  Clauses also protect the data of legal entities until the
+                  entry into force of the revised FADP provisions.
+                </Text>
+                <Text size="md" mb="md" td="underline" ta="center" fw={600}>
+                  Appendix 1 to the Standard Contractual Clauses (Annex I)
+                </Text>
+                <Text size="md" mb="md" td="underline" fw={600}>
+                  By entering into the Standard Contractual Clauses, pursuant to
+                  Section 12.1 of the Addendum, the parties are deemed to have
+                  signed this Appendix 1.
+                </Text>
+                <Text size="md" mb="md" fw={600}>
+                  Data exporter
+                </Text>
+                <Text size="md" mb="md">
+                  The data exporter is the Client, as defined in the Addendum,
+                  acting as controller. The Client’s contact details, and those
+                  of its data protection officer or representative where one has
+                  been designated, are the details provided by the Client under
+                  Section 3.3 of the Addendum. The activities relevant to the
+                  data transferred are the Client’s use of the Services.
+                </Text>
+                <Text size="md" mb="md" fw={600}>
+                  Data importer
+                </Text>
+                <Text size="md" mb="md">
+                  The data importer is Cosmo, as defined in the Addendum, being
+                  Cosmo, a company incorporated
+                  in Singapore, acting as processor. Contact point:
+                  dpo@cosmoagents.ai. The activities relevant to the data
+                  transferred are the provision of the Services described in
+                  Section 3 of Exhibit A of the Addendum.
+                </Text>
+                <Text size="md" mb="md" fw={600}>
+                  Data subjects
+                </Text>
+                <Text size="md" mb="md">
+                  As indicated under Section 5 of Exhibit A of the Addendum.
+                </Text>
+                <Text size="md" mb="md" fw={600}>
+                  Categories of personal data
+                </Text>
+                <Text size="md" mb="md">
+                  As indicated under Section 4 of Exhibit A of the Addendum. No
+                  special categories of personal data are transferred.
+                </Text>
+                <Text size="md" mb="md" fw={600}>
+                  Nature and purpose of the processing
+                </Text>
+                <Text size="md" mb="md">
+                  As indicated under Sections 1 and 3 of Exhibit A of the
+                  Addendum.
+                </Text>
+                <Text size="md" mb="md" fw={600}>
+                  Frequency of the transfer
+                </Text>
+                <Text size="md" mb="md">
+                  Continuous, for the duration of the Service Agreement.
+                </Text>
+                <Text size="md" mb="md" fw={600}>
+                  Duration of the processing and retention period
+                </Text>
+                <Text size="md" mb="md">
+                  As indicated under Section 2 of Exhibit A and Section 10 of
+                  the Addendum.
+                </Text>
+                <Text size="md" mb="md" fw={600}>
+                  Transfers to sub-processors
+                </Text>
+                <Text size="md" mb="md">
+                  The subject matter, nature, and duration of the processing
+                  carried out by each Subprocessor are set out in Exhibit B of
+                  the Addendum; each Subprocessor Processes the Client Personal
+                  Data for the purpose stated against its name, for the duration
+                  of the Service Agreement.
+                </Text>
+                <Text size="md" mb="md" fw={600}>
+                  Competent supervisory authority
+                </Text>
+                <Text size="md" mb="md">
+                  The supervisory authority of the EU Member State in which the
+                  data exporter is established or, where the data exporter is
+                  not established in the European Economic Area, the supervisory
+                  authority of the Member State in which the data exporter’s
+                  representative under Article 27 of the GDPR is established or,
+                  in the absence of such a representative, the supervisory
+                  authority of the Member State in which the data subjects whose
+                  personal data is transferred are located. For transfers
+                  governed exclusively by the FADP, the FDPIC. For transfers
+                  governed by the UK GDPR, the UK Information Commissioner.
+                </Text>
+                <Text size="md" mb="md" td="underline" ta="center" fw={600}>
+                  Appendix 2 to the Standard Contractual Clauses (Annex II)
+                </Text>
+                <Text size="md" mb="md" td="underline" fw={600}>
+                  By entering into the Standard Contractual Clauses, pursuant to
+                  Section 12.1 of the Addendum, the parties are deemed to have
+                  signed this Appendix 2.
+                </Text>
+                <Text size="md" mb="md" fw={600}>
+                  Description of the technical and organisational measures
+                  implemented by the data importer to ensure an appropriate
+                  level of security:
+                </Text>
+                <Text size="md" mb="md">
+                  This Appendix 2 describes the measures that are in place as of
+                  the Effective Date and, separately and expressly, the measures
+                  that Cosmo has committed to implement and the horizon for
+                  doing so. Cosmo makes no representation that a measure listed
+                  as planned is in place. Cosmo holds no security certification
+                  and has not undergone a SOC 2 examination, an ISO/IEC 27001
+                  certification, or a third-party penetration test as of the
+                  Effective Date.
+                </Text>
+                <Text size="md" mb="md" fw={600}>
+                  Measures in place as of the Effective Date
+                </Text>
+                <List type="ordered" listStyleType="lower-alpha" mb="md">
+                  <List.Item>
+                    <Text size="md" c="black">
+                      <Text span size="md" fw={600}>
+                        Encryption of data in transit.
+                      </Text>{' '}
+                      All traffic between the Client’s browser, the Cosmo
+                      application, and the Subprocessors listed in Exhibit B is
+                      carried over TLS (HTTPS). Plain-text transport is not
+                      offered.
+                    </Text>
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      <Text span size="md" fw={600}>
+                        Encryption of data at rest.
+                      </Text>{' '}
+                      Client Personal Data is stored on infrastructure operated
+                      by Amazon Web Services in the ap-southeast-1 (Singapore)
+                      region, using provider-managed disk and object storage
+                      encryption at the infrastructure layer. Application-level
+                      encryption of individual stored fields is not in place
+                      today and is addressed under “Measures scheduled for
+                      implementation” below.
+                    </Text>
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      <Text span size="md" fw={600}>
+                        Access control and tenant isolation.
+                      </Text>{' '}
+                      Client Personal Data is segregated logically. Every query
+                      issued by the application is scoped to the authenticated
+                      user and to that user’s organization, so that records
+                      belonging to one Client are not returned to another.
+                    </Text>
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      <Text span size="md" fw={600}>
+                        Authentication.
+                      </Text>{' '}
+                      Access to the Services is authenticated using OAuth 2.0
+                      and short-lived JSON Web Token access tokens. Mailbox
+                      access is obtained by OAuth 2.0 authorisation granted by
+                      the Client user and can be revoked by that user at any
+                      time from the relevant provider’s account settings.
+                    </Text>
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      <Text span size="md" fw={600}>
+                        Least-privilege third-party scopes.
+                      </Text>{' '}
+                      Where a Client user connects a Google mailbox, Cosmo
+                      requests only the scopes required to operate the Services,
+                      namely gmail.send, gmail.readonly, gmail.modify, and
+                      gmail.labels, together with Cloud Pub/Sub for mailbox
+                      change notifications. Cosmo does not request access to
+                      Google Drive or to any other Google service.
+                    </Text>
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      <Text span size="md" fw={600}>
+                        Secure development.
+                      </Text>{' '}
+                      Static security analysis of the server codebase (gosec) is
+                      executed in the continuous integration pipeline on changes
+                      to the codebase, and code changes are subject to peer
+                      review before they are merged.
+                    </Text>
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      <Text span size="md" fw={600}>
+                        Logging and event monitoring.
+                      </Text>{' '}
+                      Application errors and exceptions are captured by the
+                      error-monitoring Subprocessor identified in Exhibit B,
+                      which supports the detection and investigation of
+                      incidents, including Personal Data Breaches.
+                    </Text>
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      <Text span size="md" fw={600}>
+                        Personnel measures.
+                      </Text>{' '}
+                      Access to production systems is limited to those personnel
+                      who require it in order to operate and support the
+                      Services, and all such personnel are bound by
+                      confidentiality obligations, as set out in Section 4 of
+                      the Addendum.
+                    </Text>
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      <Text span size="md" fw={600}>
+                        Sub-processor governance.
+                      </Text>{' '}
+                      Each Subprocessor is engaged under a written contract on
+                      terms that meet the requirements of Article 28(3) of the
+                      GDPR, as set out in Section 6 of the Addendum, and the
+                      current list is published in Exhibit B.
+                    </Text>
+                  </List.Item>
+                </List>
+                <Text size="md" mb="md" fw={600}>
+                  Measures scheduled for implementation
+                </Text>
+                <Text size="md" mb="md">
+                  The following measures are not in place as of the Effective
+                  Date. Cosmo commits to implement each of them before the
+                  general availability release of the Services, and will update
+                  this Appendix 2 as each is completed.
+                </Text>
+                <List type="ordered" listStyleType="lower-alpha" mb="md">
+                  <List.Item>
+                    <Text size="md" c="black">
+                      Application-level encryption of stored third-party
+                      credentials, including OAuth access and refresh tokens,
+                      under keys managed separately from the database.
+                    </Text>
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      Pseudonymisation of Client Personal Data before it is
+                      submitted to the artificial-intelligence Subprocessors
+                      identified in Exhibit B, so that identifiers are replaced
+                      before inference and restored on return.
+                    </Text>
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      Automated retention windows and scheduled purging of
+                      records marked as deleted, including the expiry of derived
+                      data such as vector embeddings and AI-generated summaries,
+                      as described in Section 10.2 of the Addendum.
+                    </Text>
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      Single sign-on and multi-factor authentication for Client
+                      accounts.
+                    </Text>
+                  </List.Item>
+                  <List.Item>
+                    <Text size="md" c="black">
+                      A formal independent third-party security assessment of
+                      the Services, the results of which will be made available
+                      to the Client under Section 11 of the Addendum, subject to
+                      obligations of confidentiality.
+                    </Text>
+                  </List.Item>
+                </List>
               </Box>
             </Box>
           </AppShell.Main>

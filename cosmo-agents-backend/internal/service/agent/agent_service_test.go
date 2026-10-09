@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
@@ -91,8 +91,7 @@ func TestAgentService_ValidateCreateRequest(t *testing.T) {
 
 func newAgentService(t *testing.T) (*AgentService, *gorm.DB) {
 	t.Helper()
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&domain.Agent{}))
 	return NewAgentService(db), db

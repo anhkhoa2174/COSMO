@@ -20,6 +20,17 @@ type Organization struct {
 	CompanyTargetingPersona pq.StringArray `gorm:"type:text[]" json:"company_targeting_persona"`
 	ValueOffering           string         `json:"value_offering"`
 
+	// Captured during onboarding — which CRM the team runs on, and how they
+	// handle inbound leads today.
+	CRM               string         `json:"crm"`
+	LeadHandling      pq.StringArray `gorm:"type:text[]" json:"lead_handling"`
+	LeadHandlingOther string         `json:"lead_handling_other"`
+
+	// Per-organisation outreach cadence, set by an admin. Nil, or any key
+	// left out of it, falls back to the service defaults — so an organisation
+	// that never opens the settings page behaves exactly as before.
+	OutreachSettings base.JSONB `gorm:"type:jsonb" json:"outreach_settings,omitempty"`
+
 	// Note: Direct relationships removed to avoid circular imports.
 	// Use the relations package for relationship queries:
 	// - relations.OrganizationWithUser

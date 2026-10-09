@@ -43,12 +43,15 @@ func marshalContact(c *domain.Contact) map[string]any {
 	}
 
 	out := map[string]any{
-		"id":              c.ID,
-		"user_id":         c.UserID,
-		"email":           profileEmail,
-		"name":            c.Name,
-		"company":         c.Company,
-		"job_title":       c.JobTitle,
+		"id":        c.ID,
+		"user_id":   c.UserID,
+		"email":     profileEmail,
+		"name":      c.Name,
+		"company":   c.Company,
+		"job_title": c.JobTitle,
+		// Segment scoring and the embedding metadata both read industry from
+		// this map; without it every contact scored as "industry unknown".
+		"industry":        c.Industry,
 		"do_not_contact":  c.DoNotContact,
 		"created_at":      c.CreatedAt,
 		"updated_at":      c.UpdatedAt,

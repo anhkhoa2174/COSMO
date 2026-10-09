@@ -40,7 +40,9 @@ const DeleteButton = React.forwardRef<HTMLButtonElement, DeleteButtonProps>(
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            {description && <AlertDialogDescription>{description}</AlertDialogDescription>}
+            {description && (
+              <AlertDialogDescription>{description}</AlertDialogDescription>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

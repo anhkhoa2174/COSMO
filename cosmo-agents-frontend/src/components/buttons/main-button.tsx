@@ -10,7 +10,17 @@ interface MainButtonProps extends ButtonProps {
 }
 
 const MainButton = React.forwardRef<HTMLButtonElement, MainButtonProps>(
-  ({ text = '', loading = false, icon: Icon, rightIcon: RightIcon, disabled, ...props }, ref) => {
+  (
+    {
+      text = '',
+      loading = false,
+      icon: Icon,
+      rightIcon: RightIcon,
+      disabled,
+      ...props
+    },
+    ref
+  ) => {
     return (
       <Button ref={ref} disabled={disabled || loading} {...props}>
         {loading && Icon ? (
@@ -19,9 +29,9 @@ const MainButton = React.forwardRef<HTMLButtonElement, MainButtonProps>(
           <Icon className="h-4 w-4" />
         ) : null}
         {text}
-        {loading && !Icon ?
+        {loading && !Icon ? (
           <Loader2 className="h-4 w-4 animate-spin" />
-        : RightIcon ? (
+        ) : RightIcon ? (
           <RightIcon className="h-4 w-4" />
         ) : null}
       </Button>

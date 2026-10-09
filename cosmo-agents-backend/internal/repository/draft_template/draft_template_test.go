@@ -2,23 +2,21 @@ package drafttemplate
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/rockship/cosmo-agents-go/internal/domain"
 	baseRepo "github.com/rockship/cosmo-agents-go/internal/repository/base"
 	gormpkg "github.com/rockship/cosmo-agents-go/internal/repository/gorm"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupTestDB creates a test database
 func setupTestDB(t *testing.T) *gorm.DB {
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString())
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	db = db.Session(&gorm.Session{AllowGlobalUpdate: true})
 

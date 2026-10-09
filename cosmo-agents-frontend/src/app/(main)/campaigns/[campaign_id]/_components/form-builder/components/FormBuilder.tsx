@@ -114,13 +114,25 @@ export default function FormBuilder({
     },
   });
 
-  const [formState, setFormState] = useState<FormState>(
+  const [formState, setFormState] = useState<FormState>(() =>
     formInboundSlug
       ? {
           elements: formInbound?.data?.ui_metadata?.elements || [],
           settings: formInbound?.data?.ui_metadata?.settings || {},
         }
-      : initialFormState
+      : {
+          ...initialFormState,
+          // The template's slug is generated once when the module loads, so a
+          // second new form in the same session reused it and the save failed
+          // on the unique slug. Each new form gets its own.
+          settings: {
+            ...initialFormState.settings,
+            publicUrl: {
+              ...initialFormState.settings.publicUrl,
+              name: `new-customer-form-${generateId()}`,
+            },
+          },
+        }
   );
   const [selectedElement, setSelectedElement] = useState<FormElement | null>(
     null

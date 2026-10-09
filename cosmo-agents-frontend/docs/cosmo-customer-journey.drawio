@@ -1,0 +1,211 @@
+<mxfile host="app.diagrams.net" modified="2026-03-28T00:00:00.000Z" agent="draw.io" version="24.0.0">
+  <diagram id="customer-journey" name="COSMO Customer Journey">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="&lt;b&gt;Customer Journey in COSMO&lt;/b&gt;" style="text;html=1;fontSize=20;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="500" y="20" width="400" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- JOURNEY STAGES (Top Row) -->
+        <!-- ============================================ -->
+
+        <!-- Stage 1: Identify -->
+        <mxCell id="stage1" value="&lt;b&gt;IDENTIFY&lt;/b&gt;&lt;br&gt;Find &amp; Import Leads" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;verticalAlign=middle;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="80" y="100" width="200" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow 1→2 -->
+        <mxCell id="arrow1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#6c8ebf;" edge="1" source="stage1" target="stage2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Stage 2: Research -->
+        <mxCell id="stage2" value="&lt;b&gt;RESEARCH&lt;/b&gt;&lt;br&gt;Enrich &amp; Analyze" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;verticalAlign=middle;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="360" y="100" width="200" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow 2→3 -->
+        <mxCell id="arrow2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#6c8ebf;" edge="1" source="stage2" target="stage3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Stage 3: Outreach -->
+        <mxCell id="stage3" value="&lt;b&gt;OUTREACH&lt;/b&gt;&lt;br&gt;Initial Contact" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;verticalAlign=middle;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="640" y="100" width="200" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow 3→4 -->
+        <mxCell id="arrow3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#82b366;" edge="1" source="stage3" target="stage4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Stage 4: Nurture -->
+        <mxCell id="stage4" value="&lt;b&gt;NURTURE&lt;/b&gt;&lt;br&gt;Follow-up &amp; Engage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;verticalAlign=middle;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="920" y="100" width="200" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow 4→5 -->
+        <mxCell id="arrow4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#82b366;" edge="1" source="stage4" target="stage5" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Stage 5: Convert -->
+        <mxCell id="stage5" value="&lt;b&gt;CONVERT&lt;/b&gt;&lt;br&gt;Book Meeting" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;verticalAlign=middle;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="100" width="200" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow 5→6 (dashed - out of scope) -->
+        <mxCell id="arrow5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#b3b3b3;dashed=1;" edge="1" source="stage5" target="stage6" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Stage 6: Retain (Out of scope) -->
+        <mxCell id="stage6" value="&lt;b&gt;RETAIN&lt;/b&gt;&lt;br&gt;&lt;i&gt;(Out of Scope)&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#b3b3b3;fontSize=14;verticalAlign=middle;arcSize=20;fontColor=#999999;" vertex="1" parent="1">
+          <mxGeometry x="1440" y="100" width="160" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- COSMO SCOPE BRACKET -->
+        <!-- ============================================ -->
+        <mxCell id="scope_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#0066CC;strokeWidth=3;dashed=1;dashPattern=8 4;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="80" width="1360" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="scope_label" value="&lt;b&gt;COSMO Scope&lt;/b&gt;" style="text;html=1;fontSize=13;align=left;verticalAlign=middle;fontColor=#0066CC;" vertex="1" parent="1">
+          <mxGeometry x="70" y="80" width="120" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- DETAIL BOXES (Below each stage) -->
+        <!-- ============================================ -->
+
+        <!-- Stage 1 Details -->
+        <mxCell id="detail1" value="&lt;b&gt;Data Sources:&lt;/b&gt;&lt;br&gt;• Apollo.io API search&lt;br&gt;• CSV import&lt;br&gt;• Manual entry&lt;br&gt;• HubSpot sync&lt;br&gt;&lt;br&gt;&lt;b&gt;Filters:&lt;/b&gt;&lt;br&gt;• Industry, job title&lt;br&gt;• Company size, revenue&lt;br&gt;• Technology stack&lt;br&gt;• Location" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8f9fa;strokeColor=#dae8fc;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;spacingRight=5;" vertex="1" parent="1">
+          <mxGeometry x="60" y="230" width="200" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="link1" style="strokeWidth=1;strokeColor=#6c8ebf;dashed=1;" edge="1" source="stage1" target="detail1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Stage 2 Details -->
+        <mxCell id="detail2" value="&lt;b&gt;AI Enrichment:&lt;/b&gt;&lt;br&gt;• Profile completion&lt;br&gt;• Company research&lt;br&gt;• Pain point analysis&lt;br&gt;• Buying signals&lt;br&gt;&lt;br&gt;&lt;b&gt;Scoring:&lt;/b&gt;&lt;br&gt;• Lead scoring&lt;br&gt;• Priority ranking&lt;br&gt;• Segment assignment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8f9fa;strokeColor=#dae8fc;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;spacingRight=5;" vertex="1" parent="1">
+          <mxGeometry x="340" y="230" width="200" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="link2" style="strokeWidth=1;strokeColor=#6c8ebf;dashed=1;" edge="1" source="stage2" target="detail2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Stage 3 Details -->
+        <mxCell id="detail3" value="&lt;b&gt;Channels:&lt;/b&gt;&lt;br&gt;• Email&lt;br&gt;• LinkedIn&lt;br&gt;&lt;br&gt;&lt;b&gt;AI Assistance:&lt;/b&gt;&lt;br&gt;• Draft personalized&lt;br&gt;&amp;nbsp;&amp;nbsp;messages&lt;br&gt;• Recommend channel&lt;br&gt;• Recommend timing&lt;br&gt;• Strategy selection" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8f9fa;strokeColor=#d5e8d4;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;spacingRight=5;" vertex="1" parent="1">
+          <mxGeometry x="620" y="230" width="200" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="link3" style="strokeWidth=1;strokeColor=#82b366;dashed=1;" edge="1" source="stage3" target="detail3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Stage 4 Details -->
+        <mxCell id="detail4" value="&lt;b&gt;Automation:&lt;/b&gt;&lt;br&gt;• Smart follow-ups&lt;br&gt;• Snooze &amp; re-engage&lt;br&gt;• Reply detection&lt;br&gt;&lt;br&gt;&lt;b&gt;AI Daily Actions:&lt;/b&gt;&lt;br&gt;• Priority-ranked tasks&lt;br&gt;• Outcome metrics&lt;br&gt;• Pipeline tracking&lt;br&gt;• Interaction history" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8f9fa;strokeColor=#d5e8d4;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;spacingRight=5;" vertex="1" parent="1">
+          <mxGeometry x="900" y="230" width="200" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="link4" style="strokeWidth=1;strokeColor=#82b366;dashed=1;" edge="1" source="stage4" target="detail4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Stage 5 Details -->
+        <mxCell id="detail5" value="&lt;b&gt;Meeting Prep:&lt;/b&gt;&lt;br&gt;• AI briefing&lt;br&gt;• Conversation summary&lt;br&gt;• Suggested agenda&lt;br&gt;• Discovery questions&lt;br&gt;&lt;br&gt;&lt;b&gt;Tracking:&lt;/b&gt;&lt;br&gt;• Meetings booked&lt;br&gt;• Conversion rate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8f9fa;strokeColor=#fff2cc;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;spacingRight=5;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="230" width="200" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="link5" style="strokeWidth=1;strokeColor=#d6b656;dashed=1;" edge="1" source="stage5" target="detail5" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- CONTACT LIFECYCLE (Bottom) -->
+        <!-- ============================================ -->
+        <mxCell id="lifecycle_title" value="&lt;b&gt;Contact Lifecycle:&lt;/b&gt;" style="text;html=1;fontSize=13;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="60" y="480" width="150" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Lead -->
+        <mxCell id="lc1" value="&lt;b&gt;Lead&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Imported, not&lt;br&gt;yet contacted&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="130" y="520" width="130" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lc_arrow1" style="strokeWidth=2;strokeColor=#666666;" edge="1" source="lc1" target="lc2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Contacted -->
+        <mxCell id="lc2" value="&lt;b&gt;Contacted&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;First message&lt;br&gt;sent&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="370" y="520" width="130" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lc_arrow2" style="strokeWidth=2;strokeColor=#666666;" edge="1" source="lc2" target="lc3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Engaged -->
+        <mxCell id="lc3" value="&lt;b&gt;Engaged&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Replied or&lt;br&gt;interacted&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="610" y="520" width="130" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lc_arrow3" style="strokeWidth=2;strokeColor=#666666;" edge="1" source="lc3" target="lc4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Meeting Booked -->
+        <mxCell id="lc4" value="&lt;b&gt;Meeting&lt;br&gt;Booked&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Scheduled&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="850" y="520" width="130" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lc_arrow4" style="strokeWidth=2;strokeColor=#666666;" edge="1" source="lc4" target="lc5" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Converted -->
+        <mxCell id="lc5" value="&lt;b&gt;Converted&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Deal closed&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="520" width="130" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lc_arrow5" style="strokeWidth=2;strokeColor=#b3b3b3;dashed=1;" edge="1" source="lc5" target="lc6" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Retained -->
+        <mxCell id="lc6" value="&lt;b&gt;Retained&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#999999&quot;&gt;Out of Scope&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#b3b3b3;fontSize=12;verticalAlign=middle;fontColor=#999999;" vertex="1" parent="1">
+          <mxGeometry x="1330" y="520" width="130" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- DATA ENTRY POINTS -->
+        <!-- ============================================ -->
+        <mxCell id="entry_label" value="&lt;b&gt;Data Entry Points:&lt;/b&gt;" style="text;html=1;fontSize=12;align=center;verticalAlign=middle;fontColor=#0066CC;" vertex="1" parent="1">
+          <mxGeometry x="60" y="640" width="150" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="entry1" value="Apollo.io API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f3ff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="80" y="675" width="110" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="entry2" value="CSV Import" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f3ff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="210" y="675" width="110" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="entry3" value="Manual Entry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f3ff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="340" y="675" width="110" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="entry4" value="HubSpot Sync" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f3ff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="470" y="675" width="110" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- Note: Pre-identified leads -->
+        <mxCell id="note1" value="&lt;i&gt;Enterprise may already have identified leads&lt;br&gt;before using COSMO (e.g., from events, referrals)&lt;/i&gt;" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="620" y="675" width="320" height="35" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

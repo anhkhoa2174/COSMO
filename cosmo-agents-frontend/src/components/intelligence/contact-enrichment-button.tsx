@@ -41,7 +41,8 @@ export function ContactEnrichmentButton({
   const [enrichmentData, setEnrichmentData] =
     useState<ContactEnrichmentResponse | null>(null);
   const [addFindingDialogOpen, setAddFindingDialogOpen] = useState(false);
-  const [selectedSuggestion, setSelectedSuggestion] = useState<ResearchSuggestion | null>(null);
+  const [selectedSuggestion, setSelectedSuggestion] =
+    useState<ResearchSuggestion | null>(null);
   const [forceRefresh, setForceRefresh] = useState(false);
 
   const enrichMutation = useMutation({
@@ -67,13 +68,15 @@ export function ContactEnrichmentButton({
         const updated = { ...prev, ai_insights: { ...prev.ai_insights } };
 
         if (vars.insight_type === 'pain_point') {
-          updated.ai_insights.suspected_pain_points = prev.ai_insights.suspected_pain_points.filter(
-            (p) => p.pain_point !== vars.insight_text
-          );
+          updated.ai_insights.suspected_pain_points =
+            prev.ai_insights.suspected_pain_points.filter(
+              (p) => p.pain_point !== vars.insight_text
+            );
         } else if (vars.insight_type === 'goal') {
-          updated.ai_insights.suspected_goals = prev.ai_insights.suspected_goals.filter(
-            (g) => g.goal !== vars.insight_text
-          );
+          updated.ai_insights.suspected_goals =
+            prev.ai_insights.suspected_goals.filter(
+              (g) => g.goal !== vars.insight_text
+            );
         }
         return updated;
       });
@@ -112,7 +115,7 @@ export function ContactEnrichmentButton({
           />
           <Label
             htmlFor={`force-refresh-${contactId}`}
-            className="text-sm font-normal cursor-pointer"
+            className="cursor-pointer text-sm font-normal"
           >
             Force Refresh (regenerate embedding)
           </Label>
@@ -138,7 +141,7 @@ export function ContactEnrichmentButton({
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-h-[80vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>AI Enrichment Results</DialogTitle>
             <DialogDescription>
@@ -181,57 +184,70 @@ export function ContactEnrichmentButton({
               </div>
 
               {/* Pain Points */}
-              {(enrichmentData.ai_insights.suspected_pain_points ?? []).length > 0 && (
+              {(enrichmentData.ai_insights.suspected_pain_points ?? []).length >
+                0 && (
                 <div>
                   <h3 className="mb-3 font-semibold">Suspected Pain Points</h3>
                   <div className="space-y-2">
-                    {(enrichmentData.ai_insights.suspected_pain_points ?? []).map(
-                      (point) => (
-                        <div key={point.pain_point} className="rounded-lg border p-3">
-                          <div className="mb-1 flex items-start justify-between">
-                            <p className="font-medium">{point.pain_point}</p>
-                            <Badge variant="outline">
-                              {Math.round(point.confidence * 100)}% confident
-                            </Badge>
-                          </div>
-                          <div className="mb-2 flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={validateInsightMutation.isPending}
-                              onClick={() =>
-                                handleValidateInsight('pain_point', point.pain_point, 'confirmed')
-                              }
-                            >
-                              Confirm
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={validateInsightMutation.isPending}
-                              onClick={() =>
-                                handleValidateInsight('pain_point', point.pain_point, 'rejected')
-                              }
-                            >
-                              Reject
-                            </Button>
-                          </div>
-                          {point.evidence?.length > 0 && (
-                            <ul className="ml-4 list-disc text-sm text-muted-foreground">
-                              {point.evidence.map((ev) => (
-                                <li key={ev}>{ev}</li>
-                              ))}
-                            </ul>
-                          )}
+                    {(
+                      enrichmentData.ai_insights.suspected_pain_points ?? []
+                    ).map((point) => (
+                      <div
+                        key={point.pain_point}
+                        className="rounded-lg border p-3"
+                      >
+                        <div className="mb-1 flex items-start justify-between">
+                          <p className="font-medium">{point.pain_point}</p>
+                          <Badge variant="outline">
+                            {Math.round(point.confidence * 100)}% confident
+                          </Badge>
                         </div>
-                      )
-                    )}
+                        <div className="mb-2 flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={validateInsightMutation.isPending}
+                            onClick={() =>
+                              handleValidateInsight(
+                                'pain_point',
+                                point.pain_point,
+                                'confirmed'
+                              )
+                            }
+                          >
+                            Confirm
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={validateInsightMutation.isPending}
+                            onClick={() =>
+                              handleValidateInsight(
+                                'pain_point',
+                                point.pain_point,
+                                'rejected'
+                              )
+                            }
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                        {point.evidence?.length > 0 && (
+                          <ul className="ml-4 list-disc text-sm text-muted-foreground">
+                            {point.evidence.map((ev) => (
+                              <li key={ev}>{ev}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
 
               {/* Goals */}
-              {(enrichmentData.ai_insights.suspected_goals ?? []).length > 0 && (
+              {(enrichmentData.ai_insights.suspected_goals ?? []).length >
+                0 && (
                 <div>
                   <h3 className="mb-3 font-semibold">Suspected Goals</h3>
                   <div className="space-y-2">
@@ -250,7 +266,11 @@ export function ContactEnrichmentButton({
                               variant="outline"
                               disabled={validateInsightMutation.isPending}
                               onClick={() =>
-                                handleValidateInsight('goal', goal.goal, 'confirmed')
+                                handleValidateInsight(
+                                  'goal',
+                                  goal.goal,
+                                  'confirmed'
+                                )
                               }
                             >
                               Confirm
@@ -260,7 +280,11 @@ export function ContactEnrichmentButton({
                               variant="ghost"
                               disabled={validateInsightMutation.isPending}
                               onClick={() =>
-                                handleValidateInsight('goal', goal.goal, 'rejected')
+                                handleValidateInsight(
+                                  'goal',
+                                  goal.goal,
+                                  'rejected'
+                                )
                               }
                             >
                               Reject
@@ -294,7 +318,9 @@ export function ContactEnrichmentButton({
                           <div>
                             <p className="font-medium">{signal.signal}</p>
                             <p className="text-sm text-muted-foreground">
-                              {new Date(signal.occurred_at).toLocaleDateString()}
+                              {new Date(
+                                signal.occurred_at
+                              ).toLocaleDateString()}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
@@ -321,11 +347,10 @@ export function ContactEnrichmentButton({
               )}
 
               {/* Research Suggestions */}
-              {(enrichmentData.ai_insights.research_suggestions?.length ?? 0) > 0 && (
+              {(enrichmentData.ai_insights.research_suggestions?.length ?? 0) >
+                0 && (
                 <div>
-                  <h3 className="mb-3 font-semibold">
-                    What to Research Next
-                  </h3>
+                  <h3 className="mb-3 font-semibold">What to Research Next</h3>
                   <div className="space-y-3">
                     {enrichmentData.ai_insights.research_suggestions?.map(
                       (suggestion, idx) => (
@@ -430,7 +455,9 @@ export function ContactEnrichmentButton({
           contactId={contactId}
           suggestion={selectedSuggestion}
           onSuccess={() => {
-            toast.success('Finding added! You can view it in the contact profile.');
+            toast.success(
+              'Finding added! You can view it in the contact profile.'
+            );
             // Optionally re-enrich to update data
           }}
         />

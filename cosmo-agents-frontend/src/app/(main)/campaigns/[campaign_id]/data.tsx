@@ -24,11 +24,19 @@ const INTENT_NODE_ID = {
   INFORMATION: 'INFORMATION',
   DO_NOT_CONTACT: 'DO_NOT_CONTACT',
   OUT_OF_OFFICE: 'OUT_OF_OFFICE',
+  // Referral and Nurture are classified by the backend and handled by fixed
+  // rules (a lead per referred address; hand-off to the campaign owner), so
+  // they are shown as default nodes like the three below. Left out, the
+  // builder showed 7 of the 9 intents the classifier produces.
+  REFERRAL: 'REFERRAL',
+  NURTURE: 'NURTURE',
   UNKNOWN: 'UNKNOWN',
 };
 const AI_ACTION_NODE_ID = {
   DO_NOT_CONTACT: 'DO_NOT_CONTACT-AI-ACTION',
   OUT_OF_OFFICE: 'OUT_OF_OFFICE-AI-ACTION',
+  REFERRAL: 'REFERRAL-AI-ACTION',
+  NURTURE: 'NURTURE-AI-ACTION',
   UNKNOWN: 'UNKNOWN-AI-ACTION',
 };
 export const INTENT_NODE_IDS = Object.values(INTENT_NODE_ID);
@@ -47,6 +55,8 @@ export const INTENT_TYPE: Record<string, EmailIntent> = {
   [INTENT_NODE_ID.INFORMATION]: 'Request for information',
   [INTENT_NODE_ID.DO_NOT_CONTACT]: 'Do not contact',
   [INTENT_NODE_ID.OUT_OF_OFFICE]: 'Out of office',
+  [INTENT_NODE_ID.REFERRAL]: 'Referral',
+  [INTENT_NODE_ID.NURTURE]: 'Nurture',
   [INTENT_NODE_ID.UNKNOWN]: 'Unknown intent',
 };
 export const getIntentNodeIdByType = (type: EmailIntent): string | undefined =>
@@ -57,7 +67,9 @@ export const ACTION_TYPE: Record<string, CampaignAction> = {
   [ACTION_NODE_ID.DRAFT_EMAIL]: 'Draft an email',
   [ACTION_NODE_ID.ASSIGN_PERSON]: 'Assign to a person',
 };
-export const getActionNodeIdByType = (type: CampaignAction): string | undefined =>
+export const getActionNodeIdByType = (
+  type: CampaignAction
+): string | undefined =>
   Object.keys(ACTION_TYPE).find((key) => ACTION_TYPE[key] === type);
 
 export const actionNodeData = {
@@ -82,12 +94,18 @@ export const actionNodeData = {
 };
 
 export const INTENT_NODE_POS = {
-  [INTENT_NODE_ID.INTERESTED]: { x: X_OFFSET + 2.5 * NODE_WIDTH + 3 * NODE_GAP, y: Y_OFFSET + 105 },
+  [INTENT_NODE_ID.INTERESTED]: {
+    x: X_OFFSET + 2.5 * NODE_WIDTH + 3 * NODE_GAP,
+    y: Y_OFFSET + 105,
+  },
   [INTENT_NODE_ID.NOT_INTERESTED]: {
     x: X_OFFSET + 2.5 * NODE_WIDTH + 3 * NODE_GAP,
     y: Y_OFFSET + 185,
   },
-  [INTENT_NODE_ID.PRICING]: { x: X_OFFSET + 2.5 * NODE_WIDTH + 3 * NODE_GAP, y: Y_OFFSET + 265 },
+  [INTENT_NODE_ID.PRICING]: {
+    x: X_OFFSET + 2.5 * NODE_WIDTH + 3 * NODE_GAP,
+    y: Y_OFFSET + 265,
+  },
   [INTENT_NODE_ID.INFORMATION]: {
     x: X_OFFSET + 2.5 * NODE_WIDTH + 3 * NODE_GAP,
     y: Y_OFFSET + 345,
@@ -100,7 +118,18 @@ export const INTENT_NODE_POS = {
     x: X_OFFSET + 2.5 * NODE_WIDTH + 3 * NODE_GAP,
     y: Y_OFFSET + 554,
   },
-  [INTENT_NODE_ID.UNKNOWN]: { x: X_OFFSET + 2.5 * NODE_WIDTH + 3 * NODE_GAP, y: Y_OFFSET + 684 },
+  [INTENT_NODE_ID.REFERRAL]: {
+    x: X_OFFSET + 2.5 * NODE_WIDTH + 3 * NODE_GAP,
+    y: Y_OFFSET + 684,
+  },
+  [INTENT_NODE_ID.NURTURE]: {
+    x: X_OFFSET + 2.5 * NODE_WIDTH + 3 * NODE_GAP,
+    y: Y_OFFSET + 814,
+  },
+  [INTENT_NODE_ID.UNKNOWN]: {
+    x: X_OFFSET + 2.5 * NODE_WIDTH + 3 * NODE_GAP,
+    y: Y_OFFSET + 944,
+  },
 };
 
 export const initialNodes: AppNode[] = [
@@ -165,12 +194,12 @@ export const afterOutreachEmailNodes: AppNode[] = [
     position: INTENT_NODE_POS[INTENT_NODE_ID.DO_NOT_CONTACT],
     data: {
       label: (
-        <div className='flex flex-col items-start gap-2'>
+        <div className="flex flex-col items-start gap-2">
           <p>
             ❌ Do not contact <span className="text-muted">default</span>
           </p>
-          <div className='flex items-start gap-1 italic text-[#798088]'>
-            <span className='w-5 h-5'>🤖</span>
+          <div className="flex items-start gap-1 italic text-[#798088]">
+            <span className="h-5 w-5">🤖</span>
             <div>AI marks contact as DNC status = yes</div>
           </div>
         </div>
@@ -183,13 +212,49 @@ export const afterOutreachEmailNodes: AppNode[] = [
     position: INTENT_NODE_POS[INTENT_NODE_ID.OUT_OF_OFFICE],
     data: {
       label: (
-        <div className='flex flex-col items-start gap-2'>
+        <div className="flex flex-col items-start gap-2">
           <p>
             ✈️ Out of office <span className="text-muted">default</span>
           </p>
-          <div className='flex items-start gap-1 italic text-[#798088]'>
-            <span className='w-5 h-5'>🤖</span> 
+          <div className="flex items-start gap-1 italic text-[#798088]">
+            <span className="h-5 w-5">🤖</span>
             <div>AI extracts dates then schedules follow up</div>
+          </div>
+        </div>
+      ),
+    },
+  },
+  {
+    id: INTENT_NODE_ID.REFERRAL,
+    type: 'intent-node',
+    position: INTENT_NODE_POS[INTENT_NODE_ID.REFERRAL],
+    data: {
+      label: (
+        <div className="flex flex-col items-start gap-2">
+          <p>
+            🔁 Referral <span className="text-muted">default</span>
+          </p>
+          <div className="flex items-start gap-1 italic text-[#798088]">
+            <span className="h-5 w-5">🤖</span>
+            <div>AI creates a lead per referred contact</div>
+          </div>
+        </div>
+      ),
+    },
+  },
+  {
+    id: INTENT_NODE_ID.NURTURE,
+    type: 'intent-node',
+    position: INTENT_NODE_POS[INTENT_NODE_ID.NURTURE],
+    data: {
+      label: (
+        <div className="flex flex-col items-start gap-2">
+          <p>
+            🌱 Nurture <span className="text-muted">default</span>
+          </p>
+          <div className="flex items-start gap-1 italic text-[#798088]">
+            <span className="h-5 w-5">🤖</span>
+            <div>AI hands off for a later follow-up</div>
           </div>
         </div>
       ),
@@ -201,16 +266,15 @@ export const afterOutreachEmailNodes: AppNode[] = [
     position: INTENT_NODE_POS[INTENT_NODE_ID.UNKNOWN],
     data: {
       label: (
-        <div className='flex flex-col items-start gap-2'>
+        <div className="flex flex-col items-start gap-2">
           <p>
             ❓ Unknown intent <span className="text-muted">default</span>
           </p>
-          <div className='flex items-start gap-1 italic text-[#798088]'>
-            <span className='w-5 h-5'>🤖</span> 
+          <div className="flex items-start gap-1 italic text-[#798088]">
+            <span className="h-5 w-5">🤖</span>
             <div>AI routes to campaign owner</div>
           </div>
         </div>
-
       ),
     },
   },
@@ -218,30 +282,65 @@ export const afterOutreachEmailNodes: AppNode[] = [
     id: AI_ACTION_NODE_ID.DO_NOT_CONTACT,
     type: 'custom-node',
     position: {
-      x: INTENT_NODE_POS[INTENT_NODE_ID.DO_NOT_CONTACT].x + NODE_WIDTH + NODE_GAP,
+      x:
+        INTENT_NODE_POS[INTENT_NODE_ID.DO_NOT_CONTACT].x +
+        NODE_WIDTH +
+        NODE_GAP,
       y: INTENT_NODE_POS[INTENT_NODE_ID.DO_NOT_CONTACT].y - 0.5,
     },
     data: {
-      icon: <span className='w-5 h-5'>🤖</span>,
+      icon: <span className="h-5 w-5">🤖</span>,
       label: 'AI Action',
       children: 'Mark contact as Do Not Contact',
       isCompleted: true,
-      isDelete: false
+      isDelete: false,
     },
   },
   {
     id: AI_ACTION_NODE_ID.OUT_OF_OFFICE,
     type: 'custom-node',
     position: {
-      x: INTENT_NODE_POS[INTENT_NODE_ID.OUT_OF_OFFICE].x + NODE_WIDTH + NODE_GAP,
+      x:
+        INTENT_NODE_POS[INTENT_NODE_ID.OUT_OF_OFFICE].x + NODE_WIDTH + NODE_GAP,
       y: INTENT_NODE_POS[INTENT_NODE_ID.OUT_OF_OFFICE].y - 0.5,
     },
     data: {
-      icon: <span className='w-5 h-5'>🤖</span>,
+      icon: <span className="h-5 w-5">🤖</span>,
       label: 'AI Action',
       children: 'Schedule follow-up after the extracted date',
       isCompleted: true,
-      isDelete: false
+      isDelete: false,
+    },
+  },
+  {
+    id: AI_ACTION_NODE_ID.REFERRAL,
+    type: 'custom-node',
+    position: {
+      x: INTENT_NODE_POS[INTENT_NODE_ID.REFERRAL].x + NODE_WIDTH + NODE_GAP,
+      y: INTENT_NODE_POS[INTENT_NODE_ID.REFERRAL].y - 11,
+    },
+    data: {
+      icon: <span className="h-5 w-5">🤖</span>,
+      label: 'AI Action',
+      children:
+        'Create a lead for each referred contact, then route to campaign owner',
+      isCompleted: true,
+      isDelete: false,
+    },
+  },
+  {
+    id: AI_ACTION_NODE_ID.NURTURE,
+    type: 'custom-node',
+    position: {
+      x: INTENT_NODE_POS[INTENT_NODE_ID.NURTURE].x + NODE_WIDTH + NODE_GAP,
+      y: INTENT_NODE_POS[INTENT_NODE_ID.NURTURE].y - 11,
+    },
+    data: {
+      icon: <span className="h-5 w-5">🤖</span>,
+      label: 'AI Action',
+      children: 'Route to campaign owner for a later follow-up',
+      isCompleted: true,
+      isDelete: false,
     },
   },
   {
@@ -252,11 +351,11 @@ export const afterOutreachEmailNodes: AppNode[] = [
       y: INTENT_NODE_POS[INTENT_NODE_ID.UNKNOWN].y - 11,
     },
     data: {
-      icon: <span className='w-5 h-5'>🤖</span>,
+      icon: <span className="h-5 w-5">🤖</span>,
       label: 'AI Action',
       children: 'Route to campaign owner',
       isCompleted: true,
-      isDelete: false
+      isDelete: false,
     },
   },
 ];
@@ -273,7 +372,7 @@ export const afterOutreachEmailEdges: IntentEdgeType[] = [
     id: `${CAMPAIGN_NODE_ID.CLASSIFY}->${INTENT_NODE_ID.INTERESTED}`,
     source: CAMPAIGN_NODE_ID.CLASSIFY,
     target: INTENT_NODE_ID.INTERESTED,
-    type: 'smoothstep',
+    type: 'flow',
     pathOptions: {
       borderRadius: 12,
     },
@@ -282,7 +381,7 @@ export const afterOutreachEmailEdges: IntentEdgeType[] = [
     id: `${CAMPAIGN_NODE_ID.CLASSIFY}->${INTENT_NODE_ID.NOT_INTERESTED}`,
     source: CAMPAIGN_NODE_ID.CLASSIFY,
     target: INTENT_NODE_ID.NOT_INTERESTED,
-    type: 'smoothstep',
+    type: 'flow',
     pathOptions: {
       borderRadius: 12,
     },
@@ -291,7 +390,7 @@ export const afterOutreachEmailEdges: IntentEdgeType[] = [
     id: `${CAMPAIGN_NODE_ID.CLASSIFY}->${INTENT_NODE_ID.PRICING}`,
     source: CAMPAIGN_NODE_ID.CLASSIFY,
     target: INTENT_NODE_ID.PRICING,
-    type: 'smoothstep',
+    type: 'flow',
     pathOptions: {
       borderRadius: 12,
     },
@@ -300,7 +399,7 @@ export const afterOutreachEmailEdges: IntentEdgeType[] = [
     id: `${CAMPAIGN_NODE_ID.CLASSIFY}->${INTENT_NODE_ID.INFORMATION}`,
     source: CAMPAIGN_NODE_ID.CLASSIFY,
     target: INTENT_NODE_ID.INFORMATION,
-    type: 'smoothstep',
+    type: 'flow',
     pathOptions: {
       borderRadius: 12,
     },
@@ -309,7 +408,7 @@ export const afterOutreachEmailEdges: IntentEdgeType[] = [
     id: `${CAMPAIGN_NODE_ID.CLASSIFY}->${INTENT_NODE_ID.DO_NOT_CONTACT}`,
     source: CAMPAIGN_NODE_ID.CLASSIFY,
     target: INTENT_NODE_ID.DO_NOT_CONTACT,
-    type: 'smoothstep',
+    type: 'flow',
     pathOptions: {
       borderRadius: 12,
     },
@@ -318,7 +417,25 @@ export const afterOutreachEmailEdges: IntentEdgeType[] = [
     id: `${CAMPAIGN_NODE_ID.CLASSIFY}->${INTENT_NODE_ID.OUT_OF_OFFICE}`,
     source: CAMPAIGN_NODE_ID.CLASSIFY,
     target: INTENT_NODE_ID.OUT_OF_OFFICE,
-    type: 'smoothstep',
+    type: 'flow',
+    pathOptions: {
+      borderRadius: 12,
+    },
+  },
+  {
+    id: `${CAMPAIGN_NODE_ID.CLASSIFY}->${INTENT_NODE_ID.REFERRAL}`,
+    source: CAMPAIGN_NODE_ID.CLASSIFY,
+    target: INTENT_NODE_ID.REFERRAL,
+    type: 'flow',
+    pathOptions: {
+      borderRadius: 12,
+    },
+  },
+  {
+    id: `${CAMPAIGN_NODE_ID.CLASSIFY}->${INTENT_NODE_ID.NURTURE}`,
+    source: CAMPAIGN_NODE_ID.CLASSIFY,
+    target: INTENT_NODE_ID.NURTURE,
+    type: 'flow',
     pathOptions: {
       borderRadius: 12,
     },
@@ -327,7 +444,7 @@ export const afterOutreachEmailEdges: IntentEdgeType[] = [
     id: `${CAMPAIGN_NODE_ID.CLASSIFY}->${INTENT_NODE_ID.UNKNOWN}`,
     source: CAMPAIGN_NODE_ID.CLASSIFY,
     target: INTENT_NODE_ID.UNKNOWN,
-    type: 'smoothstep',
+    type: 'flow',
     pathOptions: {
       borderRadius: 12,
     },
@@ -336,7 +453,7 @@ export const afterOutreachEmailEdges: IntentEdgeType[] = [
     id: `${INTENT_NODE_ID.DO_NOT_CONTACT}->${AI_ACTION_NODE_ID.DO_NOT_CONTACT}`,
     source: INTENT_NODE_ID.DO_NOT_CONTACT,
     target: AI_ACTION_NODE_ID.DO_NOT_CONTACT,
-    type: 'smoothstep',
+    type: 'flow',
     pathOptions: {
       borderRadius: 12,
     },
@@ -345,7 +462,25 @@ export const afterOutreachEmailEdges: IntentEdgeType[] = [
     id: `${INTENT_NODE_ID.OUT_OF_OFFICE}->${AI_ACTION_NODE_ID.OUT_OF_OFFICE}`,
     source: INTENT_NODE_ID.OUT_OF_OFFICE,
     target: AI_ACTION_NODE_ID.OUT_OF_OFFICE,
-    type: 'smoothstep',
+    type: 'flow',
+    pathOptions: {
+      borderRadius: 12,
+    },
+  },
+  {
+    id: `${INTENT_NODE_ID.REFERRAL}->${AI_ACTION_NODE_ID.REFERRAL}`,
+    source: INTENT_NODE_ID.REFERRAL,
+    target: AI_ACTION_NODE_ID.REFERRAL,
+    type: 'flow',
+    pathOptions: {
+      borderRadius: 12,
+    },
+  },
+  {
+    id: `${INTENT_NODE_ID.NURTURE}->${AI_ACTION_NODE_ID.NURTURE}`,
+    source: INTENT_NODE_ID.NURTURE,
+    target: AI_ACTION_NODE_ID.NURTURE,
+    type: 'flow',
     pathOptions: {
       borderRadius: 12,
     },
@@ -354,7 +489,7 @@ export const afterOutreachEmailEdges: IntentEdgeType[] = [
     id: `${INTENT_NODE_ID.UNKNOWN}->${AI_ACTION_NODE_ID.UNKNOWN}`,
     source: INTENT_NODE_ID.UNKNOWN,
     target: AI_ACTION_NODE_ID.UNKNOWN,
-    type: 'smoothstep',
+    type: 'flow',
     pathOptions: {
       borderRadius: 12,
     },

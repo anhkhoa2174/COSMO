@@ -18,6 +18,11 @@ import { useCampaign, useCampaignSupport } from '../../use-campaign';
 import { usePrefetchDraft } from '../../use-prefetch-v2';
 
 import { AIWriterV2 } from '@/components/ai-writer-v2';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@/components/ui/resizable';
 import { PlateEditor } from '@/components/editor/plate-editor';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -306,63 +311,84 @@ export default function DraftEmail({
           <TriangleAlert /> {(error as any).error?.message || error.message}
         </p>
       ) : (
-        <div className="flex flex-1">
+        <ResizablePanelGroup
+          direction="horizontal"
+          autoSaveId="cosmo-draft-email-v2"
+          className="flex-1"
+        >
           <Spinner
             show={isAssignCampaignIntentPending || isUpdateTemplatePending}
             withOverlay
             label="Saving..."
           />
+
+          <ResizablePanel id="editor" order={1} defaultSize={45} minSize={25}>
+            <div className="flex h-full flex-col">
+              <div className="min-h-0 flex-1">
+                <ScrollArea className="h-full p-4" type="always">
+                  {isLoading ? (
+                    <div className="flex flex-col space-y-4">
+                      <Skeleton className="h-[500px] rounded-lg" />
+                      <Skeleton className="h-6" />
+                    </div>
+                  ) : option.payload ? (
+                    <Card className="relative">
+                      <CardContent className="space-y-2 p-0 pt-2">
+                        <PlateEditor
+                          deps={[
+                            isGenerating ? option.payload.content : undefined,
+                          ]}
+                          value={option.payload.content}
+                          onChange={(value) => {
+                            handleChange('content', value);
+                          }}
+                          onFocus={() => setIsFocus(true)}
+                          onBlur={() => setIsFocus(false)}
+                        />
+                      </CardContent>
+                    </Card>
+                  ) : null}
+                </ScrollArea>
+              </div>
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          <ResizablePanel id="preview" order={2} defaultSize={31} minSize={20}>
+            <TemplatePreview
+              template={option.payload as any}
+              isLoading={isLoading}
+              salesReps={salesRepsData}
+            />
+          </ResizablePanel>
           {assistantOpen && (
-            <div className="w-80 flex-shrink-0">
-              <AIWriterV2
-                template={
-                  draftTemplates[draftTemplateId]?.template as GetTemplateData
-                }
-                intentType={intentType}
-                onUpdateTemplate={handleChange}
-                onClearConversation={handleOnClearConversation}
-                conversationId={conversationId}
-                campaignType={campaign?.playbook || ''}
-                onLoadingChat={setIsGenerating}
-              />
-            </div>
+            <>
+              <ResizableHandle withHandle />
+              <ResizablePanel
+                id="assistant"
+                order={3}
+                defaultSize={24}
+                minSize={16}
+                collapsible
+                collapsedSize={0}
+                onCollapse={() => setAssistantOpen(false)}
+              >
+                <AIWriterV2
+                  template={
+                    draftTemplates[draftTemplateId]?.template as GetTemplateData
+                  }
+                  intentType={intentType}
+                  onUpdateTemplate={handleChange}
+                  onClearConversation={handleOnClearConversation}
+                  conversationId={conversationId}
+                  campaignType={campaign?.playbook || ''}
+                  onLoadingChat={setIsGenerating}
+                />
+              </ResizablePanel>
+            </>
           )}
-          <div className="flex flex-1 flex-col">
-            <div className="h-96 flex-grow">
-              <ScrollArea className="h-full p-4" type="always">
-                {isLoading ? (
-                  <div className="flex flex-col space-y-4">
-                    <Skeleton className="h-[500px] rounded-lg" />
-                    <Skeleton className="h-6" />
-                  </div>
-                ) : option.payload ? (
-                  <Card className="relative">
-                    <CardContent className="space-y-2 p-0 pt-2">
-                      <PlateEditor
-                        deps={[
-                          isFocus && !isGenerating
-                            ? ''
-                            : option.payload.content,
-                        ]}
-                        value={option.payload.content}
-                        onChange={(value) => {
-                          handleChange('content', value);
-                        }}
-                        onFocus={() => setIsFocus(true)}
-                        onBlur={() => setIsFocus(false)}
-                      />
-                    </CardContent>
-                  </Card>
-                ) : null}
-              </ScrollArea>
-            </div>
-          </div>
-          <TemplatePreview
-            template={option.payload as any}
-            isLoading={isLoading}
-            salesReps={salesRepsData}
-          />
-        </div>
+        </ResizablePanelGroup>
       )}
     </div>
   );
@@ -416,8 +442,8 @@ function TemplatePreview({
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="h-96 flex-grow">
+    <div className="flex h-full flex-col">
+      <div className="min-h-0 flex-1">
         <ScrollArea className="h-full bg-[#F7F7F7] p-4" type="always">
           {isListContactLoading ? (
             <p className="p-4">Loading contact list...</p>
@@ -442,9 +468,7 @@ function TemplatePreview({
                 <SelectContent>
                   {contacts.map((contact) => (
                     <SelectItem key={contact.id} value={contact.id}>
-                      <span className="text-info">
-                        {contact.name}
-                      </span>{' '}
+                      <span className="text-info">{contact.name}</span>{' '}
                       <span className="text-muted-foreground">
                         &lt;{contact.profile?.email || contact.email || '-'}&gt;
                       </span>

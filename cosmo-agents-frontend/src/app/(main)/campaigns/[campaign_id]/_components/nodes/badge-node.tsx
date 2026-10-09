@@ -6,11 +6,16 @@ export function BadgeNode({ data }: NodeProps<BadgeNode>) {
   return (
     <>
       <Handle id="node2-left" type="target" position={Position.Left} />
-      <div className="bg-primary flex justify-center items-center gap-2 w-[254px] text-primary-foreground p-2 rounded-lg shadow">
+      <div className="flex w-[254px] items-center justify-center gap-2 rounded-lg bg-primary p-2 text-primary-foreground shadow">
         {data.icon}
         {data.label}
       </div>
-      <Handle id="node2-bottom" type="source" position={Position.Bottom} style={{ left: '25%' }} />
+      <Handle
+        id="node2-bottom"
+        type="source"
+        position={Position.Bottom}
+        style={{ left: '25%' }}
+      />
     </>
   );
 }

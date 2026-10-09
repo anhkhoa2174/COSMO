@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { watchGmail } from '@/network/client/google';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -11,8 +12,11 @@ import { AddButton } from '@/components/buttons/add-button';
 import { EditButton } from '@/components/buttons/edit-button';
 import { CreateAgentDialog } from '@/components/forms/create-agent-form';
 import { ContentLayout } from '@/components/nav/content-layout';
+import { PageHero } from '@/components/ui/page-hero';
+import { Button } from '@/components/ui/button';
+import { Bot, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import type { Agent } from '@/models/agent';
+import { AGENT_RECONNECT_STATUSES, type Agent } from '@/models/agent';
 import AgentApi from '@/network/client/agent';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
@@ -49,6 +53,17 @@ function AgentsPage() {
       if (event.data?.type === 'GMAIL_AUTH') {
         toast.success('Authorized agent successfully');
         refetch();
+        // Register the Gmail watch right away rather than waiting for the user
+        // to open the AI Inbox. The backend also queues a catch-up sync from
+        // the previous history mark, so replies that arrived while the
+        // authorization was broken are pulled in instead of being skipped.
+        watchGmail()
+          .then(() => toast.success('Mailbox sync re-enabled'))
+          .catch((err: any) =>
+            toast.error(
+              `Authorized, but enabling mailbox sync failed: ${err?.message ?? 'unknown error'}`
+            )
+          );
         if (popupRef.current && !popupRef.current.closed) {
           popupRef.current.close();
           popupRef.current = null;
@@ -72,7 +87,22 @@ function AgentsPage() {
   );
 
   return (
-    <ContentLayout title="AI Agents" rightSection={rightSection}>
+    <ContentLayout title="Agents" section="Settings" icon={Bot}>
+      <PageHero
+        icon={Bot}
+        eyebrow="Settings"
+        accent="violet"
+        title="AI Agents"
+        titleAdornment={
+          datas.length > 0 ? (
+            <span className="rounded-full border bg-background/70 px-3 py-1 text-[0.8rem] font-medium">
+              {datas.length} inbox{datas.length === 1 ? '' : 'es'}
+            </span>
+          ) : undefined
+        }
+        description="The Gmail mailboxes your campaigns send from. Each agent carries its own daily sending limit and signature."
+        actions={rightSection}
+      />
       {isLoading ? (
         <div className="grid grid-cols-3 gap-4">
           <Skeleton className="h-[200px] rounded-lg" />
@@ -98,12 +128,15 @@ function AgentsPage() {
                             {agent.email.slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
-                          <p className="text-base font-semibold">
+                        <div className="min-w-0">
+                          <p className="truncate text-base font-semibold">
                             {agent.name}
                           </p>
-                          <p className="text-muted-foreground">
-                            Agent {index + 1}
+                          <p
+                            className="truncate text-[0.85rem] text-muted-foreground"
+                            title={agent.email}
+                          >
+                            {agent.email}
                           </p>
                         </div>
                       </div>
@@ -115,21 +148,19 @@ function AgentsPage() {
                     <Separator className="my-4" />
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="text-muted-foreground">Email</div>
-                        <div>{agent.email}</div>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
                         <div className="text-muted-foreground">Status</div>
                         <div>
                           <Badge
                             variant={
                               agent.status === 'active'
                                 ? 'success'
-                                : 'destructive'
+                                : agent.status === 'inactive'
+                                  ? 'secondary'
+                                  : 'destructive'
                             }
                             className="capitalize"
                           >
-                            {agent.status}
+                            {agent.status ?? 'unknown'}
                           </Badge>
                         </div>
                       </div>
@@ -143,6 +174,25 @@ function AgentsPage() {
                         </div>
                       </div>
                     </div>
+                    {agent.status &&
+                      AGENT_RECONNECT_STATUSES.includes(agent.status) && (
+                        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                          <p className="text-[0.85rem] text-muted-foreground">
+                            Google access for this mailbox is no longer valid,
+                            so it cannot send or read mail. Re-authorize to
+                            restore it.
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="mt-3 w-full"
+                            onClick={openGmailPopup}
+                          >
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Reconnect Gmail
+                          </Button>
+                        </div>
+                      )}
                   </CardContent>
                 </Card>
               ))}

@@ -35,7 +35,13 @@ const FormPublicUrlDialog: React.FC<FormPublicUrlDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
         <div className="mt-2 border-t pt-4">
-          <div className="text-lg mb-3 font-semibold text-[#4F46E5] underline">{<Link href={publicUrl} target="_blank">{publicUrl}</Link>}</div>
+          <div className="mb-3 text-lg font-semibold text-[#4F46E5] underline">
+            {
+              <Link href={publicUrl} target="_blank">
+                {publicUrl}
+              </Link>
+            }
+          </div>
         </div>
         <DialogFooter>
           <DialogClose asChild>

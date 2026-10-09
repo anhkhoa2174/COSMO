@@ -53,7 +53,11 @@ const FormSettingsDialog: React.FC<FormSettingsDialogProps> = ({
             Customize your form's appearance and details
           </DialogDescription>
         </DialogHeader>
-        <div className={cn("grid max-h-[70vh] grid-cols-1 gap-x-6 gap-y-4 overflow-y-auto py-4 pr-2 md:grid-cols-2 border-t")}>
+        <div
+          className={cn(
+            'grid max-h-[70vh] grid-cols-1 gap-x-6 gap-y-4 overflow-y-auto border-t py-4 pr-2 md:grid-cols-2'
+          )}
+        >
           <div className="md:col-span-2">
             <h4 className="text-md mb-2 font-semibold">Form Details</h4>
           </div>

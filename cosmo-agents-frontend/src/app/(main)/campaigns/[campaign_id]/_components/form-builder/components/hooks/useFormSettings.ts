@@ -1,8 +1,9 @@
-import { FormSettings, SubmitButtonAppearance } from "../types";
-import { useState } from "react";
+import { FormSettings, SubmitButtonAppearance } from '../types';
+import { useState } from 'react';
 
 export const useFormSettings = (initialSettings: FormSettings) => {
-  const [currentSettings, setCurrentSettings] = useState<FormSettings>(initialSettings);
+  const [currentSettings, setCurrentSettings] =
+    useState<FormSettings>(initialSettings);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleSettingChange = (
@@ -12,26 +13,33 @@ export const useFormSettings = (initialSettings: FormSettings) => {
     const { name, value } = e.target;
 
     if (name === 'gridColumns') {
-      setCurrentSettings(prev => ({
+      setCurrentSettings((prev) => ({
         ...prev,
         [name]: Number(value) > 4 ? '4' : String(value),
       }));
-    } else if (name === 'title' || name === 'description' || name === 'submitButtonText') {
-      setCurrentSettings(prev => ({ ...prev, [name]: value }));
+    } else if (
+      name === 'title' ||
+      name === 'description' ||
+      name === 'submitButtonText'
+    ) {
+      setCurrentSettings((prev) => ({ ...prev, [name]: value }));
     } else if (name.startsWith('sba_')) {
       // Handle submit button appearance changes
       const propName = name.split('_')[1].replace('1', '');
-      setCurrentSettings(prev => ({
+      setCurrentSettings((prev) => ({
         ...prev,
         submitButtonAppearance: {
           ...prev.submitButtonAppearance,
-          [propName]: propName === 'fullWidth' ? checkedValue ?? (e.target as HTMLInputElement).checked : value,
+          [propName]:
+            propName === 'fullWidth'
+              ? (checkedValue ?? (e.target as HTMLInputElement).checked)
+              : value,
         },
       }));
     } else {
       // Handle style changes
       const cleanName = name.replace('1', '');
-      setCurrentSettings(prev => ({
+      setCurrentSettings((prev) => ({
         ...prev,
         styles: { ...prev.styles, [cleanName]: value },
       }));
@@ -39,7 +47,7 @@ export const useFormSettings = (initialSettings: FormSettings) => {
   };
 
   const handleAlignmentChange = (value: string) => {
-    setCurrentSettings(prev => ({
+    setCurrentSettings((prev) => ({
       ...prev,
       submitButtonAppearance: {
         ...prev.submitButtonAppearance,
@@ -54,6 +62,6 @@ export const useFormSettings = (initialSettings: FormSettings) => {
     setCurrentSettings,
     setIsDialogOpen,
     handleSettingChange,
-    handleAlignmentChange
+    handleAlignmentChange,
   };
 };

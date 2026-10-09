@@ -15,10 +15,9 @@ export function IntentNode({ data, selected }: NodeProps<IntentNode>) {
       />
       <div
         className={cn(
-          'w-[256px] cursor-pointer rounded-lg bg-zinc-100 p-2 shadow',
-          selected
-            ? 'border border-t-4 border-accent-foreground'
-            : 'hover:border hover:border-accent-foreground'
+          'w-[256px] cursor-pointer rounded-xl border bg-white p-2.5 shadow-sm transition-all duration-200',
+          'hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-md',
+          selected && 'border-violet-400 shadow-md ring-2 ring-violet-200'
         )}
       >
         {label}

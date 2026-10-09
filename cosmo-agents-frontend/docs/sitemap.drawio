@@ -1,0 +1,292 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="sitemap" name="COSMO Sitemap">
+    <mxGraphModel dx="2400" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2800" pageHeight="1600" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="COSMO — Sitemap" style="text;html=1;fontSize=20;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="10" width="300" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- ROOT -->
+        <!-- ============================================ -->
+        <mxCell id="root" value="&lt;b&gt;Landing Page&lt;/b&gt;&#xa;/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="60" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ROOT -> Login -->
+        <mxCell id="login" value="&lt;b&gt;Login&lt;/b&gt;&#xa;/auth/login" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="150" width="160" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_root_login" style="endArrow=block;html=1;" edge="1" source="root" target="login" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- OAuth Callbacks (small, grouped) -->
+        <mxCell id="callbacks" value="OAuth Callbacks&#xa;Google | Gmail | HubSpot" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=10;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="1380" y="150" width="180" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_login_cb" style="endArrow=block;html=1;dashed=1;" edge="1" source="login" target="callbacks" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Onboarding -->
+        <mxCell id="onboarding" value="&lt;b&gt;Onboarding&lt;/b&gt;&#xa;/onboarding" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="940" y="150" width="160" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_login_onboard" style="endArrow=block;html=1;" edge="1" source="login" target="onboarding" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- MAIN APP (after login) -->
+        <!-- ============================================ -->
+        <mxCell id="dashboard" value="&lt;b&gt;Dashboard&lt;/b&gt;&#xa;/dashboard" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="250" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_login_dash" style="endArrow=block;html=1;" edge="1" source="login" target="dashboard" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- BRANCH 1: DAILY ACTIONS (far left) -->
+        <!-- ============================================ -->
+        <mxCell id="daily" value="&lt;b&gt;Daily Actions&lt;/b&gt;&#xa;/daily-actions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="380" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_dash_daily" style="endArrow=block;html=1;" edge="1" source="dashboard" target="daily" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- BRANCH 2: AI INBOX -->
+        <!-- ============================================ -->
+        <mxCell id="inbox" value="&lt;b&gt;AI Inbox&lt;/b&gt;&#xa;/ai-inboxes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="260" y="380" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_dash_inbox" style="endArrow=block;html=1;" edge="1" source="dashboard" target="inbox" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- BRANCH 3: CONTACTS -->
+        <!-- ============================================ -->
+        <mxCell id="contacts" value="&lt;b&gt;Contacts&lt;/b&gt;&#xa;/contacts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="460" y="380" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_dash_contacts" style="endArrow=block;html=1;" edge="1" source="dashboard" target="contacts" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Contact sub-pages -->
+        <mxCell id="csv_import" value="CSV Import&#xa;/contacts/csv-import" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8f9fa;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="340" y="470" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="contact_lists" value="Contact Lists&#xa;/contact-lists" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8f9fa;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="490" y="470" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="custom_fields" value="Custom Fields&#xa;/custom-fields" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8f9fa;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="340" y="520" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="hubspot" value="HubSpot Import&#xa;/hubspot-integration" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8f9fa;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="490" y="520" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_c1" style="endArrow=block;html=1;" edge="1" source="contacts" target="csv_import" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="arr_c2" style="endArrow=block;html=1;" edge="1" source="contacts" target="contact_lists" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="arr_c3" style="endArrow=block;html=1;" edge="1" source="contacts" target="custom_fields" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="arr_c4" style="endArrow=block;html=1;" edge="1" source="contacts" target="hubspot" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ============================================ -->
+        <!-- BRANCH 4: CAMPAIGNS -->
+        <!-- ============================================ -->
+        <mxCell id="campaigns" value="&lt;b&gt;Campaigns&lt;/b&gt;&#xa;/campaigns" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="700" y="380" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_dash_campaigns" style="endArrow=block;html=1;" edge="1" source="dashboard" target="campaigns" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Campaign sub-pages -->
+        <mxCell id="campaign_detail" value="Campaign Detail&#xa;/campaigns/[id]" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8f9fa;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="660" y="470" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="campaign_playbook" value="Playbook Strategy&#xa;/campaigns/playbook" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8f9fa;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="810" y="470" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_camp1" style="endArrow=block;html=1;" edge="1" source="campaigns" target="campaign_detail" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="arr_camp2" style="endArrow=block;html=1;" edge="1" source="campaigns" target="campaign_playbook" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ============================================ -->
+        <!-- BRANCH 5: OUTREACH -->
+        <!-- ============================================ -->
+        <mxCell id="outreach" value="&lt;b&gt;Outreach&lt;/b&gt;&#xa;/outreach" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="940" y="380" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_dash_outreach" style="endArrow=block;html=1;" edge="1" source="dashboard" target="outreach" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- BRANCH 6: PLAYBOOKS -->
+        <!-- ============================================ -->
+        <mxCell id="playbooks" value="&lt;b&gt;Playbooks&lt;/b&gt;&#xa;/playbooks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="380" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_dash_playbooks" style="endArrow=block;html=1;" edge="1" source="dashboard" target="playbooks" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="playbook_detail" value="Playbook Detail&#xa;/playbooks/[id]" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8f9fa;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="470" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_pb1" style="endArrow=block;html=1;" edge="1" source="playbooks" target="playbook_detail" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ============================================ -->
+        <!-- BRANCH 7: AUTOMATION -->
+        <!-- ============================================ -->
+        <mxCell id="automation" value="&lt;b&gt;Automation Rules&lt;/b&gt;&#xa;/automation-rules" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1340" y="380" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_dash_auto" style="endArrow=block;html=1;" edge="1" source="dashboard" target="automation" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="enrollments" value="Enrollments&#xa;/enrollments" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8f9fa;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1340" y="470" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_auto1" style="endArrow=block;html=1;" edge="1" source="automation" target="enrollments" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ============================================ -->
+        <!-- BRANCH 8: CONTENT -->
+        <!-- ============================================ -->
+        <mxCell id="templates" value="&lt;b&gt;Templates&lt;/b&gt;&#xa;/templates" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1540" y="380" width="140" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_dash_templates" style="endArrow=block;html=1;" edge="1" source="dashboard" target="templates" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="libraries" value="&lt;b&gt;Knowledge Base&lt;/b&gt;&#xa;/libraries" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1720" y="380" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_dash_lib" style="endArrow=block;html=1;" edge="1" source="dashboard" target="libraries" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leadforms" value="&lt;b&gt;Lead Forms&lt;/b&gt;&#xa;/lead-forms" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1910" y="380" width="140" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_dash_lead" style="endArrow=block;html=1;" edge="1" source="dashboard" target="leadforms" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- BRANCH 9: SETTINGS (bottom row) -->
+        <!-- ============================================ -->
+        <mxCell id="settings_label" value="&lt;b&gt;Settings&lt;/b&gt;" style="text;html=1;fontSize=13;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="590" width="100" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="agents" value="Agents&#xa;/agents" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="700" y="630" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="agent_detail" value="Agent Detail&#xa;/agents/[id]" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="700" y="690" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_ag1" style="endArrow=block;html=1;" edge="1" source="agents" target="agent_detail" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="team" value="Team Members&#xa;/team-members" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="850" y="630" width="120" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="salesreps" value="Sales Reps&#xa;/sales-reps" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="630" width="120" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="company" value="Company Info&#xa;/company-information" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="630" width="120" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="apikeys" value="API Keys&#xa;/settings/api-keys" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="630" width="120" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="integrations_label" value="Integrations" style="text;html=1;fontSize=11;fontStyle=2;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="610" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="outlook_int" value="Outlook" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="630" width="90" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="google_int" value="Google Ads" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="1560" y="630" width="90" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="meta_int" value="Meta" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="1670" y="630" width="90" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- Dashboard -> Settings -->
+        <mxCell id="arr_dash_agents" style="endArrow=block;html=1;dashed=1;" edge="1" source="dashboard" target="agents" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="arr_dash_team" style="endArrow=block;html=1;dashed=1;" edge="1" source="dashboard" target="team" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="arr_dash_salesreps" style="endArrow=block;html=1;dashed=1;" edge="1" source="dashboard" target="salesreps" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="arr_dash_company" style="endArrow=block;html=1;dashed=1;" edge="1" source="dashboard" target="company" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="arr_dash_apikeys" style="endArrow=block;html=1;dashed=1;" edge="1" source="dashboard" target="apikeys" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ============================================ -->
+        <!-- PUBLIC (separate) -->
+        <!-- ============================================ -->
+        <mxCell id="public_form" value="&lt;b&gt;Public Lead Form&lt;/b&gt;&#xa;/public/forms/[slug]&#xa;&lt;i&gt;(No auth required)&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1">
+          <mxGeometry x="2100" y="380" width="160" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- LEGEND -->
+        <!-- ============================================ -->
+        <mxCell id="legend" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999999;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="60" width="350" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_title" value="&lt;b&gt;Legend&lt;/b&gt;" style="text;html=1;fontSize=11;align=left;" vertex="1" parent="1">
+          <mxGeometry x="70" y="65" width="80" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="90" width="20" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1t" value="Landing / Root" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="110" y="88" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="80" y="110" width="20" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2t" value="Auth / Onboarding" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="110" y="108" width="120" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="80" y="130" width="20" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3t" value="Dashboard (Hub)" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="110" y="128" width="120" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="80" y="150" width="20" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4t" value="Main Features" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="110" y="148" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg5" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="80" y="170" width="20" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg5t" value="Settings / Admin" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="110" y="168" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg6" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1">
+          <mxGeometry x="250" y="90" width="20" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg6t" value="Public (no auth)" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="280" y="88" width="100" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

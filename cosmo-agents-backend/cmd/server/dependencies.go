@@ -104,6 +104,7 @@ import (
 	intelService "github.com/rockship/cosmo-agents-go/internal/service/intelligence"
 	intentService "github.com/rockship/cosmo-agents-go/internal/service/intent"
 	knowledgeSerive "github.com/rockship/cosmo-agents-go/internal/service/knowledge"
+	nextstepService "github.com/rockship/cosmo-agents-go/internal/service/nextstep"
 	orgService "github.com/rockship/cosmo-agents-go/internal/service/organization"
 	outlookService "github.com/rockship/cosmo-agents-go/internal/service/outlook"
 	outreachService "github.com/rockship/cosmo-agents-go/internal/service/outreach"
@@ -222,6 +223,7 @@ type Services struct {
 	AutomationRule     *playbookService.AutomationService
 	Enrollment         *playbookService.EnrollmentService
 	Outreach           *outreachService.Service
+	NextStep           *nextstepService.Engine
 	Context            *contextSvc.Service
 }
 
@@ -613,6 +615,21 @@ func initServices(deps *Dependencies, cfg *config.Config, jwtManager *auth.JWTMa
 		nil, // Use default config
 	).WithOrgSettings(deps.Repos.Organization.OutreachSettingsForUser)
 
+	// Next-step engine (report Section 6.7), for the manual "decide now" and
+	// the decision history; the worker runs it on replies and timers.
+	nextStepClient := openai.NewClient(ai.CompatOptions(cfg.AI.OpenAIAPIKey)...)
+	services.NextStep = nextstepService.New(
+		deps.DB,
+		deps.Repos.Contact,
+		deps.Repos.InteractionLog,
+		deps.Repos.Meeting,
+		services.Outreach,
+		&nextStepClient,
+		cfg.AI.OpenAIModel,
+		deps.Repos.Organization.OutreachSettingsForUser,
+		&logger.Logger,
+	)
+
 	return services
 }
 
@@ -752,7 +769,8 @@ func initV1Handlers(deps *Dependencies, cfg *config.Config, jwtManager *auth.JWT
 	handlers.LinkedIn = v1linkedin.New(deps.Repos.Contact, deps.Repos.User, deps.Repos.Role, deps.OpenAIClient)
 
 	// Outreach handler
-	handlers.Outreach = v1outreach.NewHandler(deps.Services.Outreach, deps.Repos.User, deps.Repos.Role)
+	handlers.Outreach = v1outreach.NewHandler(deps.Services.Outreach, deps.Repos.User, deps.Repos.Role).
+		WithNextStep(deps.Services.NextStep)
 
 	// Daily Action handler
 	var sseManager *dailyActionSvc.SSEManager

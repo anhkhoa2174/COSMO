@@ -182,8 +182,10 @@ function NavSectionGroup({ section }: { section: NavSection }) {
   );
 
   return (
+    // Sections start collapsed; only the one holding the current page opens,
+    // so the sidebar stays short and still shows where the user is.
     <Collapsible
-      defaultOpen={(section.defaultOpen ?? true) || sectionActive}
+      defaultOpen={(section.defaultOpen ?? false) || sectionActive}
       className="group/section"
     >
       <SidebarGroup className="py-1">

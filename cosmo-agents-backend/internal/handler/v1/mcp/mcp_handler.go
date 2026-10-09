@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,26 +12,36 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
+	dailyActionDomain "github.com/rockship/cosmo-agents-go/internal/domain/daily_action"
 	v1validation "github.com/rockship/cosmo-agents-go/internal/handler/v1/validation"
 	agent "github.com/rockship/cosmo-agents-go/internal/repository/agent"
 	campaignRepo "github.com/rockship/cosmo-agents-go/internal/repository/campaign"
 	contactRepo "github.com/rockship/cosmo-agents-go/internal/repository/contact"
+	dailyActionRepo "github.com/rockship/cosmo-agents-go/internal/repository/daily_action"
 	notificationRepo "github.com/rockship/cosmo-agents-go/internal/repository/notification"
+	outreachRepo "github.com/rockship/cosmo-agents-go/internal/repository/outreach"
 	roleRepo "github.com/rockship/cosmo-agents-go/internal/repository/role"
 	"github.com/rockship/cosmo-agents-go/internal/schema"
 	v1schema "github.com/rockship/cosmo-agents-go/internal/schema/v1"
 	aiService "github.com/rockship/cosmo-agents-go/internal/service/ai"
+	dailyActionSvc "github.com/rockship/cosmo-agents-go/internal/service/daily_action"
+	outreachSvc "github.com/rockship/cosmo-agents-go/internal/service/outreach"
 )
 
 // MCPHandler handles MCP (Model Context Protocol) related endpoints
 type MCPHandler struct {
-	campaignRepo     *campaignRepo.CampaignRepository
-	contactRepo      *contactRepo.ContactRepository
-	listContactRepo  *contactRepo.ListContactRepository
-	roleRepo         *roleRepo.RoleRepository
-	notificationRepo *notificationRepo.NotificationRepository
-	agentRepo        *agent.AgentRepository
-	aiEmailService   *aiService.AIEmailService
+	campaignRepo       *campaignRepo.CampaignRepository
+	contactRepo        *contactRepo.ContactRepository
+	listContactRepo    *contactRepo.ListContactRepository
+	roleRepo           *roleRepo.RoleRepository
+	notificationRepo   *notificationRepo.NotificationRepository
+	agentRepo          *agent.AgentRepository
+	aiEmailService     *aiService.AIEmailService
+	outreachService    *outreachSvc.Service
+	dailyActionService *dailyActionSvc.Service
+	interactionLogRepo *outreachRepo.InteractionLogRepository
+	generationRepo     *dailyActionRepo.GenerationRepository
+	actionRepo         *dailyActionRepo.ActionRepository
 }
 
 // NewMCPHandler creates a new MCP handler
@@ -42,15 +53,25 @@ func NewMCPHandler(
 	notificationRepo *notificationRepo.NotificationRepository,
 	agentRepo *agent.AgentRepository,
 	aiEmailService *aiService.AIEmailService,
+	outreachService *outreachSvc.Service,
+	dailyActionService *dailyActionSvc.Service,
+	interactionLogRepo *outreachRepo.InteractionLogRepository,
+	generationRepo *dailyActionRepo.GenerationRepository,
+	actionRepo *dailyActionRepo.ActionRepository,
 ) *MCPHandler {
 	return &MCPHandler{
-		campaignRepo:     campaignRepo,
-		contactRepo:      contactRepo,
-		listContactRepo:  listContactRepo,
-		roleRepo:         roleRepo,
-		notificationRepo: notificationRepo,
-		agentRepo:        agentRepo,
-		aiEmailService:   aiEmailService,
+		campaignRepo:       campaignRepo,
+		contactRepo:        contactRepo,
+		listContactRepo:    listContactRepo,
+		roleRepo:           roleRepo,
+		notificationRepo:   notificationRepo,
+		agentRepo:          agentRepo,
+		aiEmailService:     aiEmailService,
+		outreachService:    outreachService,
+		dailyActionService: dailyActionService,
+		interactionLogRepo: interactionLogRepo,
+		generationRepo:     generationRepo,
+		actionRepo:         actionRepo,
 	}
 }
 
@@ -234,7 +255,7 @@ func (h *MCPHandler) createOrUpdateContact(
 		// Update existing contact
 		existing.Name = req.Name
 		// Update phone in profile (email and phone are now stored in profile JSONB)
-		if req.Phone != nil {
+		if req.Phone != nil || req.LinkedInURL != nil {
 			var profile map[string]interface{}
 			if len(existing.Profile) > 0 {
 				_ = json.Unmarshal(existing.Profile, &profile)
@@ -242,7 +263,12 @@ func (h *MCPHandler) createOrUpdateContact(
 			if profile == nil {
 				profile = make(map[string]interface{})
 			}
-			profile["phone"] = *req.Phone
+			if req.Phone != nil {
+				profile["phone"] = *req.Phone
+			}
+			if req.LinkedInURL != nil {
+				profile["linkedin_url"] = *req.LinkedInURL
+			}
 			if profileBytes, err := json.Marshal(profile); err == nil {
 				existing.Profile = profileBytes
 			}
@@ -278,13 +304,16 @@ func (h *MCPHandler) createOrUpdateContact(
 		return existing, nil
 	}
 
-	// Build profile with email and phone
+	// Build profile with email, phone, and linkedin
 	profile := make(map[string]interface{})
 	if req.Email != "" {
 		profile["email"] = req.Email
 	}
 	if req.Phone != nil && *req.Phone != "" {
 		profile["phone"] = *req.Phone
+	}
+	if req.LinkedInURL != nil && *req.LinkedInURL != "" {
+		profile["linkedin_url"] = *req.LinkedInURL
 	}
 	var profileBytes domain.JSONB
 	if len(profile) > 0 {
@@ -364,6 +393,266 @@ func (h *MCPHandler) generateCampaignTemplates(ctx context.Context, campaignID, 
 		// 	fmt.Printf("Error generating templates for campaign %s: %v\n", campaignID, err)
 		// }
 	}
+}
+
+// ============================================
+// AI-Native MCP Tools (Agentic Daily Actions)
+// ============================================
+
+// getMCPUserID extracts user_id from fiber context (consistent with existing MCP pattern).
+func getMCPUserID(c fiber.Ctx) (uuid.UUID, error) {
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return uuid.Nil, fmt.Errorf("unauthorized")
+	}
+	return userID, nil
+}
+
+// GetPipelineSummary returns counts of the caller's contacts by outreach
+// stage, follow-up depth and staleness.
+// GET /v1/mcp/contacts/pipeline-summary
+func (h *MCPHandler) GetPipelineSummary(c fiber.Ctx) error {
+	userID, err := getMCPUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(schema.ErrorResponse(fiber.StatusUnauthorized, "Unauthorized", nil))
+	}
+
+	summary, err := h.outreachService.PipelineSummary(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(fiber.StatusInternalServerError, "Failed to summarise pipeline", err.Error()))
+	}
+
+	return c.JSON(schema.SuccessResponse(summary))
+}
+
+// GetContactsPipeline returns contacts with their outreach pipeline states for AI analysis.
+// GET /v1/mcp/contacts/pipeline?limit=50&type=mixed
+func (h *MCPHandler) GetContactsPipeline(c fiber.Ctx) error {
+	userID, err := getMCPUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(schema.ErrorResponse(fiber.StatusUnauthorized, "Unauthorized", nil))
+	}
+
+	orgID, err := h.roleRepo.FindPrimaryOrganization(c.Context(), userID)
+	if err != nil || orgID == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(fiber.StatusBadRequest, "User must belong to an organization", nil))
+	}
+
+	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	suggestType := c.Query("type", "mixed")
+
+	suggestions, err := h.outreachService.SuggestContacts(c.Context(), userID, *orgID, false, suggestType, limit)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(fiber.StatusInternalServerError, "Failed to fetch pipeline contacts", err.Error()))
+	}
+
+	items := make([]v1schema.MCPContactPipelineItem, 0, len(suggestions.Suggestions))
+	for _, sc := range suggestions.Suggestions {
+		item := v1schema.MCPContactPipelineItem{
+			ContactID:     sc.Contact.ID,
+			Name:          sc.Contact.Name,
+			Email:         sc.Contact.ContactInformation,
+			Company:       sc.Contact.Company,
+			JobTitle:      sc.Contact.JobTitle,
+			Industry:      sc.Contact.Industry,
+			Source:        sc.Contact.Source,
+			OutreachStage: sc.Contact.OutreachStage,
+			BusinessStage: sc.Contact.BusinessStage,
+			NextStep:      sc.NextStep,
+			DaysSinceContact: sc.DaysSince,
+			ContextLevel:  sc.Contact.ContextLevel,
+			MessageDraft:  sc.MessageDraft,
+			Type:          sc.Type,
+		}
+		if sc.State != nil {
+			item.ConversationState = sc.State.ConversationState
+			item.FollowupCount = sc.State.FollowupCount
+		}
+		items = append(items, item)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(schema.SuccessResponse(v1schema.MCPContactsPipelineResponse{
+		Contacts: items,
+		Total:    suggestions.Total,
+	}))
+}
+
+// GetOutcomeMetrics returns performance metrics for AI to learn from.
+// GET /v1/mcp/outcome-metrics?period=30d
+func (h *MCPHandler) GetOutcomeMetrics(c fiber.Ctx) error {
+	userID, err := getMCPUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(schema.ErrorResponse(fiber.StatusUnauthorized, "Unauthorized", nil))
+	}
+
+	period := c.Query("period", "30d")
+
+	metrics, err := h.dailyActionService.GetOutcomeMetrics(c.Context(), userID, period)
+	if err != nil {
+		// Return empty metrics if not computed yet
+		return c.Status(fiber.StatusOK).JSON(schema.SuccessResponse(map[string]interface{}{
+			"user_id":            userID,
+			"period":             period,
+			"total_sent":         0,
+			"total_replied":      0,
+			"total_meetings":     0,
+			"reply_rate_overall": 0,
+			"message":            "No metrics computed yet. Metrics are generated after outreach actions are completed.",
+		}))
+	}
+
+	return c.Status(fiber.StatusOK).JSON(schema.SuccessResponse(metrics))
+}
+
+// GetContactInteractions returns interaction history for a specific contact.
+// GET /v1/mcp/contacts/:contact_id/interactions?limit=20
+func (h *MCPHandler) GetContactInteractions(c fiber.Ctx) error {
+	userID, err := getMCPUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(schema.ErrorResponse(fiber.StatusUnauthorized, "Unauthorized", nil))
+	}
+
+	contactID, err := uuid.Parse(c.Params("contact_id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(fiber.StatusBadRequest, "Invalid contact_id", nil))
+	}
+
+	limit, _ := strconv.Atoi(c.Query("limit", "20"))
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	// Verify contact belongs to user
+	contact, err := h.contactRepo.GetByID(c.Context(), contactID)
+	if err != nil || contact == nil {
+		return c.Status(fiber.StatusNotFound).JSON(schema.ErrorResponse(fiber.StatusNotFound, "Contact not found", nil))
+	}
+	if contact.UserID != userID {
+		orgID, _ := h.roleRepo.FindPrimaryOrganization(c.Context(), userID)
+		if orgID == nil || contact.OrganizationID == nil || *contact.OrganizationID != *orgID {
+			return c.Status(fiber.StatusForbidden).JSON(schema.ErrorResponse(fiber.StatusForbidden, "Access denied", nil))
+		}
+	}
+
+	logs, err := h.interactionLogRepo.FindByContactIDAndUserID(c.Context(), contactID, userID, limit)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(fiber.StatusInternalServerError, "Failed to fetch interactions", err.Error()))
+	}
+
+	items := make([]v1schema.MCPInteractionItem, 0, len(logs))
+	for _, log := range logs {
+		items = append(items, v1schema.MCPInteractionItem{
+			ID:        log.ID,
+			Channel:   log.Channel,
+			Direction: log.Direction,
+			Content:   log.Content,
+			Subject:   log.Subject,
+			Sentiment: log.Sentiment,
+			Timestamp: log.Timestamp.Format(time.RFC3339),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(schema.SuccessResponse(v1schema.MCPContactInteractionsResponse{
+		ContactID:    contactID,
+		ContactName:  contact.Name,
+		Interactions: items,
+		Total:        len(items),
+	}))
+}
+
+// CreateDailyActions creates prioritized daily actions from AI-generated recommendations.
+// POST /v1/mcp/daily-actions
+func (h *MCPHandler) CreateDailyActions(c fiber.Ctx) error {
+	userID, err := getMCPUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(schema.ErrorResponse(fiber.StatusUnauthorized, "Unauthorized", nil))
+	}
+
+	var req dailyActionDomain.CreateFromAgentRequest
+	if err := c.Bind().JSON(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(fiber.StatusBadRequest, "Invalid request body", err.Error()))
+	}
+
+	if len(req.Recommendations) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(fiber.StatusBadRequest, "No recommendations provided", nil))
+	}
+
+	generation, err := h.dailyActionService.CreateFromAgentRecommendations(c.Context(), userID, &req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(fiber.StatusInternalServerError, "Failed to create daily actions", err.Error()))
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(schema.SuccessResponse(map[string]interface{}{
+		"generation_id": generation.ID,
+		"action_count":  generation.ActionCount,
+		"status":        generation.Status,
+		"message":       fmt.Sprintf("Successfully created %d daily actions from AI recommendations", generation.ActionCount),
+	}))
+}
+
+// GetDailyActionsStatus returns the current daily actions briefing.
+// GET /v1/mcp/daily-actions/status?language=vi
+func (h *MCPHandler) GetDailyActionsStatus(c fiber.Ctx) error {
+	userID, err := getMCPUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(schema.ErrorResponse(fiber.StatusUnauthorized, "Unauthorized", nil))
+	}
+
+	today := time.Now().Format("2006-01-02")
+
+	gen, err := h.generationRepo.FindActiveByUserAndDate(c.Context(), userID, today)
+	if err != nil || gen == nil {
+		return c.Status(fiber.StatusOK).JSON(schema.SuccessResponse(v1schema.MCPDailyActionsStatusResponse{
+			Date:    today,
+			Status:  "no_generation",
+			Actions: []v1schema.MCPDailyActionsStatusItem{},
+		}))
+	}
+
+	actions, err := h.actionRepo.FindByGenerationID(c.Context(), gen.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(fiber.StatusInternalServerError, "Failed to fetch actions", err.Error()))
+	}
+
+	completed := 0
+	pending := 0
+	items := make([]v1schema.MCPDailyActionsStatusItem, 0, len(actions))
+	for _, a := range actions {
+		var snapshot dailyActionDomain.ContactSnapshot
+		_ = a.ContactSnapshot.Unmarshal(&snapshot)
+
+		items = append(items, v1schema.MCPDailyActionsStatusItem{
+			ActionID:   a.ID,
+			ContactID:  a.ContactID,
+			Name:       snapshot.Name,
+			Company:    snapshot.Company,
+			ActionType: string(a.Type),
+			CategoryID: string(a.CategoryID),
+			Priority:   a.Priority,
+			Status:     string(a.Status),
+			Reasoning:  a.Reasoning,
+		})
+
+		switch a.Status {
+		case dailyActionDomain.ActionStatusCompleted, dailyActionDomain.ActionStatusSkipped:
+			completed++
+		default:
+			pending++
+		}
+	}
+
+	return c.Status(fiber.StatusOK).JSON(schema.SuccessResponse(v1schema.MCPDailyActionsStatusResponse{
+		GenerationID: &gen.ID,
+		Date:         today,
+		Status:       string(gen.Status),
+		Actions:      items,
+		TotalActions: len(items),
+		Completed:    completed,
+		Pending:      pending,
+	}))
 }
 
 // generateCampaignNameFromPlaybook converts playbook string to title case name

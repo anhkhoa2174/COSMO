@@ -56,12 +56,13 @@ func (h *Handler) AddResearchFinding(c fiber.Ctx) error {
 	// Get existing contact
 	contact, err := h.repo.GetByID(c.Context(), id)
 	if err != nil {
-		return h.responseHelper.NotFound(c, "Contact not found", err)
+		return h.responseHelper.InternalServerError(c, "Failed to fetch contact", err)
 	}
 
-	// Check authorization
-	if contact.UserID != user.ID {
-		return h.responseHelper.HandleAuthError(c, errors.New("You are not authorized to access this resource"))
+	// Check authorization. A missing contact and someone else's contact get
+	// the same 404, so the endpoint cannot be used to probe for contact ids.
+	if contact == nil || contact.UserID != user.ID {
+		return h.responseHelper.NotFound(c, "Contact not found", nil)
 	}
 
 	// Parse existing profile

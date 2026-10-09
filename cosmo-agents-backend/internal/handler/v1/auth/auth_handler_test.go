@@ -246,8 +246,9 @@ func TestAuthHandler_CozeTokenRequest_Validation(t *testing.T) {
 	})
 }
 
-// Note: Full integration tests with database are skipped due to JSONB compatibility issues
-// with SQLite. For full testing, use Postgres container or test against actual database.
+// Note: this file tests request/response handling only. The repository and
+// service tests run against PostgreSQL (internal/testutil/pgtest); database
+// integration for these handlers is not covered here.
 //
 // Test coverage:
 // - Request/Response structure tests ✓

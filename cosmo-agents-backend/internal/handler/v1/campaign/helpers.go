@@ -1,6 +1,7 @@
 package campaign
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -240,4 +241,31 @@ func userIDFromContext(c fiber.Ctx) (uuid.UUID, bool) {
 	}
 	uid, ok := userID.(uuid.UUID)
 	return uid, ok
+}
+
+// agentUsableBy reports whether the user may send through the agent: their
+// own mailbox, or one connected to an organisation they belong to. The email
+// worker sends with whatever agent a campaign names, using that mailbox's
+// Gmail token, so an unchecked agent_id let a user send from another
+// tenant's mailbox.
+func (h *Handler) agentUsableBy(ctx context.Context, agentID, userID uuid.UUID) (bool, error) {
+	agents, err := h.agentRepo.FindByIDs(ctx, []uuid.UUID{agentID})
+	if err != nil {
+		return false, err
+	}
+	agent := agents[agentID]
+	if agent == nil {
+		return false, nil
+	}
+	if agent.UserID == userID {
+		return true, nil
+	}
+	if agent.OrganizationID == nil {
+		return false, nil
+	}
+	roles, err := h.roleRepo.FindByUserID(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return userInOrganization(*agent.OrganizationID, roles), nil
 }

@@ -41,13 +41,34 @@ func (h *Handler) Create(c fiber.Ctx) error {
 	}
 
 	organizationID := req.OrganizationID
-	if organizationID == nil {
+	if organizationID != nil {
+		// An organization named in the body must be one the caller belongs to;
+		// otherwise the campaign lands in a stranger's organization, where its
+		// members can list, open and edit it.
+		roles, err := h.roleRepo.FindByUserID(c.Context(), userID)
+		if err != nil {
+			return internalError(c, "Failed to verify user organizations", err)
+		}
+		if !userInOrganization(*organizationID, roles) {
+			return forbidden(c, "You are not a member of this organization")
+		}
+	} else {
 		organizationID, err = h.roleRepo.FindPrimaryOrganization(c.Context(), userID)
 		if err != nil {
 			return internalError(c, "Failed to determine primary organization", err)
 		}
 		if organizationID == nil {
 			return badRequest(c, "User must belong to an organization", errors.New("missing organization"))
+		}
+	}
+
+	if req.AgentID != nil {
+		ok, err := h.agentUsableBy(c.Context(), *req.AgentID, userID)
+		if err != nil {
+			return internalError(c, "Failed to verify agent", err)
+		}
+		if !ok {
+			return forbidden(c, "You cannot send from this agent")
 		}
 	}
 

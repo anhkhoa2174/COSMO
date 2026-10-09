@@ -38,7 +38,7 @@ const (
 )
 
 const (
-	defaultAgentSignature = "Best regard,\n\n{sender_name}\n\n{organization_name}"
+	defaultAgentSignature = "Best regards,\n\n{sender_name}\n\n{organization_name}"
 	defaultDailyLimit     = 50
 	defaultMaxDailyLimit  = 500
 	defaultEmailsSent     = 0

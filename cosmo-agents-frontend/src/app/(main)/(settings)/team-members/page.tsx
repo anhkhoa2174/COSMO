@@ -5,6 +5,8 @@ import { MainButton } from '@/components/buttons/main-button';
 import { ColumnDef, DataTable } from '@/components/data-table/data-table';
 import { CreateMemberDialog } from '@/components/forms/create-member-form';
 import { ContentLayout } from '@/components/nav/content-layout';
+import { PageHero } from '@/components/ui/page-hero';
+import { Users2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -117,7 +119,15 @@ export default function TeamMembersPage() {
   );
 
   return (
-    <ContentLayout title="Team Members" rightSection={rightSection}>
+    <ContentLayout title="Team Members" section="Settings" icon={Users2}>
+      <PageHero
+        icon={Users2}
+        eyebrow="Settings"
+        accent="blue"
+        title="Team Members"
+        description="Everyone in your organization, and what each of them is allowed to do."
+        actions={rightSection}
+      />
       <DataTable
         columns={columns}
         data={memberData}

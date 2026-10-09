@@ -126,9 +126,13 @@ function SortableElement({
             <div className="h-5 w-5 text-primary">
               {getElementIcon(element)}
             </div>
-            <span className={cn('font-medium capitalize', element.colSpan === 1 && gridColumns === 4 ? 'text-[8px]' : '')}>{
-              element.label
-            }
+            <span
+              className={cn(
+                'font-medium capitalize',
+                element.colSpan === 1 && gridColumns === 4 ? 'text-[8px]' : ''
+              )}
+            >
+              {element.label}
             </span>
           </div>
           <div className="z-30 flex items-center space-x-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">

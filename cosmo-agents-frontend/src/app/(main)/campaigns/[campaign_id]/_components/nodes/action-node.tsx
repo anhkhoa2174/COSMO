@@ -26,7 +26,12 @@ export function ActionNode({ data }: NodeProps<ActionNode>) {
 
   return (
     <>
-      <CustomHandle id="node4-left" type="target" position={Position.Left} connectioncount={1} />
+      <CustomHandle
+        id="node4-left"
+        type="target"
+        position={Position.Left}
+        connectioncount={1}
+      />
       <Card miw={256} p="sm" shadow="0px 4px 15px 0px #0000001A">
         <Text fw={600} mb="xs">
           Add Follow-up Action

@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/tooltip';
 
 export function TemplateNode({ id, data, selected }: NodeProps<TemplateNode>) {
-  const { children, label, isCompleted = false } = data;
+  const { children, label, isCompleted = false, justEdited = false } = data;
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -44,16 +44,29 @@ export function TemplateNode({ id, data, selected }: NodeProps<TemplateNode>) {
     <div
       onClick={handleNodeClick}
       className={cn(
-        'min-w-[256px] cursor-pointer overflow-hidden rounded-lg border bg-white shadow hover:border-accent-foreground',
-        selected && 'border-t-4 border-accent-foreground'
+        'group min-w-[256px] cursor-pointer overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-200',
+        'hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-lg',
+        // A ring instead of a thicker top border: widening the border shifts
+        // the node's contents and makes the whole canvas jump on select.
+        selected && 'border-violet-400 shadow-lg ring-2 ring-violet-200',
+        // Amber, not violet: it must read as "this one changed", distinct from
+        // "this one is selected", because both can be true at once.
+        justEdited &&
+          !selected &&
+          'border-amber-400 ring-2 ring-amber-200'
       )}
     >
-      <div className="flex items-center justify-between bg-zinc-100 p-2">
+      <div className="flex items-center justify-between border-b bg-gradient-to-r from-violet-50 to-indigo-50 p-2.5">
         <div className="flex items-center gap-2">
-          <span className="text-blue-500">
-            <Mail className="h-5 w-5" />
+          <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 text-white">
+            <Mail className="h-4 w-4" />
           </span>
           <p className="font-medium">{label}</p>
+          {justEdited && (
+            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-amber-700">
+              Edited
+            </span>
+          )}
         </div>
         {/* {!['Entry Rules', 'Outreach Email'].includes(data.label) && (
           <div ref={dropdownRef} onClick={(e) => e.stopPropagation()}>

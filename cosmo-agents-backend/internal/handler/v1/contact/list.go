@@ -49,10 +49,10 @@ func (h *Handler) List(c fiber.Ctx) error {
 
 	// Build filter based on role
 	// Admin sees all contacts in organization, member sees only their own
-	filter := baseRepo.Filter{
-		"is_deleted":      false,
-		"organization_id": organizationID,
-	}
+	// The client's filter goes in first so the scope keys below override it.
+	filter := baseRepo.Filter(dropRawFilters(req.Filter))
+	filter["is_deleted"] = false
+	filter["organization_id"] = organizationID
 
 	// Check user's role in the organization to determine visibility
 	isAdmin := h.authHelper.IsAdminInOrganization(c.Context(), user.ID, organizationID)
@@ -60,11 +60,6 @@ func (h *Handler) List(c fiber.Ctx) error {
 	if !isAdmin {
 		// Member: filter by user_id to see only their own contacts
 		filter["user_id"] = user.ID
-	}
-	if req.Filter != nil {
-		for k, v := range req.Filter {
-			filter[k] = v
-		}
 	}
 
 	// Fetch contacts

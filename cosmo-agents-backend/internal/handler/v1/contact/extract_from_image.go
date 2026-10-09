@@ -61,11 +61,13 @@ func (h *Handler) ExtractFromImage(c fiber.Ctx) error {
 	}
 
 	contact, err := h.repo.GetByID(c.Context(), id)
-	if err != nil {
+	if err != nil || contact == nil {
 		return h.responseHelper.NotFound(c, "Contact not found", err)
 	}
 	if contact.UserID != user.ID {
-		return h.responseHelper.HandleAuthError(c, errors.New("You are not authorized to access this resource"))
+		// Answered as not found, like a missing contact, so the endpoint cannot
+		// be used to learn which contact IDs exist in other organisations.
+		return h.responseHelper.NotFound(c, "Contact not found", nil)
 	}
 
 	if h.scraperSvc == nil {

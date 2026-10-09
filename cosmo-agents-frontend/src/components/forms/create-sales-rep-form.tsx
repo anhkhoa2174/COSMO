@@ -42,7 +42,11 @@ interface CreateSalesRepFormProps {
   isEdit?: boolean;
   data?: FormData;
 }
-export function CreateSalesRepForm({ onSuccess, isEdit = false, data }: CreateSalesRepFormProps) {
+export function CreateSalesRepForm({
+  onSuccess,
+  isEdit = false,
+  data,
+}: CreateSalesRepFormProps) {
   const queryClient = useQueryClient();
   const form = useForm<FormData>({
     resolver: zodResolver(FormSchema),
@@ -54,7 +58,9 @@ export function CreateSalesRepForm({ onSuccess, isEdit = false, data }: CreateSa
       : SalesRepApi.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['salesReps'] });
-      toast.success(isEdit ? 'Sales rep has been updated' : 'Sales rep has been created');
+      toast.success(
+        isEdit ? 'Sales rep has been updated' : 'Sales rep has been created'
+      );
       form.reset();
       onSuccess();
     },
@@ -104,7 +110,11 @@ export function CreateSalesRepForm({ onSuccess, isEdit = false, data }: CreateSa
           label="Calendar link"
           placeholder="https://calendar.example.com"
         />
-        <MainButton text="Submit" className="w-full" loading={mutation.isPending} />
+        <MainButton
+          text="Submit"
+          className="w-full"
+          loading={mutation.isPending}
+        />
       </form>
     </Form>
   );
@@ -130,16 +140,23 @@ export function CreateSalesRepDialog({
       <DialogContent className="sm:max-w-[640px]">
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? 'Edit a Sales Representative' : 'Add a New Sales Representative'}
+            {isEdit
+              ? 'Edit a Sales Representative'
+              : 'Add a New Sales Representative'}
           </DialogTitle>
           {!isEdit && (
             <DialogDescription>
-              Set up a new sales representative profile to manage leads, track performance, and
-              streamline sales activities. Fill in the required details to get started.
+              Set up a new sales representative profile to manage leads, track
+              performance, and streamline sales activities. Fill in the required
+              details to get started.
             </DialogDescription>
           )}
         </DialogHeader>
-        <CreateSalesRepForm onSuccess={() => onOpenChange(false)} isEdit={isEdit} data={data} />
+        <CreateSalesRepForm
+          onSuccess={() => onOpenChange(false)}
+          isEdit={isEdit}
+          data={data}
+        />
       </DialogContent>
     </Dialog>
   );

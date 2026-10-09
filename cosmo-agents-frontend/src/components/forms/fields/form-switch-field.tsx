@@ -33,7 +33,8 @@ function FormSwitchField({
           <div>
             {label && (
               <FormLabel>
-                {label} {withAsterisk && <span className="text-destructive">*</span>}
+                {label}{' '}
+                {withAsterisk && <span className="text-destructive">*</span>}
               </FormLabel>
             )}
             {description && <FormDescription>{description}</FormDescription>}

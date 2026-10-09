@@ -1,5 +1,9 @@
 import * as React from 'react';
-import { type FieldValues, type Path, type UseFormReturn } from 'react-hook-form';
+import {
+  type FieldValues,
+  type Path,
+  type UseFormReturn,
+} from 'react-hook-form';
 import {
   FormControl,
   FormDescription,
@@ -42,11 +46,25 @@ export function FormNumberField<
         <FormItem>
           {label && (
             <FormLabel>
-              {label} {withAsterisk && <span className="text-destructive">*</span>}
+              {label}{' '}
+              {withAsterisk && <span className="text-destructive">*</span>}
             </FormLabel>
           )}
           <FormControl>
-            <Input {...inputProps} type="number" min={0} {...field} onChange={event => field.onChange(+event.target.value)} />
+            <Input
+              {...inputProps}
+              type="number"
+              min={0}
+              {...field}
+              // An emptied input is "no value", not 0: +'' is 0, which saved
+              // a cleared field as zero.
+              value={field.value ?? ''}
+              onChange={(event) =>
+                field.onChange(
+                  event.target.value === '' ? undefined : +event.target.value
+                )
+              }
+            />
           </FormControl>
           {description && <FormDescription>{description}</FormDescription>}
           <FormMessage />

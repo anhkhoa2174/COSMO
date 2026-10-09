@@ -110,11 +110,15 @@ export function ExtractFromURLSimpleDialog({
                     handleExtract();
                   }
                 }}
-                disabled={extractMutation.isPending || extractMutation.isSuccess}
+                disabled={
+                  extractMutation.isPending || extractMutation.isSuccess
+                }
               />
               <Button
                 onClick={handleExtract}
-                disabled={extractMutation.isPending || extractMutation.isSuccess}
+                disabled={
+                  extractMutation.isPending || extractMutation.isSuccess
+                }
               >
                 {extractMutation.isPending ? (
                   <>

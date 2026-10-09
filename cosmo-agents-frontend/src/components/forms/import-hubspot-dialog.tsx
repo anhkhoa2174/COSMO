@@ -37,7 +37,7 @@ export function ImportFromHubSpotDialog({
   const { data: hubspotInfo } = useQuery({
     queryKey: ['hubspot-me'],
     queryFn: () => HubspotApi.getMe(),
-  })
+  });
   const accessToken = hubspotInfo?.data?.access_token;
   const refreshToken = hubspotInfo?.data?.refresh_token;
 
@@ -90,10 +90,7 @@ export function ImportFromHubSpotDialog({
           <div className="space-y-4">
             <p className="text-muted-foreground">
               You can{' '}
-              <Link
-                href="/hubspot-integration"
-                className="text-orange-500"
-              >
+              <Link href="/hubspot-integration" className="text-orange-500">
                 go here
               </Link>{' '}
               to modify your HubSpot account or mapping parameters

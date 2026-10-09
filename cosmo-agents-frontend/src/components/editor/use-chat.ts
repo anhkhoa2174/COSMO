@@ -12,7 +12,7 @@ export const useChat = () => {
       if (!res.ok) {
         await new Promise((resolve) => setTimeout(resolve, 400));
 
-        return new Response("Oops! Something went wrong", {
+        return new Response('Oops! Something went wrong', {
           headers: {
             'Content-Type': 'text/plain',
           },

@@ -11,10 +11,7 @@ export const softBreakPlugin = SoftBreakPlugin.configure({
       {
         hotkey: 'enter',
         query: {
-          allow: [
-            CodeBlockPlugin.key,
-            BlockquotePlugin.key,
-          ],
+          allow: [CodeBlockPlugin.key, BlockquotePlugin.key],
         },
       },
     ],

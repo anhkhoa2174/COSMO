@@ -33,9 +33,7 @@ export interface MyAlignProps {
 }
 
 export interface MyBlockElement
-  extends MyIndentListProps,
-    MyLineHeightProps,
-    TElement {
+  extends MyIndentListProps, MyLineHeightProps, TElement {
   id?: string;
 }
 

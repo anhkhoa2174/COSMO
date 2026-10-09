@@ -7,9 +7,7 @@ export const deletePlugins = [
   SelectOnBackspacePlugin.configure({
     options: {
       query: {
-        allow: [
-          HorizontalRulePlugin.key,
-        ],
+        allow: [HorizontalRulePlugin.key],
       },
     },
   }),

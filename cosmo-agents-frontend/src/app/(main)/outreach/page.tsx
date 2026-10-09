@@ -71,8 +71,11 @@ import OutreachApi, {
 import { toast } from 'sonner';
 import { NextStepPanel } from '@/components/outreach/next-step-panel';
 import {
+  NEXT_ACTION_GROUPS,
+  compareByNextActionDue,
   describeNextAction,
   nextActionColors,
+  nextActionGroup,
 } from '@/lib/next-step';
 import type { NextAction } from '@/network/client/outreach';
 import { formatDistanceToNow } from 'date-fns';
@@ -113,61 +116,6 @@ const nextStepLabels: Record<NextStep, string> = {
   DROP: 'Drop',
 };
 
-/**
- * The stage chips in the Outreach hero. Each one pins both the next-step and
- * the readiness filter, so "Set Meeting" shows every contact at that stage
- * rather than only the ones already due.
- */
-const STAGE_FILTERS: {
-  label: string;
-  nextStep: string;
-  status: string;
-  isActive: (nextStep: string, status: string) => boolean;
-}[] = [
-  {
-    label: 'All Ready',
-    nextStep: '__all__',
-    status: 'ready',
-    isActive: (n, s) => n === '__all__' && s === 'ready',
-  },
-  {
-    label: 'Send Initial',
-    nextStep: 'SEND',
-    status: 'ready',
-    isActive: (n) => n === 'SEND',
-  },
-  {
-    label: 'Follow-up #1',
-    nextStep: 'FOLLOW_UP_1',
-    status: 'ready',
-    isActive: (n) => n === 'FOLLOW_UP_1',
-  },
-  {
-    label: 'Follow-up #2',
-    nextStep: 'FOLLOW_UP_2',
-    status: 'ready',
-    isActive: (n) => n === 'FOLLOW_UP_2',
-  },
-  {
-    label: 'Set Meeting',
-    nextStep: 'SET_MEETING',
-    status: '__all__',
-    isActive: (n) => n === 'SET_MEETING',
-  },
-  {
-    label: 'Confirm Meeting',
-    nextStep: 'FOLLOW_UP_MEETING_1',
-    status: '__all__',
-    isActive: (n) => n === 'FOLLOW_UP_MEETING_1' || n === 'FOLLOW_UP_MEETING_2',
-  },
-  {
-    label: 'Prepare Meeting',
-    nextStep: 'PREPARE_MEETING',
-    status: '__all__',
-    isActive: (n) => n === 'PREPARE_MEETING',
-  },
-];
-
 const channelIcons: Record<string, React.ReactNode> = {
   LinkedIn: <Linkedin className="h-4 w-4" />,
   Email: <Mail className="h-4 w-4" />,
@@ -185,7 +133,9 @@ export default function OutreachTestPage() {
 
   // Filter states
   const [statusFilter, setStatusFilter] = useState<string>('ready');
-  const [nextStepFilter, setNextStepFilter] = useState<string>('__all__');
+  // The chips filter by the engine's decision (next_action), not the cadence's
+  // next_step, so a chip and the badge on each card always agree.
+  const [actionGroupFilter, setActionGroupFilter] = useState<string>('__all__');
 
   // Auto-select contact from URL query parameter
   useEffect(() => {
@@ -223,9 +173,6 @@ export default function OutreachTestPage() {
   if (statusFilter && statusFilter !== '__all__') {
     contactsFilter.status = statusFilter;
   }
-  if (nextStepFilter && nextStepFilter !== '__all__') {
-    contactsFilter.next_step = nextStepFilter;
-  }
 
   // Fetch contacts (increased limit for admin to see all)
   const {
@@ -233,13 +180,32 @@ export default function OutreachTestPage() {
     isLoading: loadingContacts,
     isError: contactsError,
   } = useQuery({
-    queryKey: ['contacts-for-outreach', statusFilter, nextStepFilter],
+    queryKey: ['contacts-for-outreach', statusFilter],
     queryFn: () =>
       ContactApi.list({ filter: contactsFilter }, { offset: 0, limit: 1000 }),
   });
 
   const contactTotal =
     contacts?.data?.total ?? contacts?.data?.list?.length ?? 0;
+
+  // Grouped and sorted on the client: the chips need a count per group, and
+  // the whole list (up to 1000) is already loaded for the status filter.
+  const allContacts: any[] = contacts?.data?.list ?? [];
+  const groupCounts: Record<string, number> = {};
+  for (const item of allContacts) {
+    const g = nextActionGroup(item.entity?.next_action);
+    if (g) groupCounts[g] = (groupCounts[g] ?? 0) + 1;
+  }
+  const visibleContacts = allContacts
+    .filter(
+      (item) =>
+        actionGroupFilter === '__all__' ||
+        nextActionGroup(item.entity?.next_action) === actionGroupFilter
+    )
+    .sort((a, b) => compareByNextActionDue(a.entity ?? {}, b.entity ?? {}));
+  const activeGroupLabel = NEXT_ACTION_GROUPS.find(
+    (g) => g.id === actionGroupFilter
+  )?.label;
 
   // Fetch outreach state for selected contact
   const { data: outreachState, isLoading: loadingState } = useQuery({
@@ -479,27 +445,49 @@ export default function OutreachTestPage() {
           description="Generate AI drafts, log conversations, schedule meetings, and track every touchpoint of your pipeline in one place."
         >
           <div className="flex flex-wrap gap-2 pt-3">
-            {STAGE_FILTERS.map((stage) => {
-              const active = stage.isActive(nextStepFilter, statusFilter);
-              return (
-                <button
-                  key={stage.label}
-                  type="button"
-                  onClick={() => {
-                    setNextStepFilter(stage.nextStep);
-                    setStatusFilter(stage.status);
-                  }}
-                  className={cn(
-                    'rounded-full px-4 py-1.5 text-[0.85rem] font-medium transition-colors',
-                    active
-                      ? 'bg-violet-600 text-white shadow-sm'
-                      : 'border bg-background/70 text-foreground hover:bg-background'
-                  )}
-                >
-                  {stage.label}
-                </button>
-              );
-            })}
+            {[
+              { id: '__all__', label: 'All', count: allContacts.length },
+              ...NEXT_ACTION_GROUPS.map((g) => ({
+                id: g.id,
+                label: g.label,
+                count: groupCounts[g.id] ?? 0,
+              })),
+            ]
+              .filter(
+                (chip) =>
+                  chip.id === '__all__' ||
+                  chip.count > 0 ||
+                  chip.id === actionGroupFilter
+              )
+              .map((chip) => {
+                const active = chip.id === actionGroupFilter;
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setActionGroupFilter(chip.id)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[0.85rem] font-medium transition-colors',
+                      active
+                        ? 'bg-violet-600 text-white shadow-sm'
+                        : 'border bg-background/70 text-foreground hover:bg-background'
+                    )}
+                  >
+                    {chip.label}
+                    <span
+                      className={cn(
+                        'rounded-full px-1.5 text-[0.75rem] tabular-nums',
+                        active
+                          ? 'bg-white/20'
+                          : 'bg-muted text-muted-foreground'
+                      )}
+                    >
+                      {chip.count}
+                    </span>
+                  </button>
+                );
+              })}
           </div>
         </PageHero>
 
@@ -514,7 +502,7 @@ export default function OutreachTestPage() {
                     Contacts
                   </span>
                   <Badge variant="secondary" className="text-xs">
-                    {contacts?.data?.total || contacts?.data?.list?.length || 0}
+                    {visibleContacts.length}
                   </Badge>
                 </CardTitle>
                 <CardDescription>
@@ -538,33 +526,6 @@ export default function OutreachTestPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Select
-                    value={nextStepFilter}
-                    onValueChange={setNextStepFilter}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Next Step" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__all__">All Next Steps</SelectItem>
-                      <SelectItem value="SEND">Send Initial</SelectItem>
-                      <SelectItem value="FOLLOW_UP_1">Follow-up #1</SelectItem>
-                      <SelectItem value="FOLLOW_UP_2">Follow-up #2</SelectItem>
-                      <SelectItem value="SET_MEETING">Set Meeting</SelectItem>
-                      <SelectItem value="FOLLOW_UP_MEETING_1">
-                        Confirm #1
-                      </SelectItem>
-                      <SelectItem value="FOLLOW_UP_MEETING_2">
-                        Confirm #2
-                      </SelectItem>
-                      <SelectItem value="PREPARE_MEETING">
-                        Prepare Meeting
-                      </SelectItem>
-                      <SelectItem value="WAIT">Wait</SelectItem>
-                      <SelectItem value="FOLLOW_UP">Follow-up Deal</SelectItem>
-                      <SelectItem value="DROP">Drop</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </CardHeader>
               <CardContent>
@@ -577,14 +538,14 @@ export default function OutreachTestPage() {
                     <p className="p-4 text-center text-sm text-red-500">
                       Failed to load contacts. Please try again.
                     </p>
-                  ) : contacts?.data?.list?.length === 0 ? (
+                  ) : visibleContacts.length === 0 ? (
                     <p className="p-4 text-center text-sm text-muted-foreground">
-                      {nextStepFilter !== '__all__'
-                        ? `No contacts with next step "${nextStepLabels[nextStepFilter as NextStep] || nextStepFilter}"`
+                      {activeGroupLabel
+                        ? `No contacts whose next step is "${activeGroupLabel}"`
                         : 'No contacts available'}
                     </p>
                   ) : (
-                    contacts?.data?.list?.map((item: any, index: number) => {
+                    visibleContacts.map((item: any, index: number) => {
                       const nextStep = item.entity?.next_step as NextStep;
                       return (
                         <div
@@ -733,7 +694,7 @@ export default function OutreachTestPage() {
                             </div>
                             <div className="rounded-lg border p-3">
                               <p className="text-xs text-muted-foreground">
-                                Next Step
+                                Cadence step
                               </p>
                               <Badge
                                 className={`${nextStepColors[outreachState.data.next_step] || 'bg-gray-500'} text-white`}
@@ -1159,7 +1120,7 @@ export default function OutreachTestPage() {
                             {updateOutreachMutation.data.data.new_state}
                           </Badge>
                           <span className="ml-2 text-sm text-muted-foreground">
-                            Next:{' '}
+                            Cadence step:{' '}
                             {nextStepLabels[
                               updateOutreachMutation.data.data
                                 .next_step as NextStep

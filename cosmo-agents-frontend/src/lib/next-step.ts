@@ -36,6 +36,63 @@ export const nextActionColors: Record<NextAction, string> = {
   ESCALATE: 'bg-red-600',
 };
 
+/**
+ * The Outreach filter chips. Thirteen actions are too many to filter by one at
+ * a time, so they are grouped by what the rep does next.
+ */
+export const NEXT_ACTION_GROUPS: {
+  id: string;
+  label: string;
+  actions: NextAction[];
+}[] = [
+  { id: 'intro', label: 'Introduce', actions: ['SEND_INTRO'] },
+  {
+    id: 'follow-up',
+    label: 'Follow up',
+    actions: ['SEND_FOLLOW_UP', 'SWITCH_CHANNEL'],
+  },
+  { id: 'reply', label: 'Answer reply', actions: ['ANSWER_REPLY'] },
+  {
+    id: 'meeting',
+    label: 'Meeting',
+    actions: ['PROPOSE_MEETING', 'MEETING_FOLLOW_UP'],
+  },
+  { id: 'stakeholder', label: 'Stakeholder', actions: ['CONTACT_STAKEHOLDER'] },
+  { id: 'waiting', label: 'Waiting', actions: ['WAIT', 'NURTURE'] },
+  {
+    id: 'review',
+    label: 'Needs review',
+    actions: ['FIX_DATA', 'ESCALATE', 'SUPPRESS', 'DISQUALIFY'],
+  },
+];
+
+export function nextActionGroup(action?: string | null): string | undefined {
+  if (!action) return undefined;
+  return NEXT_ACTION_GROUPS.find((g) =>
+    g.actions.includes(action as NextAction)
+  )?.id;
+}
+
+/**
+ * Most urgent first: contacts with a decision, by when it falls due (overdue
+ * at the top), then contacts the engine has not decided on yet.
+ */
+export function compareByNextActionDue(
+  a: { next_action?: string | null; next_action_due_at?: string | null },
+  b: { next_action?: string | null; next_action_due_at?: string | null }
+): number {
+  const rank = (c: typeof a) => {
+    if (!c.next_action) return Number.POSITIVE_INFINITY;
+    const t = c.next_action_due_at ? Date.parse(c.next_action_due_at) : NaN;
+    // A decision with no due date is actionable now.
+    return Number.isNaN(t) ? 0 : t;
+  };
+  const ra = rank(a);
+  const rb = rank(b);
+  if (ra === rb) return 0;
+  return ra < rb ? -1 : 1;
+}
+
 const fmtDay = (v?: string) => {
   if (!v) return '';
   const d = new Date(v.length === 10 ? `${v}T00:00:00` : v);
@@ -71,4 +128,20 @@ export function describeNextAction(
     default:
       return label;
   }
+}
+
+/**
+ * The same description without the action's own name, for places that already
+ * show the name in a badge beside it ("objection (price)" rather than
+ * "Answer reply: objection (price)").
+ */
+export function nextActionDetail(
+  action: NextAction,
+  args?: Record<string, any>,
+  dueAt?: string
+): string {
+  const full = describeNextAction(action, args, dueAt);
+  const label = nextActionLabels[action] ?? action;
+  if (!full.startsWith(label)) return full;
+  return full.slice(label.length).replace(/^[:\s]+/, '');
 }

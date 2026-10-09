@@ -15,6 +15,32 @@ export default withSentryConfig(
     experimental: {
       optimizePackageImports: ['@mantine/core'],
     },
+    // The Prospects section was renamed to match the nav labels in the report.
+    // Old links (bookmarks, emails, HubSpot callbacks) keep working.
+    async redirects() {
+      return [
+        {
+          source: '/contacts/:path*',
+          destination: '/all-prospects/:path*',
+          permanent: false,
+        },
+        {
+          source: '/contact-lists/:path*',
+          destination: '/audiences/:path*',
+          permanent: false,
+        },
+        {
+          source: '/custom-fields/:path*',
+          destination: '/profile-fields/:path*',
+          permanent: false,
+        },
+        {
+          source: '/ai-intel/:path*',
+          destination: '/smart-insights/:path*',
+          permanent: false,
+        },
+      ];
+    },
     images: {
       remotePatterns: [
         {

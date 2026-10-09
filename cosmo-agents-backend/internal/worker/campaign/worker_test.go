@@ -126,8 +126,10 @@ func TestHandleScheduleTasksEnqueuesSendEmail(t *testing.T) {
 	if err := worker.HandleScheduleTasks(context.Background(), asynqTask); err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
-	if fakeClient.lastType != queueworker.TypeSendEmail {
-		t.Fatalf("expected send email enqueue, got %s", fakeClient.lastType)
+	// Flow mới: enqueue generate-email (AI cá nhân hoá theo contact, xong tự
+	// enqueue send) thay vì gửi thẳng template.
+	if fakeClient.lastType != queueworker.TypeGenerateEmail {
+		t.Fatalf("expected generate email enqueue, got %s", fakeClient.lastType)
 	}
 	if fakeTaskRepo.updatedStatus != domain.TaskStatusRunning {
 		t.Fatalf("expected task status to be updated to running")
@@ -238,6 +240,68 @@ func TestHandleGenerateEmailNotImplemented(t *testing.T) {
 	}
 }
 
+// The editor promises "Send if contact does not reply in N working days", so
+// a contact who has replied gets no further emails from the sequence.
+func TestHandleScheduleTasksCancelsFollowUpAfterReply(t *testing.T) {
+	campaignID, contactID, templateID := uuid.New(), uuid.New(), uuid.New()
+	pending := domain.Task{Base: domain.Base{ID: uuid.New()}, ContactID: contactID, CampaignID: campaignID,
+		TemplateID: templateID, Status: domain.TaskStatusPending}
+
+	fakeTaskRepo := &stubTaskRepo{findResult: &baseRepo.PaginatedResult[domain.Task]{List: []domain.Task{pending}, Total: 1}}
+	fakeContactRepo := &stubContactRepo{contacts: map[uuid.UUID]*domain.Contact{contactID: {Base: domain.Base{ID: contactID}}}}
+	fakeTemplateRepo := &stubTemplateRepo{templateMap: map[uuid.UUID]*domain.Template{
+		templateID: {Base: domain.Base{ID: templateID}, Subject: "Following up", Content: "Body"},
+	}}
+	fakeClient := &stubQueueClient{}
+
+	data, _ := json.Marshal(workerpayloads.ScheduleTasksPayload{CampaignID: campaignID, AgentID: uuid.New()})
+	worker := New(nil, fakeClient, nil, fakeContactRepo, fakeTemplateRepo, fakeTaskRepo, nil).
+		WithReplyChecker(stubReplies{contactID: true})
+	if err := worker.HandleScheduleTasks(context.Background(), asynq.NewTask("campaign:schedule", data)); err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if fakeTaskRepo.updatedStatus != domain.TaskStatusCancelled {
+		t.Fatalf("expected the follow-up to be cancelled, got %q", fakeTaskRepo.updatedStatus)
+	}
+	for _, typ := range fakeClient.enqueued {
+		if typ == queueworker.TypeGenerateEmail {
+			t.Fatalf("no email may be generated for a contact who replied")
+		}
+	}
+}
+
+// send_after is working days after the previous email, not hours from start.
+func TestHandleExecuteCampaignSchedulesWorkingDays(t *testing.T) {
+	campaignID, agentID, contactID := uuid.New(), uuid.New(), uuid.New()
+	friday := time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC)
+	first, second := uuid.New(), uuid.New()
+
+	fakeCampaignRepo := &stubCampaignRepo{campaign: &domain.Campaign{Base: domain.Base{ID: campaignID}, AgentID: &agentID,
+		Status: domain.CampaignStatusActive, Schedule: &friday}}
+	fakeTemplateRepo := &stubTemplateRepo{templates: []*domain.Template{
+		{Base: domain.Base{ID: first}, Subject: "S", Content: "C", SendAfter: 0},
+		{Base: domain.Base{ID: second}, Subject: "S", Content: "C", SendAfter: 1},
+	}}
+	fakeTaskRepo := &stubTaskRepo{}
+	data, _ := json.Marshal(workerpayloads.ExecuteCampaignPayload{CampaignID: campaignID, UserID: uuid.New(),
+		AgentID: agentID, ContactIDs: []uuid.UUID{contactID}})
+
+	worker := New(nil, &stubQueueClient{}, fakeCampaignRepo, &stubContactRepo{}, fakeTemplateRepo, fakeTaskRepo, nil)
+	if err := worker.HandleExecuteCampaign(context.Background(), asynq.NewTask("campaign:execute", data)); err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	when := map[uuid.UUID]time.Time{}
+	for _, a := range fakeTaskRepo.created {
+		when[a.TemplateID] = *a.ScheduleAt
+	}
+	if !when[first].Equal(friday) {
+		t.Fatalf("first email: got %s, want %s", when[first], friday)
+	}
+	if want := time.Date(2026, 10, 5, 9, 0, 0, 0, time.UTC); !when[second].Equal(want) {
+		t.Fatalf("follow-up after 1 working day from Friday: got %s, want Monday %s", when[second], want)
+	}
+}
+
 // ---- stubs ----
 
 type stubCampaignRepo struct {
@@ -282,12 +346,14 @@ func (s *stubTemplateRepo) FindByIDs(ctx context.Context, ids []uuid.UUID) (map[
 
 type stubTaskRepo struct {
 	createCalled  bool
+	created       []domain.TaskAttributes
 	findResult    *baseRepo.PaginatedResult[domain.Task]
 	updatedStatus domain.TaskStatus
 }
 
 func (s *stubTaskRepo) CreateTasks(ctx context.Context, attrs []domain.TaskAttributes) ([]uuid.UUID, error) {
 	s.createCalled = true
+	s.created = append(s.created, attrs...)
 	return []uuid.UUID{uuid.New()}, nil
 }
 
@@ -302,11 +368,19 @@ func (s *stubTaskRepo) Update(ctx context.Context, id uuid.UUID, entity *domain.
 
 type stubQueueClient struct {
 	lastType string
+	enqueued []string
 }
 
 func (s *stubQueueClient) EnqueueTask(ctx context.Context, taskType string, payload interface{}, opts ...asynq.Option) (*asynq.TaskInfo, error) {
 	s.lastType = taskType
+	s.enqueued = append(s.enqueued, taskType)
 	return nil, nil
+}
+
+type stubReplies map[uuid.UUID]bool
+
+func (s stubReplies) ContactsRepliedInCampaign(ctx context.Context, campaignID uuid.UUID) (map[uuid.UUID]bool, error) {
+	return s, nil
 }
 
 func (s *stubQueueClient) EnqueueTaskAt(ctx context.Context, taskType string, payload interface{}, processAt time.Time, opts ...asynq.Option) (*asynq.TaskInfo, error) {

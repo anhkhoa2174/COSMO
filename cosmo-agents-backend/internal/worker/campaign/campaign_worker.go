@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
+	templatedomain "github.com/rockship/cosmo-agents-go/internal/domain/template"
 	agent "github.com/rockship/cosmo-agents-go/internal/repository/agent"
 	baseRepo "github.com/rockship/cosmo-agents-go/internal/repository/base"
 	workerpayloads "github.com/rockship/cosmo-agents-go/internal/worker/dto"
@@ -40,6 +41,12 @@ type taskRepository interface {
 	Update(ctx context.Context, id uuid.UUID, entity *domain.Task) error
 }
 
+// replyChecker reports which contacts have answered a campaign: an incoming
+// interaction logged after one of the campaign's emails went out to them.
+type replyChecker interface {
+	ContactsRepliedInCampaign(ctx context.Context, campaignID uuid.UUID) (map[uuid.UUID]bool, error)
+}
+
 type enqueueClient interface {
 	EnqueueTask(ctx context.Context, taskType string, payload interface{}, opts ...asynq.Option) (*asynq.TaskInfo, error)
 	EnqueueTaskAt(ctx context.Context, taskType string, payload interface{}, processAt time.Time, opts ...asynq.Option) (*asynq.TaskInfo, error)
@@ -54,6 +61,9 @@ type Worker struct {
 	templateRepo templateRepository
 	taskRepo     taskRepository
 	agentRepo    *agent.AgentRepository
+
+	// replies, when set, stops a sequence once the contact has answered.
+	replies replyChecker
 }
 
 // New creates a new campaign worker.
@@ -75,6 +85,12 @@ func New(
 		taskRepo:     taskRepo,
 		agentRepo:    agentRepo,
 	}
+}
+
+// WithReplyChecker stops follow-up emails to contacts who have replied.
+func (w *Worker) WithReplyChecker(r replyChecker) *Worker {
+	w.replies = r
+	return w
 }
 
 // HandleExecuteCampaign processes campaign execution.
@@ -184,10 +200,15 @@ func (w *Worker) HandleExecuteCampaign(ctx context.Context, task *asynq.Task) er
 		Int("templates", len(templates)).
 		Msg("Creating campaign tasks")
 
+	// Each step waits its send_after in working days after the step before
+	// it. This used to add send_after hours to the start, so "1 working day"
+	// in the editor sent the first follow-up an hour after the first email.
+	sendTimes := templatedomain.SequenceSendTimes(baseSchedule, templates)
+
 	// Create tasks for each contact x template combination
 	tasksCreated := 0
 	for _, contactID := range contactIDs {
-		for _, template := range templates {
+		for i, template := range templates {
 			// Create task
 			taskAttrs := domain.TaskAttributes{
 				ContactID:  contactID,
@@ -196,8 +217,7 @@ func (w *Worker) HandleExecuteCampaign(ctx context.Context, task *asynq.Task) er
 				Status:     domain.TaskStatusPending,
 			}
 
-			// Schedule based on campaign.schedule and template send_after (treated as hours)
-			scheduleAt := baseSchedule.Add(time.Duration(template.SendAfter) * time.Hour)
+			scheduleAt := sendTimes[i]
 			taskAttrs.ScheduleAt = &scheduleAt
 
 			// Use CreateTasks which handles upserts
@@ -320,8 +340,32 @@ func (w *Worker) HandleScheduleTasks(ctx context.Context, task *asynq.Task) erro
 		return fmt.Errorf("failed to batch load templates: %w", err)
 	}
 
+	// A follow-up says "if the contact does not reply", so once they have
+	// replied the rest of their sequence is cancelled rather than sent. Only
+	// contacts who were already emailed by this campaign can appear here, so
+	// a first email is never cancelled.
+	replied := map[uuid.UUID]bool{}
+	if w.replies != nil {
+		r, err := w.replies.ContactsRepliedInCampaign(ctx, payload.CampaignID)
+		if err != nil {
+			// Better to hold the run than to mail people who have answered.
+			return fmt.Errorf("failed to check replies: %w", err)
+		}
+		replied = r
+	}
+
 	for _, t := range result.List {
 		now := time.Now()
+		if replied[t.ContactID] {
+			t.Status = domain.TaskStatusCancelled
+			reason := "contact replied; follow-up not sent"
+			t.Error = &reason
+			if err := w.taskRepo.Update(ctx, t.ID, &t); err != nil {
+				logger.Logger.Error().Err(err).Str("task_id", t.ID.String()).Msg("Failed to cancel follow-up for a contact who replied")
+			}
+			continue
+		}
+
 		// Check if task is ready to be sent
 		if t.ScheduleAt != nil && t.ScheduleAt.After(now) {
 			// Schedule for later
@@ -374,29 +418,15 @@ func (w *Worker) HandleScheduleTasks(ctx context.Context, task *asynq.Task) erro
 			continue
 		}
 
-		// Get email from contact profile
-		var contactEmail string
-		var profile map[string]interface{}
-		if err := json.Unmarshal(contact.Profile, &profile); err == nil {
-			if e, ok := profile["email"].(string); ok {
-				contactEmail = e
-			}
-		}
-
-		// Enqueue send email task
-		emailPayload := workerpayloads.SendEmailPayload{
-			AgentID:    payload.AgentID,
+		// Enqueue AI generate email task (rewrites template per contact, then auto-enqueues send)
+		genPayload := workerpayloads.GenerateEmailPayload{
+			CampaignID: payload.CampaignID,
 			ContactID:  contact.ID,
-			CampaignID: &payload.CampaignID,
-			TemplateID: &template.ID,
+			TemplateID: template.ID,
 			TaskID:     &t.ID,
-			To:         contactEmail,
-			Subject:    template.Subject,
-			Body:       template.Content,
-			IsHTML:     true,
 		}
 
-		if _, err := w.workerClient.EnqueueTask(ctx, queueworker.TypeSendEmail, emailPayload); err != nil {
+		if _, err := w.workerClient.EnqueueTask(ctx, queueworker.TypeGenerateEmail, genPayload); err != nil {
 			logger.Logger.Error().Err(err).Str("task_id", t.ID.String()).Msg("Failed to enqueue send email task")
 			continue
 		}

@@ -19,6 +19,12 @@ func RegisterV3Routes(app *App, deps *Dependencies) {
 		logger.Logger.Info().Msg("Authentication enabled for /v3 routes")
 	}
 
+	// V3 Operation routes
+	v3.Get("/operations/:operation_id", h.Operation.GetOperation)
+
+	// V3 Contact routes
+	v3.Post("/contacts/import", h.Contact.ImportCSV)
+
 	// V3 Campaign routes (only if OpenAI is configured)
 	if h.Campaign != nil {
 		v3.Post("/campaigns/:campaign_id/templates", h.Campaign.GenerateTemplate)

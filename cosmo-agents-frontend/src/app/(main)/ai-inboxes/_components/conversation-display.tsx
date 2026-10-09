@@ -60,6 +60,13 @@ import { useConversation } from '../use-conversation';
 import { getIntentStyle, IntentBadge } from './intent-badge';
 import { IntentEditor } from './intent-editor';
 import { GroupPicker } from './conversation-groups';
+import { Badge } from '@/components/ui/badge';
+import {
+  describeNextAction,
+  nextActionColors,
+  nextActionLabels,
+} from '@/lib/next-step';
+import type { NextAction } from '@/network/client/outreach';
 
 interface ConversationDisplayProps {
   agent: Agent;
@@ -98,6 +105,15 @@ export function ConversationDisplay({
   // prospect's email body. Old conversations have no intent_detail; both the
   // phrase list and the plugin then stay empty and the body renders unchanged.
   const intentDetail = conversation.selected?.cmetadata?.intent_detail;
+  // The next-step engine's decision for this reply, when the engine is on.
+  const nextStep = conversation.selected?.cmetadata?.next_step as
+    | {
+        action?: NextAction;
+        args?: Record<string, any>;
+        due_at?: string;
+        reason?: string;
+      }
+    | undefined;
   const highlightPhrases = useMemo(
     () =>
       intentDetail?.reasoning
@@ -435,6 +451,28 @@ export function ConversationDisplay({
                 </div>
               </div>
             ))}
+            {nextStep?.action && (
+              <div className="mx-4 flex flex-wrap items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm dark:border-violet-900 dark:bg-violet-950/40">
+                <span className="font-medium">Next step:</span>
+                <Badge
+                  className={cn('text-white', nextActionColors[nextStep.action])}
+                >
+                  {nextActionLabels[nextStep.action] ?? nextStep.action}
+                </Badge>
+                <span>
+                  {describeNextAction(
+                    nextStep.action,
+                    nextStep.args,
+                    nextStep.due_at
+                  )}
+                </span>
+                {nextStep.reason && (
+                  <span className="w-full text-xs text-muted-foreground">
+                    {nextStep.reason}
+                  </span>
+                )}
+              </div>
+            )}
             {!aiDraftDismissed &&
               conversation.selected?.cmetadata?.ai_reply?.draft_content &&
               data && (

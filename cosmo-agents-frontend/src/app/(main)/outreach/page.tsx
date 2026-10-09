@@ -69,6 +69,12 @@ import OutreachApi, {
   type ScenarioStats,
 } from '@/network/client/outreach';
 import { toast } from 'sonner';
+import { NextStepPanel } from '@/components/outreach/next-step-panel';
+import {
+  describeNextAction,
+  nextActionColors,
+} from '@/lib/next-step';
+import type { NextAction } from '@/network/client/outreach';
 import { formatDistanceToNow } from 'date-fns';
 
 // State color mapping
@@ -603,14 +609,29 @@ export default function OutreachTestPage() {
                               .filter(Boolean)
                               .join(' • ') || '-'}
                           </p>
-                          {nextStep && (
+                          {item.entity?.next_action ? (
                             <div className="mt-1">
                               <Badge
-                                className={`text-xs text-white ${nextStepColors[nextStep] || 'bg-gray-500'}`}
+                                className={`max-w-full truncate text-xs text-white ${nextActionColors[item.entity.next_action as NextAction] || 'bg-gray-500'}`}
+                                title={item.entity?.next_action_reason}
                               >
-                                {nextStepLabels[nextStep] || nextStep}
+                                {describeNextAction(
+                                  item.entity.next_action as NextAction,
+                                  item.entity.next_action_args,
+                                  item.entity.next_action_due_at
+                                )}
                               </Badge>
                             </div>
+                          ) : (
+                            nextStep && (
+                              <div className="mt-1">
+                                <Badge
+                                  className={`text-xs text-white ${nextStepColors[nextStep] || 'bg-gray-500'}`}
+                                >
+                                  {nextStepLabels[nextStep] || nextStep}
+                                </Badge>
+                              </div>
+                            )
                           )}
                         </div>
                       );
@@ -635,6 +656,7 @@ export default function OutreachTestPage() {
 
                 {/* State Tab */}
                 <TabsContent value="state" className="space-y-4">
+                  <NextStepPanel contactId={selectedContactId} />
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">

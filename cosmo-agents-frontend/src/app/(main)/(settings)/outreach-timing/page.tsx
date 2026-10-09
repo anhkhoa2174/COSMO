@@ -186,6 +186,7 @@ export default function OutreachTimingPage() {
     }
     setValues(next);
     setErrors({});
+    setEngineOn(!!data.settings.next_step_engine);
     setAutoReply({
       enabled: data.auto_reply.enabled,
       intents: data.auto_reply.intents,
@@ -194,6 +195,8 @@ export default function OutreachTimingPage() {
       contents: data.auto_reply.contents ?? {},
     });
   }, [data]);
+
+  const [engineOn, setEngineOn] = useState(false);
 
   const { mutate, isPending } = useMutation({
     mutationFn: (payload: OutreachSettings) =>
@@ -275,7 +278,7 @@ export default function OutreachTimingPage() {
     for (const f of ALL_FIELDS) {
       const n = Number(values[f.key]);
       if (data && n !== data.defaults[f.key as keyof EffectiveOutreachConfig]) {
-        payload[f.key] = n;
+        (payload as Record<string, unknown>)[f.key] = n;
       }
     }
 
@@ -303,6 +306,10 @@ export default function OutreachTimingPage() {
     // The policy is always sent, including when it is off. Omitting it would
     // mean "leave whatever is stored", so an admin could not turn auto-reply
     // back off once it had been enabled.
+    // Sent every time for the same reason as the auto-reply policy below:
+    // omitting it would leave the stored value, so it could not be turned off.
+    payload.next_step_engine = engineOn;
+
     payload.auto_reply = {
       enabled: autoReply.enabled,
       intents: autoReply.intents,
@@ -346,7 +353,9 @@ export default function OutreachTimingPage() {
       JSON.stringify(normaliseContents(autoReply.contents)) !==
         JSON.stringify(normaliseContents(data.auto_reply.contents ?? {})));
 
-  const dirty = timingDirty || autoReplyDirty;
+  const engineDirty = !!data && engineOn !== !!data.settings.next_step_engine;
+
+  const dirty = timingDirty || autoReplyDirty || engineDirty;
 
   const rightSection = dirty ? (
     <MainButton text="Save changes" loading={isPending} onClick={onSave} />
@@ -378,6 +387,40 @@ export default function OutreachTimingPage() {
               <RotateCcw className="size-3.5" />
               Reset to defaults
             </Button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 border-t pt-8 md:grid-cols-4">
+            <div className="md:col-span-1">
+              <p className="text-lg font-semibold">Next-step engine</p>
+              <p className="text-sm text-muted-foreground">
+                Decide each lead&apos;s next step from its situation instead of
+                a fixed sequence.
+              </p>
+            </div>
+            <div className="space-y-3 md:col-span-3">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={engineOn}
+                  onChange={(e) => setEngineOn(e.target.checked)}
+                  className="mt-0.5 size-4 accent-primary"
+                />
+                <span className="text-sm">
+                  <span className="font-medium">
+                    Use the next-step engine
+                  </span>
+                  <span className="block text-muted-foreground">
+                    After every reply, and when a wait ends, COSMO rules out
+                    what must not be done (an opt-out, an away notice, a booked
+                    meeting), then picks one action from what remains: answer,
+                    propose a meeting, contact a referred colleague, wait until
+                    a date, nurture, and so on. Every email still waits for
+                    your approval. Off, the follow-up timing below is the only
+                    rule.
+                  </span>
+                </span>
+              </label>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 border-t pt-8 md:grid-cols-4">

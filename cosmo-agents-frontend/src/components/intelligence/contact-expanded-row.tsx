@@ -43,7 +43,11 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
   const [selectedPlaybookId, setSelectedPlaybookId] = useState<string>('');
 
-  const { data: detail, isLoading, refetch } = useQuery({
+  const {
+    data: detail,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ['contact-detail', contact.id],
     queryFn: () => ContactApi.getById(contact.id),
     staleTime: 30_000,
@@ -57,8 +61,7 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
 
   const effective = detail?.data || contact;
 
-  const customFields =
-    (effective.profile as any)?.custom_fields || {};
+  const customFields = (effective.profile as any)?.custom_fields || {};
   const researchFindings = (effective.profile as any)?.research_findings || [];
   const aiInsights = effective.ai_insights || {};
 
@@ -107,7 +110,7 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
       {orderObjectKeys(obj).map((key) => (
         <div key={key} className="flex flex-wrap gap-x-2 gap-y-1 py-0.5">
           <dt className="font-medium text-gray-700">{key}:</dt>
-          <dd className="text-gray-600 break-words">{renderValue(obj[key])}</dd>
+          <dd className="break-words text-gray-600">{renderValue(obj[key])}</dd>
         </div>
       ))}
     </dl>
@@ -117,7 +120,10 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
     if (arr.length === 0) {
       return <span className="text-gray-400">-</span>;
     }
-    const allPrimitive = arr.every((item) => item === null || ['string', 'number', 'boolean'].includes(typeof item));
+    const allPrimitive = arr.every(
+      (item) =>
+        item === null || ['string', 'number', 'boolean'].includes(typeof item)
+    );
     if (allPrimitive) {
       return (
         <ul className="list-disc pl-4 text-sm text-gray-600">
@@ -132,9 +138,15 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
     return (
       <div className="space-y-2">
         {arr.map((item, idx) => {
-          const label = item && typeof item === 'object' && !Array.isArray(item) ? objectLabel(item) : null;
+          const label =
+            item && typeof item === 'object' && !Array.isArray(item)
+              ? objectLabel(item)
+              : null;
           return (
-            <div key={idx} className="rounded-md border border-gray-200 bg-gray-50 p-2">
+            <div
+              key={idx}
+              className="rounded-md border border-gray-200 bg-gray-50 p-2"
+            >
               <div className="mb-1 text-xs font-medium text-gray-500">
                 {label ? label : `Item ${idx + 1}`}
               </div>
@@ -154,7 +166,9 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
     const preview = trimmed.slice(0, 180);
     return (
       <details className="text-sm text-gray-600">
-        <summary className="cursor-pointer text-gray-700">Show full text</summary>
+        <summary className="cursor-pointer text-gray-700">
+          Show full text
+        </summary>
         <p className="mt-2 whitespace-pre-wrap break-words">{trimmed}</p>
         <p className="mt-2 text-xs text-gray-500">Preview: {preview}...</p>
       </details>
@@ -195,7 +209,8 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
   const normalizeEditableValue = (value: any): string => {
     if (value === null || value === undefined) return '';
     if (typeof value === 'string') return value;
-    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (typeof value === 'number' || typeof value === 'boolean')
+      return String(value);
     try {
       return JSON.stringify(value, null, 2);
     } catch {
@@ -205,7 +220,13 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
 
   // Update custom field mutation
   const updateFieldMutation = useMutation({
-    mutationFn: async ({ fieldName, value }: { fieldName: string; value: string }) => {
+    mutationFn: async ({
+      fieldName,
+      value,
+    }: {
+      fieldName: string;
+      value: string;
+    }) => {
       const payload = { [fieldName]: value };
       return ContactApi.update(contact.id, payload);
     },
@@ -248,7 +269,9 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
       setSelectedPlaybookId('');
     },
     onError: (error: any) => {
-      toast.error(`Failed to enroll contact: ${error.message || 'Unknown error'}`);
+      toast.error(
+        `Failed to enroll contact: ${error.message || 'Unknown error'}`
+      );
     },
   });
 
@@ -307,7 +330,9 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
       <div className="bg-gray-50 p-6">
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            {isLoading ? 'Loading contact details...' : 'No additional research data available for this contact.'}
+            {isLoading
+              ? 'Loading contact details...'
+              : 'No additional research data available for this contact.'}
           </p>
           <div className="flex gap-2">
             <Dialog open={enrollDialogOpen} onOpenChange={setEnrollDialogOpen}>
@@ -321,19 +346,26 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
                 <DialogHeader>
                   <DialogTitle>Enroll Contact in Playbook</DialogTitle>
                   <DialogDescription>
-                    Select a playbook to manually enroll this contact. The contact will start from the first stage.
+                    Select a playbook to manually enroll this contact. The
+                    contact will start from the first stage.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label>Select Playbook</Label>
-                    <Select value={selectedPlaybookId} onValueChange={setSelectedPlaybookId}>
+                    <Select
+                      value={selectedPlaybookId}
+                      onValueChange={setSelectedPlaybookId}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Choose a playbook..." />
                       </SelectTrigger>
                       <SelectContent>
                         {playbooks?.data?.map((playbook: PlaybookRead) => (
-                          <SelectItem key={playbook.playbook_id} value={playbook.playbook_id}>
+                          <SelectItem
+                            key={playbook.playbook_id}
+                            value={playbook.playbook_id}
+                          >
                             {playbook.name} ({playbook.playbook_type})
                           </SelectItem>
                         ))}
@@ -342,10 +374,16 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setEnrollDialogOpen(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setEnrollDialogOpen(false)}
+                  >
                     Cancel
                   </Button>
-                  <Button onClick={handleEnroll} disabled={enrollMutation.isPending}>
+                  <Button
+                    onClick={handleEnroll}
+                    disabled={enrollMutation.isPending}
+                  >
                     {enrollMutation.isPending ? 'Enrolling...' : 'Enroll'}
                   </Button>
                 </div>
@@ -362,8 +400,10 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
           </div>
         </div>
         {/* Business Stage Selector */}
-        <div className="mt-4 flex items-center gap-3 p-3 bg-white rounded-lg border">
-          <span className="text-sm font-medium text-gray-700">Pipeline Stage:</span>
+        <div className="mt-4 flex items-center gap-3 rounded-lg border bg-white p-3">
+          <span className="text-sm font-medium text-gray-700">
+            Pipeline Stage:
+          </span>
           <Select
             value={effective.business_stage || 'PRE_SALES'}
             onValueChange={(value) => updateBusinessStageMutation.mutate(value)}
@@ -412,19 +452,26 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
             <DialogHeader>
               <DialogTitle>Enroll Contact in Playbook</DialogTitle>
               <DialogDescription>
-                Select a playbook to manually enroll this contact. The contact will start from the first stage.
+                Select a playbook to manually enroll this contact. The contact
+                will start from the first stage.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label>Select Playbook</Label>
-                <Select value={selectedPlaybookId} onValueChange={setSelectedPlaybookId}>
+                <Select
+                  value={selectedPlaybookId}
+                  onValueChange={setSelectedPlaybookId}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Choose a playbook..." />
                   </SelectTrigger>
                   <SelectContent>
                     {playbooks?.data?.map((playbook: PlaybookRead) => (
-                      <SelectItem key={playbook.playbook_id} value={playbook.playbook_id}>
+                      <SelectItem
+                        key={playbook.playbook_id}
+                        value={playbook.playbook_id}
+                      >
                         {playbook.name} ({playbook.playbook_type})
                       </SelectItem>
                     ))}
@@ -433,10 +480,16 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEnrollDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setEnrollDialogOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleEnroll} disabled={enrollMutation.isPending}>
+              <Button
+                onClick={handleEnroll}
+                disabled={enrollMutation.isPending}
+              >
                 {enrollMutation.isPending ? 'Enrolling...' : 'Enroll'}
               </Button>
             </div>
@@ -457,59 +510,80 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
           <div>
             <h3 className="mb-3 font-semibold text-gray-900">Custom Fields</h3>
             <div className="space-y-3">
-              {Object.entries(customFields).map(([fieldName, fieldData]: [string, any]) => {
-                const rawValue = fieldData?.value;
-                const updatedAt = fieldData?.updated_at;
+              {Object.entries(customFields).map(
+                ([fieldName, fieldData]: [string, any]) => {
+                  const rawValue = fieldData?.value;
+                  const updatedAt = fieldData?.updated_at;
 
-                // Skip invalid data
-                if (typeof rawValue === 'string' && rawValue.includes('map[')) {
-                  return null;
-                }
+                  // Skip invalid data
+                  if (
+                    typeof rawValue === 'string' &&
+                    rawValue.includes('map[')
+                  ) {
+                    return null;
+                  }
 
-                const displayValue = renderValue(rawValue);
-                const isEditing = editingField === fieldName;
+                  const displayValue = renderValue(rawValue);
+                  const isEditing = editingField === fieldName;
 
-                return (
-                  <div key={fieldName} className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-sm text-gray-900">{fieldName}</span>
+                  return (
+                    <div
+                      key={fieldName}
+                      className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-medium text-gray-900">
+                            {fieldName}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {!isEditing ? (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => handleEdit(fieldName, rawValue)}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-red-600"
+                                onClick={() => handleDelete(fieldName)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-green-600"
+                                onClick={() => handleSave(fieldName)}
+                              >
+                                <Check className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={handleCancel}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        {!isEditing ? (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => handleEdit(fieldName, rawValue)}
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-red-600"
-                              onClick={() => handleDelete(fieldName)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600" onClick={() => handleSave(fieldName)}>
-                              <Check className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancel}>
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    {updatedAt && (
-                      <div className="mt-1 text-xs text-gray-500">Updated: {format(new Date(updatedAt), 'PP p')}</div>
-                    )}
+                      {updatedAt && (
+                        <div className="mt-1 text-xs text-gray-500">
+                          Updated: {format(new Date(updatedAt), 'PP p')}
+                        </div>
+                      )}
                       {isEditing ? (
                         <Textarea
                           value={editValue}
@@ -519,11 +593,14 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
                           autoFocus
                         />
                       ) : (
-                        <div className="mt-2 text-sm text-gray-600">{displayValue}</div>
+                        <div className="mt-2 text-sm text-gray-600">
+                          {displayValue}
+                        </div>
                       )}
-                  </div>
-                );
-              })}
+                    </div>
+                  );
+                }
+              )}
             </div>
           </div>
         )}
@@ -535,8 +612,10 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
             <div className="space-y-3">
               {(aiInsights.suspected_pain_points ?? []).length > 0 && (
                 <div className="border-l-4 border-amber-400 pl-3">
-                  <p className="text-sm font-medium text-amber-900 mb-1">Pain Points</p>
-                  <ul className="text-sm text-gray-700 space-y-1">
+                  <p className="mb-1 text-sm font-medium text-amber-900">
+                    Pain Points
+                  </p>
+                  <ul className="space-y-1 text-sm text-gray-700">
                     {(aiInsights.suspected_pain_points ?? []).map((p) => (
                       <li key={p.pain_point}>• {p.pain_point}</li>
                     ))}
@@ -546,8 +625,10 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
 
               {(aiInsights.suspected_goals ?? []).length > 0 && (
                 <div className="border-l-4 border-emerald-400 pl-3">
-                  <p className="text-sm font-medium text-emerald-900 mb-1">Goals</p>
-                  <ul className="text-sm text-gray-700 space-y-1">
+                  <p className="mb-1 text-sm font-medium text-emerald-900">
+                    Goals
+                  </p>
+                  <ul className="space-y-1 text-sm text-gray-700">
                     {(aiInsights.suspected_goals ?? []).map((g) => (
                       <li key={g.goal}>• {g.goal}</li>
                     ))}
@@ -557,8 +638,10 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
 
               {(aiInsights.buying_signals ?? []).length > 0 && (
                 <div className="border-l-4 border-blue-400 pl-3">
-                  <p className="text-sm font-medium text-blue-900 mb-1">Buying Signals</p>
-                  <ul className="text-sm text-gray-700 space-y-1">
+                  <p className="mb-1 text-sm font-medium text-blue-900">
+                    Buying Signals
+                  </p>
+                  <ul className="space-y-1 text-sm text-gray-700">
                     {(aiInsights.buying_signals ?? []).map((s) => (
                       <li key={s.signal}>• {s.signal}</li>
                     ))}
@@ -572,20 +655,32 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
         {/* Research Findings - Simplified */}
         {hasResearchFindings && (
           <div>
-            <h3 className="mb-3 font-semibold text-gray-900">Research Findings</h3>
+            <h3 className="mb-3 font-semibold text-gray-900">
+              Research Findings
+            </h3>
             <div className="space-y-2">
               {researchFindings
-                .sort((a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime())
+                .sort(
+                  (a, b) =>
+                    new Date(b.added_at).getTime() -
+                    new Date(a.added_at).getTime()
+                )
                 .map((finding, idx) => (
                   <div key={idx} className="border-b pb-2">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="font-medium text-sm">{finding.field_name}</p>
-                        <p className="text-sm text-gray-600">{renderValue(finding.value)}</p>
+                        <p className="text-sm font-medium">
+                          {finding.field_name}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {renderValue(finding.value)}
+                        </p>
                       </div>
-                      <Badge variant="outline" className="text-xs">{finding.category}</Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {finding.category}
+                      </Badge>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="mt-1 text-xs text-gray-500">
                       {format(new Date(finding.added_at), 'MMM d, yyyy')}
                       {finding.source && ` • ${finding.source}`}
                     </p>
@@ -596,8 +691,10 @@ export function ContactExpandedRow({ contact }: ContactExpandedRowProps) {
         )}
 
         {/* Business Stage Selector */}
-        <div className="md:col-span-2 flex items-center gap-3 p-3 bg-white rounded-lg border">
-          <span className="text-sm font-medium text-gray-700">Pipeline Stage:</span>
+        <div className="flex items-center gap-3 rounded-lg border bg-white p-3 md:col-span-2">
+          <span className="text-sm font-medium text-gray-700">
+            Pipeline Stage:
+          </span>
           <Select
             value={effective.business_stage || 'PRE_SALES'}
             onValueChange={(value) => updateBusinessStageMutation.mutate(value)}

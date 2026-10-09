@@ -21,7 +21,9 @@ import {
 } from '@/components/ui/select';
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import IntelligenceApi, { type ResearchSuggestion } from '@/network/client/intelligence';
+import IntelligenceApi, {
+  type ResearchSuggestion,
+} from '@/network/client/intelligence';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -80,11 +82,36 @@ export function AddFindingDialog({
   // Suggest common field names based on category
   const getFieldSuggestions = (category: string) => {
     const suggestions: Record<string, string[]> = {
-      'Company Intelligence': ['Company Size', 'Funding Stage', 'Revenue', 'Employee Count', 'Growth Rate'],
-      'Technical Stack': ['Tech Stack', 'Platform', 'Integration Tools', 'Development Framework'],
-      'Competitive Landscape': ['Current Vendor', 'Competitors', 'Switching Cost', 'Contract End Date'],
-      'Budget & Authority': ['Budget Range', 'Decision Maker', 'Approval Process', 'Fiscal Year'],
-      'Timeline & Urgency': ['Implementation Timeline', 'Project Start Date', 'Urgency Level'],
+      'Company Intelligence': [
+        'Company Size',
+        'Funding Stage',
+        'Revenue',
+        'Employee Count',
+        'Growth Rate',
+      ],
+      'Technical Stack': [
+        'Tech Stack',
+        'Platform',
+        'Integration Tools',
+        'Development Framework',
+      ],
+      'Competitive Landscape': [
+        'Current Vendor',
+        'Competitors',
+        'Switching Cost',
+        'Contract End Date',
+      ],
+      'Budget & Authority': [
+        'Budget Range',
+        'Decision Maker',
+        'Approval Process',
+        'Fiscal Year',
+      ],
+      'Timeline & Urgency': [
+        'Implementation Timeline',
+        'Project Start Date',
+        'Urgency Level',
+      ],
     };
     return suggestions[category] || ['Custom Field'];
   };

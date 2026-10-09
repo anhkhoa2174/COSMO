@@ -87,11 +87,15 @@ export function SuggestionCards({
                 <div className="space-y-2 text-xs">
                   <div>
                     <span className="font-semibold">Why Important:</span>
-                    <p className="mt-1 opacity-90">{suggestion.why_important}</p>
+                    <p className="mt-1 opacity-90">
+                      {suggestion.why_important}
+                    </p>
                   </div>
                   <div>
                     <span className="font-semibold">Where to Find:</span>
-                    <p className="mt-1 opacity-90">{suggestion.where_to_find}</p>
+                    <p className="mt-1 opacity-90">
+                      {suggestion.where_to_find}
+                    </p>
                   </div>
                 </div>
 

@@ -62,7 +62,9 @@ export function VectorSearchDialog({ trigger }: VectorSearchDialogProps) {
     try {
       setIsReembedPending(true);
       const resp = await IntelligenceApi.reEmbedAllContacts();
-      toast.success(`Re-embed started for ${resp.data?.total_started ?? 0} contacts`);
+      toast.success(
+        `Re-embed started for ${resp.data?.total_started ?? 0} contacts`
+      );
     } catch (error: any) {
       toast.error(error.message || 'Failed to re-embed');
     } finally {
@@ -71,7 +73,7 @@ export function VectorSearchDialog({ trigger }: VectorSearchDialogProps) {
   };
 
   const handleContactClick = (contactId: string) => {
-    router.push(`/contacts/${contactId}`);
+    router.push(`/all-prospects/${contactId}`);
     setOpen(false);
   };
 
@@ -140,9 +142,7 @@ export function VectorSearchDialog({ trigger }: VectorSearchDialogProps) {
           {/* Results */}
           {results.length > 0 && (
             <div className="space-y-2">
-              <Label>
-                Results ({results.length} contacts found)
-              </Label>
+              <Label>Results ({results.length} contacts found)</Label>
               <div className="max-h-[400px] space-y-2 overflow-y-auto rounded-md border p-3">
                 {results.map((result) => (
                   <div
@@ -156,8 +156,7 @@ export function VectorSearchDialog({ trigger }: VectorSearchDialogProps) {
                       </div>
                       <div>
                         <p className="font-medium">
-                          {result.first_name || ''}{' '}
-                          {result.last_name || ''}
+                          {result.first_name || ''} {result.last_name || ''}
                         </p>
                         {result.job_title && (
                           <p className="text-sm text-muted-foreground">

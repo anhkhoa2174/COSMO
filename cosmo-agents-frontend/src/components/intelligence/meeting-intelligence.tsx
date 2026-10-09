@@ -154,10 +154,7 @@ export function MeetingIntelligence({
                           {interaction.summary}
                         </p>
                         {interaction.sentiment && (
-                          <Badge
-                            variant="secondary"
-                            className="mt-2 text-xs"
-                          >
+                          <Badge variant="secondary" className="mt-2 text-xs">
                             Sentiment: {interaction.sentiment}
                           </Badge>
                         )}

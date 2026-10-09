@@ -26,8 +26,7 @@ type User struct {
 	HubspotCredentials    base.JSON      `gorm:"type:json" json:"hubspot_credentials,omitempty"`
 	JobTitle              string         `json:"job_title"`
 	HubspotFieldMapping   base.JSON      `gorm:"type:json" json:"hubspot_field_mapping,omitempty"`
-	UIMetadata            base.JSONB     `gorm:"type:jsonb;default:'{}'" json:"ui_metadata,omitempty"`
-	MetaLlivedAccessToken *string        `json:"meta_llived_access_token,omitempty"`
+	UIMetadata base.JSONB `gorm:"type:jsonb;default:'{}'" json:"ui_metadata,omitempty"`
 
 	// Note: Direct relationships removed to avoid circular imports.
 	// Use the relations package for relationship queries:

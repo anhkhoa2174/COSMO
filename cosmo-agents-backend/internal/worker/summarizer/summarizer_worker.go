@@ -104,25 +104,20 @@ func (w *Worker) processSummarizeEmail(ctx context.Context, task *asynq.Task) er
 		return fmt.Errorf("summarization failed: %w", err)
 	}
 
-	// Get the compressed summary (first one)
+	// The Email model has no column to hold a summary, so the result can only
+	// be logged and thrown away. Summarize the conversation instead — that
+	// handler persists to conversation.cmetadata.
 	var summary string
 	if len(summaries) > 0 {
 		summary = summaries[0].Compressed
 	}
 
-	w.logger.Info().
+	w.logger.Warn().
 		Str("email_id", payload.EmailID.String()).
 		Int("summary_length", len(summary)).
-		Msg("Email summarized successfully")
+		Msg("email:summarize has nowhere to store its result — use conversation:summarize")
 
-	// TODO: Store summary somewhere (could add a summary field to Email model)
-	// For now, we'll just log it
-	w.logger.Debug().
-		Str("email_id", payload.EmailID.String()).
-		Str("summary", summary).
-		Msg("Email summary generated")
-
-	return nil
+	return fmt.Errorf("email summary storage not implemented, use conversation:summarize: %w", asynq.SkipRetry)
 }
 
 // processSummarizeConversation summarizes an entire conversation thread
@@ -184,18 +179,37 @@ func (w *Worker) processSummarizeConversation(ctx context.Context, task *asynq.T
 		summary = summaries[0].Compressed
 	}
 
+	// Persist onto the conversation so the paid summary survives the task.
+	// cmetadata is merged rather than replaced — ai_reply and intent_detail
+	// live in the same document.
+	conv, err := w.conversationRepo.FindByID(ctx, payload.ConversationID)
+	if err != nil {
+		return fmt.Errorf("failed to load conversation: %w", err)
+	}
+
+	meta := map[string]interface{}{}
+	if len(conv.CMetadata) > 0 {
+		if err := json.Unmarshal(conv.CMetadata, &meta); err != nil {
+			meta = map[string]interface{}{}
+		}
+	}
+	meta["summary"] = map[string]interface{}{
+		"content":      summary,
+		"email_count":  len(emailsResult.List),
+		"detail_level": payload.DetailLevel,
+	}
+	if encoded, err := json.Marshal(meta); err == nil {
+		conv.CMetadata = encoded
+		if err := w.conversationRepo.Update(ctx, conv.ID, conv); err != nil {
+			return fmt.Errorf("failed to store conversation summary: %w", err)
+		}
+	}
+
 	w.logger.Info().
 		Str("conversation_id", payload.ConversationID.String()).
 		Int("email_count", len(emailsResult.List)).
 		Int("summary_length", len(summary)).
-		Msg("Conversation summarized successfully")
-
-	// TODO: Store summary in conversation record
-	// For now, we'll just log it
-	w.logger.Debug().
-		Str("conversation_id", payload.ConversationID.String()).
-		Str("summary", summary).
-		Msg("Conversation summary generated")
+		Msg("Conversation summarized and stored")
 
 	return nil
 }

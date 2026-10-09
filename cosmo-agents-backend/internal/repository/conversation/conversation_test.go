@@ -9,15 +9,15 @@ import (
 	"github.com/lib/pq"
 	"github.com/rockship/cosmo-agents-go/internal/domain"
 	"github.com/rockship/cosmo-agents-go/internal/domain/base"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupTestDB creates a test database
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 
 	// Auto-migrate the Conversation schema
@@ -176,8 +176,10 @@ func TestConversationRepository_FindByUserID(t *testing.T) {
 	userID := uuid.New()
 	for i := 0; i < 3; i++ {
 		conversation := &domain.Conversation{
-			UserID:        userID,
-			GmailThreadID: "thread_" + string(rune(i)),
+			UserID: userID,
+			// string(rune(i)) turned 0 into a NUL byte, not "0". SQLite stored it;
+			// PostgreSQL rejects NUL in text, which is how the typo surfaced.
+			GmailThreadID: "thread_" + string(rune('0'+i)),
 			Status:        domain.ConversationStatusUnread,
 		}
 		_, err := repo.Create(ctx, conversation)

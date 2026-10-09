@@ -1,6 +1,9 @@
 package conversation
 
 import (
+	"strings"
+	"time"
+
 	"context"
 	"fmt"
 
@@ -209,6 +212,20 @@ type ConversationSearchFilter struct {
 	Status    *string
 	Replied   *bool
 	IsDeleted *bool
+
+	// Q matches the subject, body or either address of any email in the thread.
+	Q string
+	// Intent matches the label on the thread or on any of its emails.
+	Intent string
+	// HasDraft keeps (true) or drops (false) threads with an AI draft waiting.
+	HasDraft *bool
+	// SinceDays keeps threads updated within the last so many days.
+	SinceDays int
+	// GroupID keeps threads in that group. GroupUserID must be the caller: the
+	// group is matched only if it is theirs, so another user's group ID
+	// filters to nothing rather than to that user's conversations.
+	GroupID     *uuid.UUID
+	GroupUserID uuid.UUID
 }
 
 // FindByAgentIDWithFilters retrieves conversations for an agent with filtering and pagination
@@ -250,6 +267,7 @@ func (r *ConversationRepository) FindByAgentIDWithFilters(
 		if filter.Replied != nil {
 			query = query.Where("replied = ?", *filter.Replied)
 		}
+		query = applyInboxFilters(query, filter)
 	}
 
 	// Apply conversationType filtering if provided.
@@ -419,6 +437,31 @@ func (r *ConversationRepository) SoftDelete(ctx context.Context, id uuid.UUID) e
 		Update("is_deleted", true).Error
 }
 
+// Restore lifts a conversation back out of the trash.
+func (r *ConversationRepository) Restore(ctx context.Context, id uuid.UUID) error {
+	return r.GetDB().WithContext(ctx).
+		Model(&domain.Conversation{}).
+		Where("id = ?", id).
+		Update("is_deleted", false).Error
+}
+
+// HardDelete removes a conversation for good. Only ever called on rows already
+// sitting in the trash, so a single mis-click can never destroy live data.
+func (r *ConversationRepository) HardDelete(ctx context.Context, id uuid.UUID) error {
+	return r.GetDB().WithContext(ctx).
+		Where("id = ?", id).
+		Delete(&domain.Conversation{}).Error
+}
+
+// PurgeTrashed permanently removes every trashed conversation for a user and
+// reports how many rows went.
+func (r *ConversationRepository) PurgeTrashed(ctx context.Context, userID uuid.UUID) (int64, error) {
+	result := r.GetDB().WithContext(ctx).
+		Where("user_id = ? AND is_deleted = ?", userID, true).
+		Delete(&domain.Conversation{})
+	return result.RowsAffected, result.Error
+}
+
 // applySafeFilters applies validated filters to the query safely
 func (r *ConversationRepository) applySafeFilters(query *gorm.DB, filter map[string]interface{}) error {
 	// Note: This method assumes filters have already been validated by the handler layer
@@ -491,4 +534,80 @@ func (r *ConversationRepository) applySafeFilters(query *gorm.DB, filter map[str
 	}
 
 	return nil
+}
+
+// CountAutoSentToday counts the replies COSMO sent for this user today without
+// human review.
+//
+// The count comes from the drafts themselves rather than from a counter table:
+// the status and timestamp are already written onto the conversation when a
+// reply goes out, so there is nothing to keep in step. The date comparison is
+// done in SQL against the stored timestamp so a worker in a different
+// timezone cannot disagree with the database about when "today" started.
+func (r *ConversationRepository) CountAutoSentToday(ctx context.Context, userID uuid.UUID) (int, error) {
+	var n int64
+	err := r.GetDB().WithContext(ctx).
+		Model(&domain.Conversation{}).
+		Where("user_id = ?", userID).
+		Where("cmetadata -> 'ai_reply' ->> 'status' = ?", "auto_sent").
+		Where("(cmetadata -> 'ai_reply' ->> 'auto_sent_at')::timestamptz >= date_trunc('day', now())").
+		Count(&n).Error
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
+}
+
+// applyInboxFilters adds the AI Inbox's search, intent, draft, date and group
+// filters. The inbox sent these all along, but only the v2 search endpoint
+// read them: on the per-agent endpoint the inbox actually calls they were
+// dropped, so searching or filtering returned every thread unchanged.
+func applyInboxFilters(query *gorm.DB, filter *ConversationSearchFilter) *gorm.DB {
+	if term := strings.TrimSpace(filter.Q); term != "" {
+		// Search the messages, not the thread row: a conversation has no
+		// subject or body of its own.
+		like := "%" + strings.ReplaceAll(strings.ReplaceAll(term, "%", `\%`), "_", `\_`) + "%"
+		query = query.Where(`id IN (
+				SELECT conversation_id FROM emails
+				WHERE conversation_id IS NOT NULL
+				  AND (subject ILIKE ? OR content ILIKE ?
+				       OR from_email ILIKE ? OR to_email ILIKE ?)
+			)`, like, like, like, like)
+	}
+	if intent := normalizeIntentKey(filter.Intent); intent != "" {
+		// Stored labels are a mix of display strings ("Request for
+		// information") and canonical keys ("REQUEST_FOR_INFORMATION"), while
+		// the inbox always sends the key, so both sides are compared in key form.
+		const matches = `EXISTS (SELECT 1 FROM unnest(intents) AS i
+			WHERE upper(replace(btrim(i), ' ', '_')) = ?)`
+		query = query.Where(`(`+matches+` OR id IN (
+				SELECT conversation_id FROM emails
+				WHERE conversation_id IS NOT NULL AND `+matches+`
+			))`, intent, intent)
+	}
+	if filter.HasDraft != nil {
+		cond := "COALESCE(cmetadata -> 'ai_reply' ->> 'draft_content', '') <> ''"
+		if *filter.HasDraft {
+			query = query.Where(cond)
+		} else {
+			query = query.Where("NOT (" + cond + ")")
+		}
+	}
+	if filter.SinceDays > 0 {
+		query = query.Where("updated_at >= ?", time.Now().AddDate(0, 0, -filter.SinceDays))
+	}
+	if filter.GroupID != nil {
+		query = query.Where(`id IN (
+				SELECT m.conversation_id FROM conversation_group_members m
+				JOIN conversation_groups g ON g.id = m.group_id
+				WHERE g.id = ? AND g.user_id = ?
+			)`, *filter.GroupID, filter.GroupUserID)
+	}
+	return query
+}
+
+// normalizeIntentKey turns "Request for information" or
+// "request_for_information" into "REQUEST_FOR_INFORMATION".
+func normalizeIntentKey(raw string) string {
+	return strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(raw), " ", "_"))
 }

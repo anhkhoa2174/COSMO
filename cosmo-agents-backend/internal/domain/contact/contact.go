@@ -49,19 +49,6 @@ const (
 	OutreachDecisionHold     OutreachDecision = "HOLD"
 )
 
-// LifecycleStage defines the contact's stage in the sales process
-type LifecycleStage string
-
-const (
-	LifecycleStageNew       LifecycleStage = "new"
-	LifecycleStageContacted LifecycleStage = "contacted"
-	LifecycleStageReplied   LifecycleStage = "replied"
-	LifecycleStageQualified LifecycleStage = "qualified"
-	LifecycleStageProposal  LifecycleStage = "proposal"
-	LifecycleStageWon       LifecycleStage = "won"
-	LifecycleStageLost      LifecycleStage = "lost"
-)
-
 // NextStep defines the recommended next action
 type NextStep string
 
@@ -73,10 +60,18 @@ const (
 	NextStepDrop       NextStep = "DROP"
 )
 
-// BusinessStage defines the pipeline stage for a contact
+// BusinessStage defines the lifecycle/pipeline stage for a contact
 type BusinessStage string
 
 const (
+	// Lifecycle stages (industry standard)
+	BusinessStageSubscriber  BusinessStage = "SUBSCRIBER"  // Opted in, no outreach yet
+	BusinessStageLead        BusinessStage = "LEAD"        // New contact, ready for outreach
+	BusinessStageQualified   BusinessStage = "QUALIFIED"   // Replied positive / met criteria
+	BusinessStageOpportunity BusinessStage = "OPPORTUNITY" // Meeting booked / deal in progress
+	BusinessStageCustomer    BusinessStage = "CUSTOMER"    // Deal closed
+	BusinessStageAdvocate    BusinessStage = "ADVOCATE"    // Loyal customer, referrals
+	// Legacy values (backward compatibility)
 	BusinessStagePreSales  BusinessStage = "PRE_SALES"
 	BusinessStageSales     BusinessStage = "SALES"
 	BusinessStagePostSales BusinessStage = "POST_SALES"
@@ -95,19 +90,23 @@ type Contact struct {
 	base.TimestampMixin
 	base.SoftDeleteMixin
 
-	UserID            uuid.UUID  `gorm:"type:uuid;not null;index:idx_contacts_user_id" json:"user_id"`
-	SourceID          string     `gorm:"not null" json:"source_id"`
-	HubspotID         *string    `json:"hubspot_id,omitempty"`
-	Source            string     `gorm:"not null" json:"source"` // ContactSource value
-	Name              string     `gorm:"default:'N/A'" json:"name"`
-	Company           string     `gorm:"default:'N/A'" json:"company"`
-	JobTitle          string     `gorm:"default:'N/A'" json:"job_title"`
-	Address           string     `gorm:"default:'N/A'" json:"address"`
-	City              string     `gorm:"default:'N/A'" json:"city"`
-	Country           string     `gorm:"default:'N/A'" json:"country"`
-	State             string     `gorm:"default:'N/A'" json:"state"`
-	Zip               string     `gorm:"default:'N/A'" json:"zip"`
-	Profile           base.JSONB `gorm:"type:jsonb;default:'{}';index:idx_contacts_profile_gin,type:gin,option:jsonb_path_ops" json:"profile"`
+	UserID    uuid.UUID `gorm:"type:uuid;not null;index:idx_contacts_user_id" json:"user_id"`
+	SourceID  string    `gorm:"not null" json:"source_id"`
+	HubspotID *string   `json:"hubspot_id,omitempty"`
+	Source    string    `gorm:"not null" json:"source"` // ContactSource value
+	Name      string    `gorm:"default:'N/A'" json:"name"`
+	Company   string    `gorm:"default:'N/A'" json:"company"`
+	JobTitle  string    `gorm:"default:'N/A'" json:"job_title"`
+	Address   string    `gorm:"default:'N/A'" json:"address"`
+	City      string    `gorm:"default:'N/A'" json:"city"`
+	Country   string    `gorm:"default:'N/A'" json:"country"`
+	State     string    `gorm:"default:'N/A'" json:"state"`
+	Zip       string    `gorm:"default:'N/A'" json:"zip"`
+	// The operator class goes inside the index expression. As `option:` GORM
+	// appended it after the column list (USING gin("profile") jsonb_path_ops),
+	// which PostgreSQL rejects; migration 000028 builds the same index as
+	// USING gin (profile jsonb_path_ops), and this tag now matches it.
+	Profile           base.JSONB `gorm:"type:jsonb;default:'{}';index:idx_contacts_profile_gin,type:gin,expression:profile jsonb_path_ops" json:"profile"`
 	ConfirmedFacts    base.JSONB `gorm:"type:jsonb;default:'{}'" json:"confirmed_facts"`
 	AIInsights        base.JSONB `gorm:"type:jsonb;default:'{}'" json:"ai_insights"`
 	InsightValidation base.JSONB `gorm:"type:jsonb;default:'{}'" json:"insight_validation"`
@@ -122,19 +121,18 @@ type Contact struct {
 	ContactInformation string     `gorm:"default:''" json:"contact_information"` // LinkedIn URL for LinkedIn source, email for others
 
 	// Outreach context fields
-	Industry         string `gorm:"default:''" json:"industry"`                                                  // e.g., Fintech, SaaS
-	ContactChannel   string `gorm:"default:''" json:"contact_channel"`                                           // e.g., LinkedIn, Email
-	LifecycleStage   string `gorm:"default:'new';index:idx_contacts_lifecycle" json:"lifecycle_stage"`           // new, contacted, replied, etc.
-	ContextLevel     string `gorm:"default:'LOW'" json:"context_level"`                                          // LOW, MEDIUM, HIGH
-	OutreachDecision string `gorm:"default:'INTRO'" json:"outreach_decision"`                                    // INTRO, FOLLOW-UP, NURTURE, HOLD
-	Scenario         string `gorm:"default:''" json:"scenario"`                                                  // Role-based, Post-reply, etc.
-	MessageDraft     string `gorm:"type:text;default:''" json:"message_draft"`                                   // Draft message for outreach
-	LastOutcome      string `gorm:"default:''" json:"last_outcome"`                                              // Result of last outreach
-	NextStep         string `gorm:"default:'SEND'" json:"next_step"`                                             // SEND, FOLLOW_UP, SET_MEETING, WAIT, DROP
-	OutreachStage    string `gorm:"default:'COLD'" json:"outreach_stage"`                                        // COLD, NO_REPLY, REPLIED, POST_MEETING, DROPPED
-	FollowupCount    int    `gorm:"default:0" json:"followup_count"`                                             // Number of follow-up messages sent
-	Meeting          string `gorm:"default:''" json:"meeting"`                                                   // Meeting details if scheduled
-	BusinessStage    string `gorm:"default:'PRE_SALES';index:idx_contacts_business_stage" json:"business_stage"` // PRE_SALES, SALES, POST_SALES
+	Industry         string `gorm:"default:''" json:"industry"`                                             // e.g., Fintech, SaaS
+	ContactChannel   string `gorm:"default:''" json:"contact_channel"`                                      // e.g., LinkedIn, Email
+	ContextLevel     string `gorm:"default:'LOW'" json:"context_level"`                                     // LOW, MEDIUM, HIGH
+	OutreachDecision string `gorm:"default:'INTRO'" json:"outreach_decision"`                               // INTRO, FOLLOW-UP, NURTURE, HOLD
+	Scenario         string `gorm:"default:''" json:"scenario"`                                             // Role-based, Post-reply, etc.
+	MessageDraft     string `gorm:"type:text;default:''" json:"message_draft"`                              // Draft message for outreach
+	LastOutcome      string `gorm:"default:''" json:"last_outcome"`                                         // Result of last outreach
+	NextStep         string `gorm:"default:'SEND'" json:"next_step"`                                        // SEND, FOLLOW_UP, SET_MEETING, WAIT, DROP
+	OutreachStage    string `gorm:"default:'COLD'" json:"outreach_stage"`                                   // COLD, NO_REPLY, REPLIED, POST_MEETING, DROPPED
+	FollowupCount    int    `gorm:"default:0" json:"followup_count"`                                        // Number of follow-up messages sent
+	Meeting          string `gorm:"default:''" json:"meeting"`                                              // Meeting details if scheduled
+	BusinessStage    string `gorm:"default:'LEAD';index:idx_contacts_business_stage" json:"business_stage"` // SUBSCRIBER, LEAD, QUALIFIED, OPPORTUNITY, CUSTOMER, ADVOCATE
 
 	// Relationships
 	ListContacts []ListContact `gorm:"many2many:list_contact_association" json:"list_contacts,omitempty"`

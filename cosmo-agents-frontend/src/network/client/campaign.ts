@@ -1,9 +1,17 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { kyClient } from '@/lib/ky';
-import type { Campaign, CampaignConfig, CampaignStatus } from '@/models/campaign';
+import type {
+  Campaign,
+  CampaignConfig,
+  CampaignStatus,
+} from '@/models/campaign';
 import type { Contact } from '@/models/contact';
 import type { EmailIntent } from '@/models/email';
-import type { ApiResponse, BaseQuery, PaginateResponse } from '@/models/response';
+import type {
+  ApiResponse,
+  BaseQuery,
+  PaginateResponse,
+} from '@/models/response';
 
 interface CampaignInList {
   entity: Campaign;
@@ -35,7 +43,9 @@ interface AssignRequest {
 
 const CampaignApi = {
   mergeTags: async (campaign_id: string) => {
-    const data = await kyClient.get<PaginateResponse<any>>(`v2/campaigns/${campaign_id}/merge-tags`).json();
+    const data = await kyClient
+      .get<PaginateResponse<any>>(`v2/campaigns/${campaign_id}/merge-tags`)
+      .json();
     return data;
   },
   search: async (payload: any, params?: BaseQuery) => {
@@ -49,7 +59,10 @@ const CampaignApi = {
     const data = await kyClient.post('v1/campaigns', { json: payload });
     return data.json<ApiResponse<Campaign>>();
   },
-  update: async (campaign_id: string, payload: Partial<CampaignUpdateRequest>) => {
+  update: async (
+    campaign_id: string,
+    payload: Partial<CampaignUpdateRequest>
+  ) => {
     const data = await kyClient.patch(`v1/campaigns/${campaign_id}`, {
       json: payload,
     });
@@ -60,7 +73,9 @@ const CampaignApi = {
     return data.json<ApiResponse<string>>();
   },
   assign: async (campaign_id: string, payload: AssignRequest) => {
-    const data = await kyClient.post(`v1/campaigns/${campaign_id}/assign`, { json: payload });
+    const data = await kyClient.post(`v1/campaigns/${campaign_id}/assign`, {
+      json: payload,
+    });
     return data.json<ApiResponse>();
   },
   uploadKnowledge: async (template_id: string, file: File) => {
@@ -79,7 +94,9 @@ export default CampaignApi;
 type GetCampaignResponse = ApiResponse<Campaign>;
 
 export const getCampaign = (campaign_id: string) => {
-  return kyClient.get<GetCampaignResponse>(`v1/campaigns/${campaign_id}`).json();
+  return kyClient
+    .get<GetCampaignResponse>(`v1/campaigns/${campaign_id}`)
+    .json();
 };
 
 export const useGetCampaignQuery = (campaign_id: string) => {
@@ -108,15 +125,19 @@ export const generateSampleResponse = (
   body: GenerateSampleResponseRequest
 ) => {
   return kyClient
-    .post<GenerateSampleResponseResponse>(`v2/campaigns/${campaign_id}/generate-sample-response`, {
-      json: body,
-    })
+    .post<GenerateSampleResponseResponse>(
+      `v2/campaigns/${campaign_id}/generate-sample-response`,
+      {
+        json: body,
+      }
+    )
     .json();
 };
 
 export const useGenerateSampleResponseMutation = (campaign_id: string) => {
   return useMutation({
-    mutationFn: (body: GenerateSampleResponseRequest) => generateSampleResponse(campaign_id, body),
+    mutationFn: (body: GenerateSampleResponseRequest) =>
+      generateSampleResponse(campaign_id, body),
   });
 };
 
@@ -136,7 +157,10 @@ export type GenerateReplyData = any;
 
 type GenerateReplyResponse = ApiResponse<GenerateReplyData>;
 
-export const generateReply = (campaign_id: string, body: GenerateReplyRequest) => {
+export const generateReply = (
+  campaign_id: string,
+  body: GenerateReplyRequest
+) => {
   return kyClient
     .post<GenerateReplyResponse>(`v2/campaigns/${campaign_id}/generate-reply`, {
       json: body,
@@ -146,6 +170,7 @@ export const generateReply = (campaign_id: string, body: GenerateReplyRequest) =
 
 export const useGenerateReplyMutation = (campaign_id: string) => {
   return useMutation({
-    mutationFn: (body: GenerateReplyRequest) => generateReply(campaign_id, body),
+    mutationFn: (body: GenerateReplyRequest) =>
+      generateReply(campaign_id, body),
   });
 };

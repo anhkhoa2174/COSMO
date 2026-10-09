@@ -5,7 +5,7 @@ import type { Contact } from '@/models/contact';
 import type { EmailIntent } from '@/models/email';
 import type { ApiResponse } from '@/models/response';
 
-// Get Template
+// List Templates
 export type GetTemplateData = {
   id: string;
   type: string;
@@ -13,6 +13,8 @@ export type GetTemplateData = {
   intent_type?: EmailIntent;
   content: string;
   send_after: number;
+  created_at?: string;
+  updated_at?: string;
   knowledges: {
     id: string;
     embedding_gid: string;
@@ -20,8 +22,35 @@ export type GetTemplateData = {
 };
 type GetTemplateResponse = ApiResponse<GetTemplateData>;
 
+export type TemplateListParams = {
+  offset?: number;
+  limit?: number;
+};
+
+export type TemplateListResponse = {
+  items: GetTemplateData[];
+  total: number;
+};
+
+export const listTemplates = (params?: TemplateListParams) => {
+  return kyClient
+    .get<ApiResponse<TemplateListResponse>>('v1/template', {
+      searchParams: params as Record<string, string>,
+    })
+    .json();
+};
+
+export const deleteTemplate = (template_id: string) => {
+  return kyClient
+    .delete<ApiResponse<{ message: string }>>(`v2/templates/${template_id}`)
+    .json();
+};
+
+// Get Template
 export const getTemplate = (template_id: string) => {
-  return kyClient.get<GetTemplateResponse>(`v2/templates/${template_id}`).json();
+  return kyClient
+    .get<GetTemplateResponse>(`v2/templates/${template_id}`)
+    .json();
 };
 
 export const useGetTemplateQuery = (template_id?: string) => {
@@ -33,18 +62,32 @@ export const useGetTemplateQuery = (template_id?: string) => {
 };
 
 // Create Template
-export const createTemplate = (campaign_id: string, body: Partial<GetTemplateData>) => {
-  return kyClient.post<GetTemplateResponse>(`v3/campaigns/${campaign_id}/templates/external`, { json: body }).json();
+export const createTemplate = (
+  campaign_id: string,
+  body: Partial<GetTemplateData>
+) => {
+  return kyClient
+    .post<GetTemplateResponse>(
+      `v3/campaigns/${campaign_id}/templates/external`,
+      { json: body }
+    )
+    .json();
 };
 
 // Update Template
-export const updateTemplate = (template_id: string, body: Partial<GetTemplateData>) => {
-  return kyClient.patch<GetTemplateResponse>(`v2/templates/${template_id}`, { json: body }).json();
+export const updateTemplate = (
+  template_id: string,
+  body: Partial<GetTemplateData>
+) => {
+  return kyClient
+    .patch<GetTemplateResponse>(`v2/templates/${template_id}`, { json: body })
+    .json();
 };
 
 export const useUpdateTemplateMutation = (template_id: string) => {
   return useMutation({
-    mutationFn: (data: Partial<GetTemplateData>) => updateTemplate(template_id, data),
+    mutationFn: (data: Partial<GetTemplateData>) =>
+      updateTemplate(template_id, data),
   });
 };
 
@@ -65,7 +108,9 @@ export type GetDraftTemplateData = {
 type GetDraftTemplateResponse = ApiResponse<GetDraftTemplateData>;
 
 export const getDraftTemplate = (draft_template_id: string) => {
-  return kyClient.get<GetDraftTemplateResponse>(`v2/draft-templates/${draft_template_id}`).json();
+  return kyClient
+    .get<GetDraftTemplateResponse>(`v2/draft-templates/${draft_template_id}`)
+    .json();
 };
 
 export const useGetDraftTemplateQuery = (draft_template_id?: string) => {
@@ -80,11 +125,17 @@ export const useGetDraftTemplateQuery = (draft_template_id?: string) => {
 export type GenerateDraftTemplateData = GetDraftTemplateData;
 type GenerateDraftTemplateResponse = ApiResponse<GenerateDraftTemplateData>;
 
-export const generateDraftTemplate = (campaign_id: string, intent_type: EmailIntent) => {
+export const generateDraftTemplate = (
+  campaign_id: string,
+  intent_type: EmailIntent
+) => {
   return kyClient
-    .get<GenerateDraftTemplateResponse>(`v2/campaigns/${campaign_id}/draft-templates`, {
-      searchParams: { intent: intent_type },
-    })
+    .get<GenerateDraftTemplateResponse>(
+      `v2/campaigns/${campaign_id}/draft-templates`,
+      {
+        searchParams: { intent: intent_type },
+      }
+    )
     .json();
 };
 
@@ -114,13 +165,18 @@ type OperationDetail<OInput = any, OOutput = any> = Operation<OInput> & {
 };
 
 function getOperation(operation_id: string) {
-  return kyClient.get<ApiResponse<OperationDetail>>(`v3/operations/${operation_id}`).json();
+  return kyClient
+    .get<ApiResponse<OperationDetail>>(`v3/operations/${operation_id}`)
+    .json();
 }
 
 const useOperationMutation = ({
   onSuccess,
   onError,
-}: { onSuccess?: (data: Operation) => void; onError?: (error: Error) => void } = {}) => {
+}: {
+  onSuccess?: (data: Operation) => void;
+  onError?: (error: Error) => void;
+} = {}) => {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -136,7 +192,9 @@ const useOperationMutation = ({
         }
 
         if (operation.data.status === 'failed') {
-          onError?.(new Error(operation.data.output?.error || 'Operation failed'));
+          onError?.(
+            new Error(operation.data.output?.error || 'Operation failed')
+          );
           break;
         }
 
@@ -160,7 +218,10 @@ const useOperationFlow = <TRequest>(
   {
     onSuccess,
     onError,
-  }: { onSuccess?: (data: Operation) => void; onError?: (error: Error) => void } = {}
+  }: {
+    onSuccess?: (data: Operation) => void;
+    onError?: (error: Error) => void;
+  } = {}
 ) => {
   const operationMutation = useOperationMutation({ onSuccess, onError });
 
@@ -217,11 +278,18 @@ export const useGenerateTemplateQueryV3 = (
 };
 
 // Regenerate Template
-function regenerateTemplateV3(campaign_id: string, template_id: string, body: TemplateRequest) {
+function regenerateTemplateV3(
+  campaign_id: string,
+  template_id: string,
+  body: TemplateRequest
+) {
   return kyClient
-    .post<ApiResponse<Operation>>(`v3/campaigns/${campaign_id}/templates/${template_id}`, {
-      json: body,
-    })
+    .post<ApiResponse<Operation>>(
+      `v3/campaigns/${campaign_id}/templates/${template_id}`,
+      {
+        json: body,
+      }
+    )
     .json();
 }
 
@@ -232,11 +300,17 @@ type GenerateSampleResponseRequest = {
   outreach_template: string;
 };
 
-function generateSampleResponseV3(campaign_id: string, body: GenerateSampleResponseRequest) {
+function generateSampleResponseV3(
+  campaign_id: string,
+  body: GenerateSampleResponseRequest
+) {
   return kyClient
-    .post<ApiResponse<Operation>>(`v3/campaigns/${campaign_id}/generate-sample-response`, {
-      json: body,
-    })
+    .post<ApiResponse<Operation>>(
+      `v3/campaigns/${campaign_id}/generate-sample-response`,
+      {
+        json: body,
+      }
+    )
     .json();
 }
 
@@ -255,9 +329,12 @@ type GenerateReplyRequest = {
 
 function generateReplyV3(campaign_id: string, body: GenerateReplyRequest) {
   return kyClient
-    .post<ApiResponse<Operation>>(`v3/campaigns/${campaign_id}/generate-reply`, {
-      json: body,
-    })
+    .post<ApiResponse<Operation>>(
+      `v3/campaigns/${campaign_id}/generate-reply`,
+      {
+        json: body,
+      }
+    )
     .json();
 }
 

@@ -84,7 +84,9 @@ const ContactApi = {
   },
   recalculateStatus: async () => {
     const response = await kyClient.post('v1/contacts/recalculate-status');
-    return response.json<ApiResponse<{ message: string; updated_count: number }>>();
+    return response.json<
+      ApiResponse<{ message: string; updated_count: number }>
+    >();
   },
 };
 

@@ -3,27 +3,64 @@ import type { ApiResponse } from '@/models/response';
 
 // ============ Types ============
 
-export type ConversationState = 'COLD' | 'NO_REPLY' | 'REPLIED' | 'POST_MEETING' | 'DROPPED';
+export type ConversationState =
+  | 'COLD'
+  | 'NO_REPLY'
+  | 'REPLIED'
+  | 'POST_MEETING'
+  | 'DROPPED';
 export type ContextLevel = 'LOW' | 'MEDIUM' | 'HIGH';
-export type OutreachIntent = 'INTRO' | 'FOLLOW_UP' | 'RE_ENGAGE' | 'POST_MEETING';
-export type OutreachScenario = 'role_based' | 'industry_based' | 'no_reply_followup' | 'post_reply' | 'post_meeting' | 're_engage';
-export type LastOutcome = 'none' | 'sent' | 'no_reply' | 'replied' | 'meeting_booked' | 'meeting_done' | 'dropped';
+export type OutreachIntent =
+  | 'INTRO'
+  | 'FOLLOW_UP'
+  | 'RE_ENGAGE'
+  | 'POST_MEETING';
+export type OutreachScenario =
+  | 'role_based'
+  | 'industry_based'
+  | 'no_reply_followup'
+  | 'post_reply'
+  | 'post_meeting'
+  | 're_engage';
+export type LastOutcome =
+  | 'none'
+  | 'sent'
+  | 'no_reply'
+  | 'replied'
+  | 'meeting_booked'
+  | 'meeting_done'
+  | 'dropped';
 export type NextStep =
-  | 'SEND'              // Send initial message
-  | 'FOLLOW_UP_1'       // Follow-up #1 (Day 4-5)
-  | 'FOLLOW_UP_2'       // Follow-up #2 (Day 9-12)
-  | 'SET_MEETING'       // Propose meeting
+  | 'SEND' // Send initial message
+  | 'FOLLOW_UP_1' // Follow-up #1 (Day 4-5)
+  | 'FOLLOW_UP_2' // Follow-up #2 (Day 9-12)
+  | 'SET_MEETING' // Propose meeting
   | 'FOLLOW_UP_MEETING_1' // Meeting confirmation follow-up #1
   | 'FOLLOW_UP_MEETING_2' // Meeting confirmation follow-up #2
-  | 'PREPARE_MEETING'   // Prepare meeting materials
-  | 'WAIT'              // Wait for response / wait for meeting day
-  | 'FOLLOW_UP'         // Follow-up deal (post-meeting)
-  | 'DROP';             // Drop contact
+  | 'PREPARE_MEETING' // Prepare meeting materials
+  | 'WAIT' // Wait for response / wait for meeting day
+  | 'FOLLOW_UP' // Follow-up deal (post-meeting)
+  | 'DROP'; // Drop contact
 export type MeetingStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
-export type InteractionChannel = 'LinkedIn' | 'Email' | 'Call' | 'Meeting' | 'Note';
+export type InteractionChannel =
+  | 'LinkedIn'
+  | 'Email'
+  | 'Call'
+  | 'Meeting'
+  | 'Note';
 export type Sentiment = 'positive' | 'neutral' | 'negative';
-export type FeedbackAction = 'used_draft' | 'modified_draft' | 'wrote_own' | 'skipped';
-export type FeedbackOutcome = 'no_action' | 'sent' | 'replied' | 'meeting_booked' | 'meeting_done' | 'dropped';
+export type FeedbackAction =
+  | 'used_draft'
+  | 'modified_draft'
+  | 'wrote_own'
+  | 'skipped';
+export type FeedbackOutcome =
+  | 'no_action'
+  | 'sent'
+  | 'replied'
+  | 'meeting_booked'
+  | 'meeting_done'
+  | 'dropped';
 
 export interface OutreachState {
   id: string;
@@ -99,6 +136,8 @@ export interface OutreachSuggestion {
   message_draft?: string;
 }
 
+export type Language = 'en' | 'vi';
+
 export interface GenerateDraftResponse {
   contact_id: string;
   draft: string;
@@ -106,6 +145,7 @@ export interface GenerateDraftResponse {
   context_level: ContextLevel;
   state: OutreachState;
   notes?: InteractionLog[]; // Team notes for context
+  language?: Language;
 }
 
 export interface UpdateOutreachResponse {
@@ -159,7 +199,10 @@ const OutreachApi = {
    * @param type - 'cold', 'followup', or 'mixed'
    * @param limit - Maximum number of contacts to return
    */
-  suggestOutreach: async (type: 'cold' | 'followup' | 'mixed' = 'mixed', limit = 10) => {
+  suggestOutreach: async (
+    type: 'cold' | 'followup' | 'mixed' = 'mixed',
+    limit = 10
+  ) => {
     const data = await kyClient.get(`v1/outreach/suggest`, {
       searchParams: { type, limit },
     });
@@ -169,9 +212,15 @@ const OutreachApi = {
   /**
    * Generate outreach draft for a contact
    * @param contactId - Contact ID
+   * @param language - Language for the draft ('en' for English, 'vi' for Vietnamese)
    */
-  generateDraft: async (contactId: string) => {
-    const data = await kyClient.post(`v1/outreach/contacts/${contactId}/draft`);
+  generateDraft: async (contactId: string, language: Language = 'vi') => {
+    const data = await kyClient.post(
+      `v1/outreach/contacts/${contactId}/draft`,
+      {
+        json: { language },
+      }
+    );
     return data.json<ApiResponse<GenerateDraftResponse>>();
   },
 
@@ -183,21 +232,32 @@ const OutreachApi = {
    */
   updateOutreach: async (
     contactId: string,
-    event: 'sent' | 'replied' | 'no_reply' | 'meeting_booked' | 'meeting_confirmed' | 'no_confirmation' | 'meeting_done' | 'drop',
+    event:
+      | 'sent'
+      | 'replied'
+      | 'no_reply'
+      | 'meeting_booked'
+      | 'meeting_confirmed'
+      | 'no_confirmation'
+      | 'meeting_done'
+      | 'drop',
     options?: {
       content?: string;
       channel?: InteractionChannel;
       sentiment?: Sentiment;
     }
   ) => {
-    const data = await kyClient.post(`v1/outreach/contacts/${contactId}/update`, {
-      json: {
-        event,
-        content: options?.content,
-        channel: options?.channel || 'LinkedIn',
-        sentiment: options?.sentiment,
-      },
-    });
+    const data = await kyClient.post(
+      `v1/outreach/contacts/${contactId}/update`,
+      {
+        json: {
+          event,
+          content: options?.content,
+          channel: options?.channel || 'LinkedIn',
+          sentiment: options?.sentiment,
+        },
+      }
+    );
     return data.json<ApiResponse<UpdateOutreachResponse>>();
   },
 
@@ -216,9 +276,12 @@ const OutreachApi = {
    * @param limit - Maximum number of interactions to return
    */
   getInteractionHistory: async (contactId: string, limit = 20) => {
-    const data = await kyClient.get(`v1/outreach/contacts/${contactId}/interactions`, {
-      searchParams: { limit },
-    });
+    const data = await kyClient.get(
+      `v1/outreach/contacts/${contactId}/interactions`,
+      {
+        searchParams: { limit },
+      }
+    );
     return data.json<ApiResponse<InteractionLog[]>>();
   },
 
@@ -236,9 +299,12 @@ const OutreachApi = {
       sentiment?: Sentiment;
     }
   ) => {
-    const data = await kyClient.post(`v1/outreach/contacts/${contactId}/interactions`, {
-      json: input,
-    });
+    const data = await kyClient.post(
+      `v1/outreach/contacts/${contactId}/interactions`,
+      {
+        json: input,
+      }
+    );
     return data.json<ApiResponse<InteractionLog>>();
   },
 
@@ -287,9 +353,16 @@ const OutreachApi = {
    * Generate meeting prep document (talking points, discovery questions) using AI
    * This is generated BEFORE the meeting based on conversation history and contact info
    * @param meetingId - Meeting ID
+   * @param language - Language for the prep ('en' for English, 'vi' for Vietnamese)
    */
-  generateMeetingPrep: async (meetingId: string) => {
-    const data = await kyClient.post(`v1/outreach/meetings/${meetingId}/generate-prep`);
+  generateMeetingPrep: async (meetingId: string, language: Language = 'vi') => {
+    const data = await kyClient.post(
+      `v1/outreach/meetings/${meetingId}/generate-prep`,
+      {
+        json: { language },
+        timeout: 130_000, // 130s - slightly longer than backend 120s timeout
+      }
+    );
     return data.json<ApiResponse<Meeting>>();
   },
 
@@ -298,7 +371,17 @@ const OutreachApi = {
    * @param contactId - Contact ID
    */
   getMeetings: async (contactId: string) => {
-    const data = await kyClient.get(`v1/outreach/contacts/${contactId}/meetings`);
+    const data = await kyClient.get(
+      `v1/outreach/contacts/${contactId}/meetings`
+    );
+    return data.json<ApiResponse<Meeting[]>>();
+  },
+
+  /**
+   * Get all upcoming scheduled meetings for the authenticated user
+   */
+  getAllMeetings: async () => {
+    const data = await kyClient.get('v1/outreach/meetings');
     return data.json<ApiResponse<Meeting[]>>();
   },
 
@@ -379,9 +462,12 @@ const OutreachApi = {
    * @param content - Note content
    */
   addNote: async (contactId: string, content: string) => {
-    const data = await kyClient.post(`v1/outreach/contacts/${contactId}/notes`, {
-      json: { content },
-    });
+    const data = await kyClient.post(
+      `v1/outreach/contacts/${contactId}/notes`,
+      {
+        json: { content },
+      }
+    );
     return data.json<ApiResponse<InteractionLog>>();
   },
 
@@ -404,9 +490,12 @@ const OutreachApi = {
    * @param content - New content
    */
   updateNote: async (contactId: string, noteId: string, content: string) => {
-    const data = await kyClient.patch(`v1/outreach/contacts/${contactId}/notes/${noteId}`, {
-      json: { content },
-    });
+    const data = await kyClient.patch(
+      `v1/outreach/contacts/${contactId}/notes/${noteId}`,
+      {
+        json: { content },
+      }
+    );
     return data.json<ApiResponse<InteractionLog>>();
   },
 
@@ -416,7 +505,9 @@ const OutreachApi = {
    * @param noteId - Note ID
    */
   deleteNote: async (contactId: string, noteId: string) => {
-    const data = await kyClient.delete(`v1/outreach/contacts/${contactId}/notes/${noteId}`);
+    const data = await kyClient.delete(
+      `v1/outreach/contacts/${contactId}/notes/${noteId}`
+    );
     return data.json<ApiResponse<{ message: string }>>();
   },
 };

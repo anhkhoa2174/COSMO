@@ -126,6 +126,13 @@ export const contactListApi = {
       .json();
     return data;
   },
+  // For the shared form page: visitors there are not signed in.
+  getPublicFormBySlug: async (slug: string) => {
+    const data = await kyClient
+      .get<ApiResponse<any>>(`v1/public/inbound-lead-forms/${slug}`)
+      .json();
+    return data;
+  },
   postFormInBound: async (payload: PayloadFormInBoundRequest) => {
     const data = await kyClient
       .post<ApiResponse<any>>(`v1/inbound-lead-forms`, { json: payload })
@@ -154,7 +161,7 @@ export const contactListApi = {
     const data = await kyClient
       .post<
         ApiResponse<any>
-      >(`v1/inbound-lead-forms/${slug}/submit`, { json: payload })
+      >(`v1/public/inbound-lead-forms/${slug}/submit`, { json: payload })
       .json();
     return data;
   },

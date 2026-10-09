@@ -26,11 +26,43 @@ func (c *Client) Close() error {
 	return c.client.Close()
 }
 
+// aiTaskMaxRetry caps retries for task types that call a paid LLM (or an
+// embedding endpoint) on every attempt. Asynq's default of 25 turns a task
+// that fails deterministically — a malformed prompt, an oversized email, a
+// model the account cannot access — into 25 billed calls that all fail the
+// same way. Three attempts still absorbs a transient rate-limit or timeout.
+var aiTaskMaxRetry = map[string]int{
+	"email:handle_reply":               3,
+	"campaign:generate_campaign_email": 3,
+	"campaign:generate_reply":          3,
+	"contact:enrich":                   3,
+	"knowledge:summarize":              3,
+	"knowledge:indexing":               3,
+	"email:summarize":                  3,
+	"conversation:summarize":           3,
+	"email:indexing":                   3,
+}
+
+// hasOption reports whether the caller already supplied an option of this kind,
+// so an explicit choice is never overridden by a default.
+func hasOption(opts []asynq.Option, t asynq.OptionType) bool {
+	for _, o := range opts {
+		if o.Type() == t {
+			return true
+		}
+	}
+	return false
+}
+
 // EnqueueTask enqueues a task with the given type, payload, and options.
 func (c *Client) EnqueueTask(ctx context.Context, taskType string, payload interface{}, opts ...asynq.Option) (*asynq.TaskInfo, error) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	if retry, ok := aiTaskMaxRetry[taskType]; ok && !hasOption(opts, asynq.MaxRetryOpt) {
+		opts = append(opts, asynq.MaxRetry(retry))
 	}
 
 	task := asynq.NewTask(taskType, payloadBytes)

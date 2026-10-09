@@ -44,6 +44,10 @@ const (
 
 	// Orchestrator tasks
 	TypeOrchestrateContact = "orchestrator:contact"
+
+	// Daily action tasks
+	TypeDailyActionGenerate        = "daily_action:generate"
+	TypeOutcomeMetricsCompute      = "outcome_metrics:compute"
 )
 
 // Queue names

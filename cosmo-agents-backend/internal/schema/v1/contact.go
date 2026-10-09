@@ -44,7 +44,6 @@ type ContactResponse struct {
 	// Outreach context fields
 	Industry         string `json:"industry,omitempty"`          // e.g., Fintech, SaaS
 	ContactChannel   string `json:"contact_channel,omitempty"`   // e.g., LinkedIn, Email
-	LifecycleStage   string `json:"lifecycle_stage,omitempty"`   // new, contacted, replied, etc.
 	ContextLevel     string `json:"context_level,omitempty"`     // LOW, MEDIUM, HIGH
 	OutreachDecision string `json:"outreach_decision,omitempty"` // INTRO, FOLLOW-UP, NURTURE, HOLD
 	Scenario         string `json:"scenario,omitempty"`          // Role-based, Post-reply, etc.
@@ -186,7 +185,6 @@ func ToContactResponse(contact *domain.Contact) *ContactResponse {
 	// Set outreach context fields
 	response.Industry = contact.Industry
 	response.ContactChannel = contact.ContactChannel
-	response.LifecycleStage = contact.LifecycleStage
 	response.ContextLevel = contact.ContextLevel
 	response.OutreachDecision = contact.OutreachDecision
 	response.Scenario = contact.Scenario
@@ -316,7 +314,6 @@ func ToContactListItem(contact *domain.Contact) *ContactListItem {
 	// Add outreach context fields
 	entity["industry"] = contact.Industry
 	entity["contact_channel"] = contact.ContactChannel
-	entity["lifecycle_stage"] = contact.LifecycleStage
 	entity["context_level"] = contact.ContextLevel
 	entity["outreach_decision"] = contact.OutreachDecision
 	entity["scenario"] = contact.Scenario
@@ -391,7 +388,6 @@ type CreateContactRequest struct {
 	// Outreach context fields
 	Industry         string `json:"industry"`
 	ContactChannel   string `json:"contact_channel"`
-	LifecycleStage   string `json:"lifecycle_stage"`
 	ContextLevel     string `json:"context_level"`
 	OutreachDecision string `json:"outreach_decision"`
 	Scenario         string `json:"scenario"`
@@ -424,7 +420,7 @@ func (c *CreateContactRequest) UnmarshalJSON(data []byte) error {
 		"profile": true, "do_not_contact": true, "organization_id": true, "tags": true,
 		"confirmed_facts": true, "ai_insights": true, "insight_validation": true, "scores": true,
 		// Outreach context fields
-		"industry": true, "contact_channel": true, "lifecycle_stage": true, "context_level": true,
+		"industry": true, "contact_channel": true, "context_level": true,
 		"outreach_decision": true, "scenario": true, "message_draft": true, "last_outcome": true,
 		"next_step": true, "meeting": true, "business_stage": true,
 		// Source tracking fields
@@ -470,11 +466,13 @@ type UpdateContactRequest struct {
 	// New system fields for status calculation
 	Source             *string `json:"source,omitempty"`
 	ContactInformation *string `json:"contact_information,omitempty"`
+	// Stored in the profile, where Create puts it; as an unknown key it
+	// landed in custom_fields and the profile kept the old URL.
+	LinkedInURL *string `json:"linkedin_url,omitempty"`
 
 	// Outreach context fields
 	Industry         *string `json:"industry,omitempty"`
 	ContactChannel   *string `json:"contact_channel,omitempty"`
-	LifecycleStage   *string `json:"lifecycle_stage,omitempty"`
 	ContextLevel     *string `json:"context_level,omitempty"`
 	OutreachDecision *string `json:"outreach_decision,omitempty"`
 	Scenario         *string `json:"scenario,omitempty"`
@@ -504,9 +502,9 @@ func (u *UpdateContactRequest) UnmarshalJSON(data []byte) error {
 		"do_not_contact": true, "organization_id": true, "tags": true,
 		"confirmed_facts": true, "ai_insights": true, "insight_validation": true, "scores": true,
 		// New system fields for status calculation
-		"source": true, "contact_information": true,
+		"source": true, "contact_information": true, "linkedin_url": true,
 		// Outreach context fields
-		"industry": true, "contact_channel": true, "lifecycle_stage": true, "context_level": true,
+		"industry": true, "contact_channel": true, "context_level": true,
 		"outreach_decision": true, "scenario": true, "message_draft": true, "last_outcome": true,
 		"next_step": true, "meeting": true, "business_stage": true,
 	}

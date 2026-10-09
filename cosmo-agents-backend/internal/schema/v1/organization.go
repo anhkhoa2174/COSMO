@@ -16,6 +16,9 @@ type OrganizationResponse struct {
 	CompanyDescription      string     `json:"company_description"`
 	CompanyTargetingPersona []string   `json:"company_targeting_persona"`
 	ValueOffering           string     `json:"value_offering"`
+	CRM                     string     `json:"crm"`
+	LeadHandling            []string   `json:"lead_handling"`
+	LeadHandlingOther       string     `json:"lead_handling_other"`
 	CreatedAt               string     `json:"created_at"`
 	UpdatedAt               string     `json:"updated_at"`
 }
@@ -30,6 +33,9 @@ func ToOrganizationResponse(org *domain.Organization) *OrganizationResponse {
 		CompanyDescription:      org.CompanyDescription,
 		CompanyTargetingPersona: org.CompanyTargetingPersona,
 		ValueOffering:           org.ValueOffering,
+		CRM:                     org.CRM,
+		LeadHandling:            org.LeadHandling,
+		LeadHandlingOther:       org.LeadHandlingOther,
 		CreatedAt:               org.CreatedAt.Format("2006-01-02T15:04:05.999999Z07:00"),
 		UpdatedAt:               org.UpdatedAt.Format("2006-01-02T15:04:05.999999Z07:00"),
 	}
@@ -42,6 +48,9 @@ type CreateOrganizationRequest struct {
 	CompanyDescription      string   `json:"company_description"`
 	CompanyTargetingPersona []string `json:"company_targeting_persona"`
 	ValueOffering           string   `json:"value_offering"`
+	CRM                     string   `json:"crm"`
+	LeadHandling            []string `json:"lead_handling"`
+	LeadHandlingOther       string   `json:"lead_handling_other"`
 }
 
 // UpdateOrganizationRequest represents update organization request
@@ -51,6 +60,9 @@ type UpdateOrganizationRequest struct {
 	CompanyDescription      *string  `json:"company_description"`
 	CompanyTargetingPersona []string `json:"company_targeting_persona"`
 	ValueOffering           *string  `json:"value_offering"`
+	CRM                     *string  `json:"crm"`
+	LeadHandling            []string `json:"lead_handling"`
+	LeadHandlingOther       *string  `json:"lead_handling_other"`
 }
 
 // RoleResponse represents role API response

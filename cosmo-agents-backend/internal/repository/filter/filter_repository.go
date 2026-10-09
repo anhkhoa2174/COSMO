@@ -85,7 +85,8 @@ func (fb *FilterBuilder) applyRaw(query *gorm.DB, value interface{}) *gorm.DB {
 		if expr, ok := m["jsonb_numeric"].(map[string]interface{}); ok {
 			col, _ := expr["column"].(string)
 			path, _ := expr["path"].(string)
-			if col == "" || path == "" {
+			// Validate column name to prevent SQL injection
+			if col == "" || path == "" || !isValidFieldName(col) {
 				return query
 			}
 			if ops, ok := expr["ops"].(map[string]interface{}); ok {
@@ -94,7 +95,8 @@ func (fb *FilterBuilder) applyRaw(query *gorm.DB, value interface{}) *gorm.DB {
 					if opSQL == "" {
 						continue
 					}
-					query = query.Where("(??->>?)::float "+opSQL+" ?", col, path, v)
+					// GORM v2: use fmt.Sprintf for column names, ? for values
+					query = query.Where(fmt.Sprintf("(%s->>?)::float %s ?", col, opSQL), path, v)
 				}
 			}
 		}
@@ -102,8 +104,10 @@ func (fb *FilterBuilder) applyRaw(query *gorm.DB, value interface{}) *gorm.DB {
 			col, _ := expr["column"].(string)
 			path, _ := expr["path"].(string)
 			val, _ := expr["value"].(string)
-			if col != "" && path != "" && val != "" {
-				query = query.Where("(?? #>> ?) ILIKE ?", col, "{"+path+"}", "%"+val+"%")
+			// Validate column name to prevent SQL injection
+			if col != "" && path != "" && val != "" && isValidFieldName(col) {
+				// GORM v2: use fmt.Sprintf for column names, ? for values
+				query = query.Where(fmt.Sprintf("(%s #>> ?) ILIKE ?", col), "{"+path+"}", "%"+val+"%")
 			}
 		}
 	}

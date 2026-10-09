@@ -102,14 +102,14 @@ type NextStepAction string
 
 const (
 	// Pre-sales / Outreach
-	NextStepSend             NextStepAction = "SEND"               // Send initial message
-	NextStepFollowUp1        NextStepAction = "FOLLOW_UP_1"        // Follow-up #1 (Day 4-5)
-	NextStepFollowUp2        NextStepAction = "FOLLOW_UP_2"        // Follow-up #2 (Day 9-12)
-	NextStepSetMeeting       NextStepAction = "SET_MEETING"        // Propose meeting
+	NextStepSend             NextStepAction = "SEND"                // Send initial message
+	NextStepFollowUp1        NextStepAction = "FOLLOW_UP_1"         // Follow-up #1 (Day 4-5)
+	NextStepFollowUp2        NextStepAction = "FOLLOW_UP_2"         // Follow-up #2 (Day 9-12)
+	NextStepSetMeeting       NextStepAction = "SET_MEETING"         // Propose meeting
 	NextStepFollowUpMeeting1 NextStepAction = "FOLLOW_UP_MEETING_1" // Meeting confirmation follow-up #1
 	NextStepFollowUpMeeting2 NextStepAction = "FOLLOW_UP_MEETING_2" // Meeting confirmation follow-up #2
-	NextStepPrepareMeeting   NextStepAction = "PREPARE_MEETING"    // Prepare meeting materials
-	NextStepWait             NextStepAction = "WAIT"               // Wait for response / wait for meeting day
+	NextStepPrepareMeeting   NextStepAction = "PREPARE_MEETING"     // Prepare meeting materials
+	NextStepWait             NextStepAction = "WAIT"                // Wait for response / wait for meeting day
 
 	// Sales / Post-meeting
 	NextStepFollowUp NextStepAction = "FOLLOW_UP" // Follow-up deal / proposal

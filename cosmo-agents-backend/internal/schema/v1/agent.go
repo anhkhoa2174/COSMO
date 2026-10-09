@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -138,17 +139,21 @@ type AgentGetConversationRequest struct {
 
 // ConversationEntity represents a conversation entity matching Python structure
 type ConversationEntity struct {
-	ID         uuid.UUID  `json:"id"`
-	UserID     uuid.UUID  `json:"user_id"`
-	Labels     []string   `json:"labels"`
-	Replied    bool       `json:"replied"`
-	CampaignID *uuid.UUID `json:"campaign_id"`
-	AssigneeID *uuid.UUID `json:"assignee_id"`
-	Intents    []string   `json:"intents"`
-	Status     string     `json:"status"`
-	IsDeleted  bool       `json:"is_deleted"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+	ID         uuid.UUID       `json:"id"`
+	UserID     uuid.UUID       `json:"user_id"`
+	Labels     []string        `json:"labels"`
+	Replied    bool            `json:"replied"`
+	CampaignID *uuid.UUID      `json:"campaign_id"`
+	AssigneeID *uuid.UUID      `json:"assignee_id"`
+	Intents    []string        `json:"intents"`
+	Status     string          `json:"status"`
+	CMetadata  json.RawMessage `json:"cmetadata,omitempty"`
+	IsDeleted  bool            `json:"is_deleted"`
+	CreatedAt  time.Time       `json:"created_at"`
+	UpdatedAt  time.Time       `json:"updated_at"`
+	// GroupIDs are the caller's own groups holding this conversation; other
+	// users' groups are never listed.
+	GroupIDs []uuid.UUID `json:"group_ids"`
 }
 
 // EmailEntity represents an email entity matching Python structure

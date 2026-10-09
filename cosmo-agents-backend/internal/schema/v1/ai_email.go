@@ -32,8 +32,10 @@ type EmailIntentClassifyRequest struct {
 
 // EmailIntentClassifyResponse mirrors the Python response.
 type EmailIntentClassifyResponse struct {
-	ID     int    `json:"id"`
-	Intent string `json:"intent"`
+	ID         int     `json:"id"`
+	Intent     string  `json:"intent"`
+	Confidence float64 `json:"confidence"`
+	Reasoning  string  `json:"reasoning,omitempty"`
 }
 
 // AIReplyEmailResponse describes the AI-generated reply template.

@@ -28,8 +28,7 @@ type UserResponse struct {
 	PhoneNumber           []string        `json:"phone_number"`
 	StaffEmails           []string        `json:"staff_emails"`
 	JobTitle              string          `json:"job_title"`
-	MetaLlivedAccessToken *string         `json:"meta_llived_access_token"`
-	HubspotCredentials    json.RawMessage `json:"hubspot_credentials"`
+	HubspotCredentials json.RawMessage `json:"hubspot_credentials"`
 	HubspotFieldMapping   json.RawMessage `json:"hubspot_field_mapping"`
 	UIMetadata            json.RawMessage `json:"ui_metadata"`
 	IsDeleted             bool            `json:"is_deleted"`
@@ -123,8 +122,7 @@ func ToUserResponse(user *domain.User) UserResponse {
 		PhoneNumber:           phoneNumbers,
 		StaffEmails:           staffEmails,
 		JobTitle:              user.JobTitle,
-		MetaLlivedAccessToken: user.MetaLlivedAccessToken,
-		HubspotCredentials:    hubspotCredentials,
+		HubspotCredentials: hubspotCredentials,
 		HubspotFieldMapping:   hubspotFieldMapping,
 		UIMetadata:            uiMetadata,
 		IsDeleted:             user.IsDeleted,

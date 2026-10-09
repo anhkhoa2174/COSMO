@@ -51,3 +51,9 @@ memory-bank/
 openclaw-skills/proposal-agent/.env
 .env.local.remote.bak
 .env.local.localbe.bak
+
+# Backups of env files carry real secrets; never commit them
+.env*.bak*
+.env*.backup
+*.bak
+*.bak.*

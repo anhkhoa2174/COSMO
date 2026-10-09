@@ -165,6 +165,17 @@ func (r *InteractionLogRepository) HasIncomingAfter(ctx context.Context, contact
 	return count > 0, err
 }
 
+// HasIncomingByUserAfter checks if any incoming interaction exists for any of a user's contacts after a timestamp.
+func (r *InteractionLogRepository) HasIncomingByUserAfter(ctx context.Context, userID uuid.UUID, after time.Time) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&outreach.InteractionLog{}).
+		Where("user_id = ? AND direction = ? AND timestamp > ?", userID, outreach.DirectionIncoming, after).
+		Limit(1).
+		Count(&count).Error
+	return count > 0, err
+}
+
 // CountOutgoing counts outgoing messages for a contact
 func (r *InteractionLogRepository) CountOutgoing(ctx context.Context, contactID uuid.UUID) (int, error) {
 	var count int64
@@ -233,6 +244,16 @@ func (r *InteractionLogRepository) DeleteNote(ctx context.Context, noteID uuid.U
 	return r.db.WithContext(ctx).
 		Where("id = ?", noteID).
 		Delete(&outreach.InteractionLog{}).Error
+}
+
+// CountByUserDirectionSince counts interactions by direction for a user since a given time.
+func (r *InteractionLogRepository) CountByUserDirectionSince(ctx context.Context, userID uuid.UUID, direction string, since time.Time) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&outreach.InteractionLog{}).
+		Where("user_id = ? AND direction = ? AND timestamp > ?", userID, direction, since).
+		Count(&count).Error
+	return count, err
 }
 
 // ============================================
@@ -313,8 +334,12 @@ func (r *OutreachStateRepository) FindByFollowUpStates(ctx context.Context, user
 			string(outreach.StateReplied),
 			string(outreach.StatePostMeeting),
 		}).
+		// NO_REPLY rows carry FOLLOW_UP_1/FOLLOW_UP_2, never FOLLOW_UP, so
+		// without those two the NO_REPLY tier of the ordering below is empty.
 		Where("next_step IN ?", []string{
 			string(outreach.NextStepFollowUp),
+			string(outreach.NextStepFollowUp1),
+			string(outreach.NextStepFollowUp2),
 			string(outreach.NextStepSetMeeting),
 			string(outreach.NextStepSend),
 		}).
@@ -350,9 +375,14 @@ func (r *OutreachStateRepository) FindContactsNeedingOutreach(ctx context.Contex
 		coldLimit := int(float64(limit) * 0.6)
 		followupLimit := limit - coldLimit
 
-		coldStates, err := r.FindByColdState(ctx, userID, coldLimit)
-		if err != nil {
-			return nil, err
+		// A limit of 0 means "unlimited" to FindByColdState, so a cold share
+		// that rounds down to 0 (limit 1) must skip the query, not run it bare.
+		var coldStates []*outreach.OutreachState
+		if coldLimit > 0 || limit <= 0 {
+			var err error
+			if coldStates, err = r.FindByColdState(ctx, userID, coldLimit); err != nil {
+				return nil, err
+			}
 		}
 
 		followupStates, err := r.FindByFollowUpStates(ctx, userID, followupLimit)
@@ -476,6 +506,17 @@ func (r *MeetingRepository) HasCompletedMeeting(ctx context.Context, contactID u
 	return count > 0, err
 }
 
+// HasScheduledMeeting checks if contact has any scheduled (not completed) meeting
+func (r *MeetingRepository) HasScheduledMeeting(ctx context.Context, contactID uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&outreach.Meeting{}).
+		Where("contact_id = ? AND status = ?", contactID, outreach.MeetingScheduled).
+		Count(&count).Error
+
+	return count > 0, err
+}
+
 // Update updates a meeting
 func (r *MeetingRepository) Update(ctx context.Context, meeting *outreach.Meeting) error {
 	return r.db.WithContext(ctx).Save(meeting).Error
@@ -512,6 +553,16 @@ func (r *MeetingRepository) FindUpcoming(ctx context.Context, userID uuid.UUID, 
 	}
 
 	return meetings, int(total), nil
+}
+
+// CountByUserSince counts meetings for a user since a given time.
+func (r *MeetingRepository) CountByUserSince(ctx context.Context, userID uuid.UUID, since time.Time) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&outreach.Meeting{}).
+		Where("user_id = ? AND time > ?", userID, since).
+		Count(&count).Error
+	return count, err
 }
 
 // ============================================

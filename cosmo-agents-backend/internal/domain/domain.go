@@ -11,7 +11,6 @@ import (
 	"github.com/rockship/cosmo-agents-go/internal/domain/custom_field"
 	"github.com/rockship/cosmo-agents-go/internal/domain/draft_template"
 	"github.com/rockship/cosmo-agents-go/internal/domain/email"
-	"github.com/rockship/cosmo-agents-go/internal/domain/facebook_token"
 	"github.com/rockship/cosmo-agents-go/internal/domain/feedback"
 	"github.com/rockship/cosmo-agents-go/internal/domain/file"
 	"github.com/rockship/cosmo-agents-go/internal/domain/google_token_store"
@@ -19,7 +18,6 @@ import (
 	"github.com/rockship/cosmo-agents-go/internal/domain/integration"
 	"github.com/rockship/cosmo-agents-go/internal/domain/interaction"
 	"github.com/rockship/cosmo-agents-go/internal/domain/knowledge"
-	"github.com/rockship/cosmo-agents-go/internal/domain/lead_form_integration"
 	"github.com/rockship/cosmo-agents-go/internal/domain/notification"
 	"github.com/rockship/cosmo-agents-go/internal/domain/operation"
 	"github.com/rockship/cosmo-agents-go/internal/domain/organization"
@@ -92,6 +90,9 @@ type (
 	Conversation       = conversation.Conversation
 	ConversationStatus = conversation.ConversationStatus
 	ConversationType   = conversation.ConversationType
+	// ConversationGroup is a user's personal label for AI Inbox conversations
+	ConversationGroup       = conversation.Group
+	ConversationGroupMember = conversation.GroupMember
 
 	// Template represents email/message templates
 	Template         = template.Template
@@ -121,6 +122,7 @@ type (
 	// Knowledge represents knowledge base entries
 	Knowledge           = knowledge.Knowledge
 	KnowledgeSourceType = knowledge.KnowledgeSourceType
+	KnowledgeType       = knowledge.KnowledgeType
 
 	// Integration represents external service integrations
 	Integration       = integration.Integration
@@ -155,9 +157,6 @@ type (
 	// GoogleTokenStore represents OAuth token storage for Google services
 	GoogleTokenStore = google_token_store.GoogleTokenStore
 
-	// FacebookToken represents Facebook API tokens
-	FacebookToken = facebook_token.FacebookToken
-
 	// File represents file entities
 	File = file.File
 
@@ -176,10 +175,6 @@ type (
 	InboundLeadForm                       = inbound_lead_form.InboundLeadForm
 	FormField                             = inbound_lead_form.FormField
 	InboundLeadFormListContactAssociation = inbound_lead_form.InboundLeadFormListContactAssociation
-
-	// LeadFormIntegration represents integration between lead forms and campaigns
-	LeadFormIntegration = lead_form_integration.LeadFormIntegration
-	LeadFieldMapping    = lead_form_integration.LeadFieldMapping
 
 	// SaleRep represents sales representatives
 	SaleRep = sale_rep.SaleRep
@@ -261,6 +256,7 @@ const (
 	TaskUpdateTypeUpdate     = task.TaskUpdateTypeUpdate
 
 	// Email constants
+	EmailStatusDraft   = email.EmailStatusDraft
 	EmailStatusSending = email.EmailStatusSending
 	EmailStatusSent    = email.EmailStatusSent
 	EmailStatusInbox   = email.EmailStatusInbox
@@ -278,6 +274,11 @@ const (
 	// Knowledge constants
 	KnowledgeSourceWebsite = knowledge.KnowledgeSourceWebsite
 	KnowledgeSourceUpload  = knowledge.KnowledgeSourceUpload
+	KnowledgeTypePricing   = knowledge.KnowledgeTypePricing
+	KnowledgeTypeProduct   = knowledge.KnowledgeTypeProduct
+	KnowledgeTypeCaseStudy = knowledge.KnowledgeTypeCaseStudy
+	KnowledgeTypeFAQ       = knowledge.KnowledgeTypeFAQ
+	KnowledgeTypeOther     = knowledge.KnowledgeTypeOther
 
 	// Integration constants
 	DuplicationOptionSkip      = integration.DuplicationOptionSkip
@@ -323,10 +324,6 @@ const (
 	OutreachMeetingCompleted = outreach.MeetingCompleted
 	OutreachMeetingCancelled = outreach.MeetingCancelled
 	OutreachMeetingNoShow    = outreach.MeetingNoShow
-
-	// FacebookToken constants
-	TokenTypeFBPage = facebook_token.TokenTypeFBPage
-	TokenTypeFBUser = facebook_token.TokenTypeFBUser
 )
 
 // Re-export constructor functions for backward compatibility
@@ -343,6 +340,10 @@ var (
 	CalculateNextPosition    = template.CalculateNextPosition
 	NormalizePosition        = template.NormalizePosition
 	AllIntents               = campaign.AllIntents
+	ParseKnowledgeType       = knowledge.ParseKnowledgeType
+	NormalizeGroupName       = conversation.NormalizeGroupName
+	NormalizeGroupColor      = conversation.NormalizeGroupColor
+	KnowledgeTypes           = knowledge.KnowledgeTypes
 
 	// PubSub helper functions
 	NewPubSubMessage = pubsub.NewPubSubMessage

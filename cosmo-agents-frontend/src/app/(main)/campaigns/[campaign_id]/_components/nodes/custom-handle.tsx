@@ -6,7 +6,12 @@ const CustomHandle = (props: any) => {
     type: props.type,
   });
 
-  return <Handle {...props} isConnectable={connections.length < props.connectioncount} />;
+  return (
+    <Handle
+      {...props}
+      isConnectable={connections.length < props.connectioncount}
+    />
+  );
 };
 
 export default CustomHandle;

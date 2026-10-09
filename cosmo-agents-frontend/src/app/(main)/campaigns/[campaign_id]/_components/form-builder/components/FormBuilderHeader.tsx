@@ -37,7 +37,7 @@ export default function BuilderHeader({
   previewUrl,
 }: BuilderHeaderProps) {
   const origin = formState.settings?.publicUrl?.origin || '';
-  const isErrorName = error?.includes('An inbound lead form with slug')
+  const isErrorName = error?.includes('An inbound lead form with slug');
 
   return (
     <div className="mb-6 flex items-center justify-between">
@@ -48,7 +48,10 @@ export default function BuilderHeader({
             {formInboundSlug ? (
               <div className="flex w-auto items-center gap-2">
                 <Link
-                  className={cn("text-[24px] font-medium text-ellipsis text-[#4F46E5] underline", !formInboundSlug && 'pointer-events-none text-gray-300')}
+                  className={cn(
+                    'text-ellipsis text-[24px] font-medium text-[#4F46E5] underline',
+                    !formInboundSlug && 'pointer-events-none text-gray-300'
+                  )}
                   href={previewUrl}
                   target="_blank"
                 >
@@ -64,35 +67,38 @@ export default function BuilderHeader({
                   value={previewUrl}
                 />
               </div>
-            ) : <>
-              <div className="text-[24px] font-medium text-muted-foreground">{`${origin}/${formState.settings?.publicUrl?.path || ''}/`}</div>
-              <div className='relative'>
-                <Input
-                  className={cn('w-[200px]', error && 'border-red-500')}
-                  type="text"
-                  value={formState.settings?.publicUrl?.name || ''}
-                  onChange={(e) =>
-                    onPropertyChange('publicUrl.name', e.target.value)
-                  }
-                  disabled={!!formInboundSlug}
-                />
-                {isErrorName && (
-                  <span className="absolute right-0 -bottom-[32px] text-xs text-red-500">
-                    {error}
-                  </span>
+            ) : (
+              <>
+                <div className="text-[24px] font-medium text-muted-foreground">{`${origin}/${formState.settings?.publicUrl?.path || ''}/`}</div>
+                <div className="relative">
+                  <Input
+                    className={cn('w-[200px]', error && 'border-red-500')}
+                    type="text"
+                    value={formState.settings?.publicUrl?.name || ''}
+                    onChange={(e) =>
+                      onPropertyChange('publicUrl.name', e.target.value)
+                    }
+                    disabled={!!formInboundSlug}
+                  />
+                  {isErrorName && (
+                    <span className="absolute -bottom-[32px] right-0 text-xs text-red-500">
+                      {error}
+                    </span>
+                  )}
+                </div>
+                {loadingSuccess ? (
+                  <CheckIcon className="mr-2 h-4 w-4 text-green-500" />
+                ) : (
+                  <RefreshCw
+                    onClick={onRegenerateUrl}
+                    className={
+                      'mr-2 h-4 w-4 ' +
+                      (loadingRegenerateUrl ? 'animate-spin' : '')
+                    }
+                  />
                 )}
-              </div>
-              {loadingSuccess ? (
-                <CheckIcon className="mr-2 h-4 w-4 text-green-500" />
-              ) : (
-                <RefreshCw
-                  onClick={onRegenerateUrl}
-                  className={
-                    'mr-2 h-4 w-4 ' + (loadingRegenerateUrl ? 'animate-spin' : '')
-                  }
-                />
-              )}
-            </>}
+              </>
+            )}
           </div>
         </h1>
         <p className="text-muted-foreground">

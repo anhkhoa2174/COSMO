@@ -306,6 +306,67 @@ button:hover:not(:disabled) {
   width: auto;
 }
 
+/* Gen Message */
+textarea {
+  width: 100%;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: Arial, sans-serif;
+  resize: vertical;
+}
+
+.gen-messages {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gen-msg-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  position: relative;
+}
+
+.gen-msg-card .msg-label {
+  font-size: 10px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.gen-msg-card .msg-text {
+  white-space: pre-wrap;
+  color: #1f2937;
+  margin-bottom: 8px;
+}
+
+.gen-msg-card .copy-btn {
+  margin-top: 0;
+  width: auto;
+  padding: 4px 12px;
+  font-size: 11px;
+  background: #3b82f6;
+}
+
+.gen-msg-card .copy-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.gen-msg-card .copy-btn.copied {
+  background: #10b981;
+}
+
+/* Mode selector wrap */
+.mode-selector {
+  flex-wrap: wrap;
+}
+
 /* Already imported state */
 button.already-imported {
   background: #10b981;

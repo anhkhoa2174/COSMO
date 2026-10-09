@@ -52,10 +52,19 @@ const sendConnectionsBtn = document.getElementById('sendConnectionsBtn');
 const connectionsListEl = document.getElementById('connectionsList');
 const connectionsSection = document.getElementById('connectionsSection');
 
+// Gen Message elements
+const genMessageSection = document.getElementById('genMessageSection');
+const toneSelect = document.getElementById('toneSelect');
+const purposeSelect = document.getElementById('purposeSelect');
+const customNoteInput = document.getElementById('customNote');
+const generateMsgBtn = document.getElementById('generateMsgBtn');
+const generatedMessagesEl = document.getElementById('generatedMessages');
+
 // Mode elements
 const modeNewContactBtn = document.getElementById('modeNewContact');
 const modeUpdateContactBtn = document.getElementById('modeUpdateContact');
 const modeConnectionsBtn = document.getElementById('modeConnections');
+const modeGenMessageBtn = document.getElementById('modeGenMessage');
 
 // === Utility Functions ===
 function setStatus(text, type = 'info') {
@@ -305,11 +314,13 @@ function switchMode(mode) {
   modeNewContactBtn.classList.remove('active');
   modeUpdateContactBtn.classList.remove('active');
   modeConnectionsBtn.classList.remove('active');
+  modeGenMessageBtn.classList.remove('active');
 
   // Hide all sections
   newContactSection.style.display = 'none';
   updateContactSection.style.display = 'none';
   connectionsSection.style.display = 'none';
+  genMessageSection.style.display = 'none';
 
   // Show selected
   if (mode === 'new') {
@@ -321,6 +332,9 @@ function switchMode(mode) {
   } else if (mode === 'connections') {
     modeConnectionsBtn.classList.add('active');
     connectionsSection.style.display = 'block';
+  } else if (mode === 'genmessage') {
+    modeGenMessageBtn.classList.add('active');
+    genMessageSection.style.display = 'block';
   }
 
   setStatus('');
@@ -329,6 +343,7 @@ function switchMode(mode) {
 modeNewContactBtn.addEventListener('click', () => switchMode('new'));
 modeUpdateContactBtn.addEventListener('click', () => switchMode('update'));
 modeConnectionsBtn.addEventListener('click', () => switchMode('connections'));
+modeGenMessageBtn.addEventListener('click', () => switchMode('genmessage'));
 
 // === Normalize LinkedIn URL ===
 function normalizeLinkedInUrl(url) {
@@ -971,6 +986,130 @@ sendConnectionsBtn.addEventListener('click', async () => {
     setStatus(`Error: ${err.message || err}`, 'error');
   } finally {
     sendConnectionsBtn.disabled = false;
+  }
+});
+
+// === Generate LinkedIn Message ===
+async function generateLinkedInMessage(scrapedData, tone, purpose, customNote) {
+  const apiBase = getApiBase();
+  const token = getToken();
+
+  if (!token) {
+    throw new Error('Not logged in. Please login to Cosmo first.');
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+  const res = await fetch(`${apiBase}/v1/linkedin/generate-message`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      profile: scrapedData.data || {},
+      tone,
+      purpose,
+      custom_note: customNote,
+    }),
+    signal: controller.signal,
+  });
+  clearTimeout(timeoutId);
+
+  const payload = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      authToken = null;
+      await chrome.storage.local.remove(['authToken', 'authTokenExpiry']);
+      setLoginStatus(false);
+      throw new Error('Session expired. Please login again.');
+    }
+    const message = payload?.error?.message || payload?.message || res.statusText;
+    throw new Error(message);
+  }
+
+  return payload;
+}
+
+function displayGeneratedMessages(messages) {
+  generatedMessagesEl.innerHTML = '';
+
+  if (!messages || messages.length === 0) {
+    generatedMessagesEl.innerHTML = '<p class="no-data">No messages generated</p>';
+    return;
+  }
+
+  messages.forEach((msg, index) => {
+    const card = document.createElement('div');
+    card.className = 'gen-msg-card';
+    card.innerHTML = `
+      <div class="msg-label">Version ${index + 1}</div>
+      <div class="msg-text"></div>
+      <button class="copy-btn" data-index="${index}">Copy</button>
+    `;
+    // Set text content safely to avoid XSS
+    card.querySelector('.msg-text').textContent = msg;
+    generatedMessagesEl.appendChild(card);
+  });
+
+  // Handle copy buttons
+  generatedMessagesEl.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const index = parseInt(btn.dataset.index);
+      try {
+        await navigator.clipboard.writeText(messages[index]);
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 2000);
+      } catch (err) {
+        console.error('[Popup] Copy failed:', err);
+        btn.textContent = 'Failed';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+      }
+    });
+  });
+}
+
+generateMsgBtn.addEventListener('click', async () => {
+  setStatus('');
+  generateMsgBtn.disabled = true;
+  generatedMessagesEl.innerHTML = '';
+
+  try {
+    setStatus('Scraping LinkedIn profile...');
+    const scrapedData = await scrapeCurrentTab();
+
+    const profile = scrapedData.data || {};
+    if (!profile.name && !profile.headline) {
+      setStatus('Warning: Could not extract profile data. Try refreshing the LinkedIn page.', 'warning');
+      return;
+    }
+
+    setStatus(`Found: ${profile.name || 'Unknown'}. Generating messages...`);
+
+    const tone = toneSelect.value;
+    const purpose = purposeSelect.value;
+    const customNote = customNoteInput.value.trim();
+
+    const result = await generateLinkedInMessage(scrapedData, tone, purpose, customNote);
+    const messages = result?.data?.messages || result?.data || [];
+
+    if (Array.isArray(messages) && messages.length > 0) {
+      displayGeneratedMessages(messages);
+      setStatus(`Generated ${messages.length} message versions`, 'success');
+    } else {
+      setStatus('No messages returned from API', 'warning');
+    }
+  } catch (err) {
+    console.error('[Popup] Error:', err);
+    setStatus(`Error: ${err.message || err}`, 'error');
+  } finally {
+    generateMsgBtn.disabled = false;
   }
 });
 

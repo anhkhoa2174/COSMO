@@ -29,6 +29,7 @@
         <button id="modeNewContact" class="mode-btn active">New Contact</button>
         <button id="modeUpdateContact" class="mode-btn">Update Contact</button>
         <button id="modeConnections" class="mode-btn">Connections</button>
+        <button id="modeGenMessage" class="mode-btn">Gen Message</button>
       </div>
 
       <!-- New Contact Section (default) -->
@@ -73,6 +74,32 @@
         <button id="sendConnectionsBtn" disabled>Send to Cosmo</button>
 
         <div id="connectionsList" class="connections-list"></div>
+      </div>
+
+      <!-- Gen Message Section -->
+      <div id="genMessageSection" style="display: none;">
+        <p class="hint">Generate a personalized LinkedIn message for this profile</p>
+
+        <label for="toneSelect">Tone</label>
+        <select id="toneSelect">
+          <option value="professional">Professional</option>
+          <option value="casual">Casual</option>
+          <option value="friendly">Friendly</option>
+        </select>
+
+        <label for="purposeSelect">Purpose</label>
+        <select id="purposeSelect">
+          <option value="outreach">Outreach</option>
+          <option value="follow_up">Follow Up</option>
+          <option value="introduction">Introduction</option>
+        </select>
+
+        <label for="customNote">Custom note (optional)</label>
+        <textarea id="customNote" rows="3" placeholder="Add any extra context..."></textarea>
+
+        <button id="generateMsgBtn" class="primary-btn">Generate</button>
+
+        <div id="generatedMessages" class="gen-messages"></div>
       </div>
 
       <!-- Advanced Settings (collapsed by default) -->

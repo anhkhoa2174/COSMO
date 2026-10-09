@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import React from 'react';
+import { resolveContactEmail } from '@/lib/contact-info';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import ContactApi from '@/network/client/contact';
 import IntelligenceApi, {
@@ -52,13 +53,19 @@ export default function SmartInsightsPage() {
   const contactOptions = (contacts?.data?.list ?? [])
     .map((row: any) => {
       const entity = row.entity ?? row;
-      const name = [entity?.first_name, entity?.last_name]
-        .filter(Boolean)
-        .join(' ');
+      // The contact list returns a single `name` and the address in
+      // `contact_information`; reading first_name/last_name/email alone
+      // labelled every contact "Unnamed contact".
+      const name =
+        (entity?.name && entity.name !== 'N/A' ? entity.name : '') ||
+        [entity?.first_name, entity?.last_name].filter(Boolean).join(' ');
+      const email = resolveContactEmail(entity) || entity?.email;
+      const company =
+        entity?.company && entity.company !== 'N/A' ? entity.company : '';
       return {
         id: entity?.id as string | undefined,
-        label: name || entity?.email || 'Unnamed contact',
-        sublabel: entity?.email as string | undefined,
+        label: name || email || 'Unnamed contact',
+        sublabel: [company, email].filter(Boolean).join(' · ') || undefined,
       };
     })
     .filter(

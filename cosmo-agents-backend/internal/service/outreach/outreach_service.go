@@ -2,7 +2,9 @@ package outreach
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -15,31 +17,46 @@ import (
 	"github.com/rockship/cosmo-agents-go/pkg/logger"
 )
 
+// ErrUnknownEvent is returned for an outreach event the state machine does not
+// know; it is the caller's mistake, so the handler answers 400.
+var ErrUnknownEvent = errors.New("unknown outreach event")
+
 // Config holds outreach service configuration
+// The json tags matter: this type is serialised as the `effective` and
+// `defaults` objects of the outreach settings endpoint, and the settings page
+// reads it by the same snake_case keys it posts back in OutreachSettings.
+// Without them Go emits the Go field names, every lookup on the page returns
+// undefined, and each timing input reads NaN — which the form then reports as
+// "enter a whole number" on fields nobody had touched, blocking saves that had
+// nothing to do with timing.
 type Config struct {
-	// Follow-up timing (minutes after last sent message) - USE MINUTES FOR TESTING
-	FollowUp1MinDays int // Minimum minutes before FU #1 is suggested (default: 1 for testing)
-	FollowUp1MaxDays int // Maximum minutes for FU #1 window (default: 2 for testing)
-	FollowUp2MinDays int // Minimum minutes before FU #2 is suggested (default: 1 for testing)
-	FollowUp2MaxDays int // Maximum minutes for FU #2 window (default: 2 for testing)
+	// Follow-up timing (days after last sent message)
+	FollowUp1MinDays int `json:"follow_up1_min_days"` // Minimum days before FU #1 is suggested (default: 4)
+	FollowUp1MaxDays int `json:"follow_up1_max_days"` // Maximum days for FU #1 window (default: 5)
+	FollowUp2MinDays int `json:"follow_up2_min_days"` // Minimum days before FU #2 is suggested (default: 4)
+	FollowUp2MaxDays int `json:"follow_up2_max_days"` // Maximum days for FU #2 window (default: 5)
+
+	// Auto no-reply transition
+	NoReplyHours int `json:"no_reply_hours"` // Hours after sending before auto-transitioning to NO_REPLY (default: 8)
 
 	// Meeting confirmation follow-up timing
-	MeetingConfirmMinDays int // Minutes before meeting confirmation follow-up (default: 1 for testing)
+	MeetingConfirmMinDays int `json:"meeting_confirm_min_days"` // Days before meeting confirmation follow-up (default: 1)
 
-	ReEngageThresholdDays int // Days before re-engage (default: 60)
-	MaxFollowups          int // Maximum follow-up attempts (default: 2)
+	ReEngageThresholdDays int `json:"re_engage_threshold_days"` // Days before re-engage (default: 60)
+	MaxFollowups          int `json:"max_followups"`            // Maximum follow-up attempts (default: 2)
 }
 
 // DefaultConfig returns default configuration
 func DefaultConfig() Config {
 	return Config{
-		FollowUp1MinDays:      1,  // FU #1 after 1 minute (TESTING MODE)
-		FollowUp1MaxDays:      2,  // FU #1 until 2 minutes (TESTING MODE)
-		FollowUp2MinDays:      1,  // FU #2 after 1 minute from FU #1 (TESTING MODE)
-		FollowUp2MaxDays:      2,  // FU #2 until 2 minutes from FU #1 (TESTING MODE)
-		MeetingConfirmMinDays: 1,  // Meeting confirm FU after 1 minute (TESTING MODE)
-		ReEngageThresholdDays: 60,
-		MaxFollowups:          2,
+		FollowUp1MinDays:      4,  // FU #1 after 4 days (Day 4-5)
+		FollowUp1MaxDays:      5,  // FU #1 until 5 days
+		FollowUp2MinDays:      4,  // FU #2 after 4 days from FU #1 (Day 9-12)
+		FollowUp2MaxDays:      5,  // FU #2 until 5 days from FU #1
+		NoReplyHours:          8,  // Auto-transition to NO_REPLY after 8 hours
+		MeetingConfirmMinDays: 1,  // Meeting confirm FU after 1 day
+		ReEngageThresholdDays: 60, // Re-engage after 60 days
+		MaxFollowups:          2,  // Max 2 follow-ups before drop
 	}
 }
 
@@ -52,6 +69,31 @@ type Service struct {
 	contactRepo     *contactRepo.ContactRepository
 	openAIClient    *ai.OpenAIClient
 	config          Config
+
+	// Resolves the per-organisation cadence. Unset, every account keeps the
+	// built-in defaults, which is how this service behaved before settings
+	// existed.
+	orgConfig *orgConfigLoader
+}
+
+// WithOrgSettings makes the cadence admin-configurable per organisation.
+// `load` returns the raw settings JSON for a user's organisation.
+func (s *Service) WithOrgSettings(
+	load func(ctx context.Context, userID uuid.UUID) ([]byte, error),
+) *Service {
+	s.orgConfig = newOrgConfigLoader(load)
+	return s
+}
+
+// InvalidateOrgConfig drops the cached cadence for a user so a just-saved
+// change applies on the next evaluation instead of after the cache expires.
+func (s *Service) InvalidateOrgConfig(userID uuid.UUID) {
+	s.orgConfig.Invalidate(userID)
+}
+
+// configFor returns the cadence in force for this user.
+func (s *Service) configFor(ctx context.Context, userID uuid.UUID) Config {
+	return s.orgConfig.Get(ctx, userID, s.config)
 }
 
 // OutreachService is an alias for Service for handler compatibility
@@ -131,7 +173,18 @@ type ConversationStateResult struct {
 // DetermineConversationState determines the conversation state for a contact
 // This is the core state machine logic
 func (s *Service) DetermineConversationState(ctx context.Context, contactEntity *contact.Contact, userID uuid.UUID) (*ConversationStateResult, error) {
+	cfg := s.configFor(ctx, userID)
 	now := time.Now()
+
+	// 0. Respect stored DROPPED state (manual drop or auto-drop via events)
+	if contactEntity.OutreachStage == string(outreach.StateDropped) {
+		return &ConversationStateResult{
+			State:          outreach.StateDropped,
+			NextStep:       outreach.NextStepDrop,
+			OutreachIntent: outreach.IntentIntro,
+			Scenario:       outreach.ScenarioRoleBased,
+		}, nil
+	}
 
 	// Get interaction logs
 	logs, err := s.interactionRepo.FindByContactIDAndUserID(ctx, contactEntity.ID, userID, 10)
@@ -146,6 +199,22 @@ func (s *Service) DetermineConversationState(ctx context.Context, contactEntity 
 		Int("logs_count", len(logs)).
 		Msg("outreach: DetermineConversationState - logs retrieved")
 
+	// Check for scheduled (not completed) meeting — meeting confirmation flow is event-driven
+	// and cannot be reconstructed from interaction logs, so respect the stored next_step
+	hasScheduledMeeting, _ := s.meetingRepo.HasScheduledMeeting(ctx, contactEntity.ID)
+	if hasScheduledMeeting {
+		storedStep := outreach.NextStepAction(contactEntity.NextStep)
+		switch storedStep {
+		case outreach.NextStepFollowUpMeeting1, outreach.NextStepFollowUpMeeting2, outreach.NextStepPrepareMeeting, outreach.NextStepWait:
+			return &ConversationStateResult{
+				State:          outreach.StateReplied,
+				NextStep:       storedStep,
+				OutreachIntent: outreach.IntentFollowUp,
+				Scenario:       outreach.ScenarioMeetingConfirmation,
+			}, nil
+		}
+	}
+
 	// Get meetings
 	hasMeeting, err := s.meetingRepo.HasCompletedMeeting(ctx, contactEntity.ID)
 	if err != nil {
@@ -156,23 +225,23 @@ func (s *Service) DetermineConversationState(ctx context.Context, contactEntity 
 	lastOutgoing, _ := s.interactionRepo.GetLastOutgoingByUserID(ctx, contactEntity.ID, userID)
 	lastIncoming, _ := s.interactionRepo.GetLastIncomingByUserID(ctx, contactEntity.ID, userID)
 
-	// Calculate time since last interaction (in MINUTES for testing, normally days)
+	// Calculate time since last interaction (in days)
 	var daysSinceLastInteraction int
 	var lastInteractionTime *time.Time
 
 	if len(logs) > 0 {
 		lastInteractionTime = &logs[0].Timestamp
-		// TESTING MODE: Use minutes instead of days
-		daysSinceLastInteraction = int(now.Sub(*lastInteractionTime).Minutes())
+		// Calculate days since last interaction
+		daysSinceLastInteraction = int(now.Sub(*lastInteractionTime).Hours() / 24)
 
 		// DEBUG: Log timing calculation
 		logger.Logger.Debug().
 			Str("contact_id", contactEntity.ID.String()).
 			Time("last_interaction_time", *lastInteractionTime).
 			Time("now", now).
-			Int("minutes_since", daysSinceLastInteraction).
-			Int("config_followup1_min", s.config.FollowUp1MinDays).
-			Bool("should_transition_to_fu1", daysSinceLastInteraction >= s.config.FollowUp1MinDays).
+			Int("days_since", daysSinceLastInteraction).
+			Int("config_followup1_min", cfg.FollowUp1MinDays).
+			Bool("should_transition_to_fu1", daysSinceLastInteraction >= cfg.FollowUp1MinDays).
 			Msg("outreach: DetermineConversationState - timing calculation")
 	} else {
 		logger.Logger.Debug().
@@ -209,7 +278,7 @@ func (s *Service) DetermineConversationState(ctx context.Context, contactEntity 
 	// State priority: DROPPED > POST_MEETING > REPLIED > NO_REPLY > COLD
 
 	// 1. Check DROPPED
-	if followupCount >= s.config.MaxFollowups && lastIncoming == nil {
+	if followupCount >= cfg.MaxFollowups && lastIncoming == nil {
 		result.State = outreach.StateDropped
 		result.NextStep = outreach.NextStepDrop
 		result.OutreachIntent = outreach.IntentIntro // No intent for dropped
@@ -250,27 +319,37 @@ func (s *Service) DetermineConversationState(ctx context.Context, contactEntity 
 
 	// 4. Check NO_REPLY - need follow-up based on sent count and timing
 	if lastOutgoing != nil && lastIncoming == nil {
+		// Check 8-hour threshold before transitioning to next step
+		hoursSinceLastOutgoing := now.Sub(lastOutgoing.Timestamp).Hours()
+		if hoursSinceLastOutgoing < float64(cfg.NoReplyHours) {
+			// Less than 8 hours since last outgoing — still waiting for reply
+			if followupCount == 0 {
+				result.State = outreach.StateCold
+				result.OutreachIntent = outreach.IntentIntro
+				result.Scenario = outreach.ScenarioRoleBased
+			} else {
+				result.State = outreach.StateNoReply
+				result.OutreachIntent = outreach.IntentFollowUp
+				result.Scenario = outreach.ScenarioNoReplyFollowup
+			}
+			result.NextStep = outreach.NextStepWait
+			return result, nil
+		}
+
+		// Past 8 hours → transition to next step
 		result.State = outreach.StateNoReply
 		result.OutreachIntent = outreach.IntentFollowUp
 		result.Scenario = outreach.ScenarioNoReplyFollowup
 
-		// Determine next step based on followup count and timing
+		// Determine next step based on followup count
 		if followupCount == 0 {
-			// No FU sent yet - check timing for FU #1 (Day 4-5)
-			if daysSinceLastInteraction >= s.config.FollowUp1MinDays {
-				result.NextStep = outreach.NextStepFollowUp1 // Time to send FU #1
-			} else {
-				result.NextStep = outreach.NextStepWait // Not yet, wait more
-			}
+			// No FU sent yet - past 8 hours → ready for FU #1
+			result.NextStep = outreach.NextStepFollowUp1
 		} else if followupCount == 1 {
-			// FU #1 sent - check timing for FU #2 (4-5 days after FU #1)
-			if daysSinceLastInteraction >= s.config.FollowUp2MinDays {
-				result.NextStep = outreach.NextStepFollowUp2 // Time to send FU #2
-			} else {
-				result.NextStep = outreach.NextStepWait // Not yet, wait more
-			}
+			// FU #1 sent - past 8 hours → ready for FU #2
+			result.NextStep = outreach.NextStepFollowUp2
 		} else {
-			// FU #2 sent but still no reply → suggest DROP
+			// FU #2 sent - past 8 hours → DROP
 			result.NextStep = outreach.NextStepDrop
 			result.State = outreach.StateDropped
 		}
@@ -278,7 +357,7 @@ func (s *Service) DetermineConversationState(ctx context.Context, contactEntity 
 	}
 
 	// 5. Check RE_ENGAGE (cold contact not contacted for a long time)
-	if daysSinceLastInteraction >= s.config.ReEngageThresholdDays && lastOutgoing != nil {
+	if daysSinceLastInteraction >= cfg.ReEngageThresholdDays && lastOutgoing != nil {
 		result.State = outreach.StateCold // Re-engage is treated as cold
 		result.OutreachIntent = outreach.IntentReEngage
 		result.Scenario = outreach.ScenarioReEngage
@@ -307,17 +386,33 @@ func (s *Service) DetermineConversationState(ctx context.Context, contactEntity 
 
 // SuggestContact represents a contact suggestion for outreach
 type SuggestContact struct {
-	Contact      *contact.Contact
-	State        *outreach.OutreachState
-	Type         string // "cold" or "followup"
-	NextStep     string
-	DaysSince    int
-	MessageDraft string
+	Contact      *contact.Contact        `json:"contact"`
+	State        *outreach.OutreachState `json:"state"`
+	Type         string                  `json:"type"` // "cold" or "followup"
+	NextStep     string                  `json:"next_step"`
+	DaysSince    int                     `json:"days_since"`
+	MessageDraft string                  `json:"message_draft"`
+}
+
+// SuggestResult wraps suggestions with total counts
+type SuggestResult struct {
+	Suggestions []*SuggestContact `json:"suggestions"`
+	Total       int               `json:"total"`
 }
 
 // SuggestContacts suggests contacts for outreach
 // If isAdmin is true, it fetches all contacts in the organization; otherwise, only the user's own contacts
-func (s *Service) SuggestContacts(ctx context.Context, userID uuid.UUID, organizationID uuid.UUID, isAdmin bool, suggestType string, limit int) ([]*SuggestContact, error) {
+// PipelineStalledAfter is how long a contact still in play may go without an
+// interaction before the dashboard calls it stalled.
+const PipelineStalledAfter = 5 * 24 * time.Hour
+
+// PipelineSummary counts the caller's contacts by outreach stage, follow-up
+// depth and staleness, across all of them rather than the suggestion list.
+func (s *Service) PipelineSummary(ctx context.Context, userID uuid.UUID) (*contactRepo.PipelineSummary, error) {
+	return s.contactRepo.PipelineSummary(ctx, userID, time.Now().Add(-PipelineStalledAfter))
+}
+
+func (s *Service) SuggestContacts(ctx context.Context, userID uuid.UUID, organizationID uuid.UUID, isAdmin bool, suggestType string, limit int) (*SuggestResult, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -331,30 +426,34 @@ func (s *Service) SuggestContacts(ctx context.Context, userID uuid.UUID, organiz
 	// If not admin, orgIDs remains nil and SearchWithFilter will filter by userID
 
 	var suggestions []*SuggestContact
+	var total int
 
 	switch suggestType {
 	case "cold":
-		suggestions, _ = s.suggestColdContacts(ctx, userID, orgIDs, limit)
+		suggestions, total, _ = s.suggestColdContacts(ctx, userID, orgIDs, limit)
 	case "followup":
-		suggestions, _ = s.suggestFollowupContacts(ctx, userID, orgIDs, limit)
+		suggestions, total, _ = s.suggestFollowupContacts(ctx, userID, orgIDs, limit)
 	case "mixed":
-		suggestions, _ = s.suggestMixedContacts(ctx, userID, orgIDs, limit)
+		suggestions, total, _ = s.suggestMixedContacts(ctx, userID, orgIDs, limit)
 	default:
 		return nil, fmt.Errorf("invalid suggest type: %s", suggestType)
 	}
 
-	return suggestions, nil
+	return &SuggestResult{
+		Suggestions: suggestions,
+		Total:       total,
+	}, nil
 }
 
-func (s *Service) suggestColdContacts(ctx context.Context, userID uuid.UUID, orgIDs []uuid.UUID, limit int) ([]*SuggestContact, error) {
-	// Find READY contacts with COLD state
-	// If orgIDs is provided (admin), search all contacts in org; otherwise (member), search by userID
-	contacts, _, err := s.contactRepo.SearchWithFilter(ctx, userID, orgIDs, map[string]interface{}{
-		"status":          "ready",
-		"lifecycle_stage": "new",
+func (s *Service) suggestColdContacts(ctx context.Context, userID uuid.UUID, orgIDs []uuid.UUID, limit int) ([]*SuggestContact, int, error) {
+	// Find READY contacts needing initial outreach (next_step = SEND)
+	contacts, total, err := s.contactRepo.SearchWithFilter(ctx, userID, orgIDs, map[string]interface{}{
+		"status":         "ready",
+		"next_step":      "SEND",
+		"do_not_contact": false, // opted-out contacts are never due outreach
 	}, nil)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	suggestions := make([]*SuggestContact, 0, limit)
@@ -362,35 +461,25 @@ func (s *Service) suggestColdContacts(ctx context.Context, userID uuid.UUID, org
 		if len(suggestions) >= limit {
 			break
 		}
-
-		// Determine state for this contact
-		stateResult, err := s.DetermineConversationState(ctx, c, userID)
-		if err != nil {
-			continue
-		}
-
-		if stateResult.State == outreach.StateCold {
-			suggestions = append(suggestions, &SuggestContact{
-				Contact:   c,
-				Type:      "cold",
-				NextStep:  string(stateResult.NextStep),
-				DaysSince: stateResult.DaysSinceLastInteraction,
-			})
-		}
+		suggestions = append(suggestions, &SuggestContact{
+			Contact:  c,
+			Type:     "cold",
+			NextStep: c.NextStep,
+		})
 	}
 
-	return suggestions, nil
+	return suggestions, total, nil
 }
 
-func (s *Service) suggestFollowupContacts(ctx context.Context, userID uuid.UUID, orgIDs []uuid.UUID, limit int) ([]*SuggestContact, error) {
-	// Find contacts needing follow-up
-	// If orgIDs is provided (admin), search all contacts in org; otherwise (member), search by userID
-	contacts, _, err := s.contactRepo.SearchWithFilter(ctx, userID, orgIDs, map[string]interface{}{
-		"status":          "ready",
-		"lifecycle_stage": []string{"contacted", "replied", "meeting"},
+func (s *Service) suggestFollowupContacts(ctx context.Context, userID uuid.UUID, orgIDs []uuid.UUID, limit int) ([]*SuggestContact, int, error) {
+	// Find contacts needing follow-up action (not SEND, WAIT, or DROP)
+	contacts, total, err := s.contactRepo.SearchWithFilter(ctx, userID, orgIDs, map[string]interface{}{
+		"status":         "ready",
+		"next_step":      []string{"FOLLOW_UP_1", "FOLLOW_UP_2", "SET_MEETING", "FOLLOW_UP_MEETING_1", "FOLLOW_UP_MEETING_2", "PREPARE_MEETING", "FOLLOW_UP"},
+		"do_not_contact": false, // opted-out contacts are never due outreach
 	}, nil)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	suggestions := make([]*SuggestContact, 0, limit)
@@ -399,24 +488,24 @@ func (s *Service) suggestFollowupContacts(ctx context.Context, userID uuid.UUID,
 	postMeetingSuggestions := make([]*SuggestContact, 0)
 
 	for _, c := range contacts {
-		stateResult, err := s.DetermineConversationState(ctx, c, userID)
-		if err != nil {
-			continue
-		}
+		// Load outreach state so mapActionTypeAndCategory can determine category
+		state, _ := s.stateRepo.FindByContactID(ctx, c.ID, userID)
 
 		suggestion := &SuggestContact{
-			Contact:   c,
-			Type:      "followup",
-			NextStep:  string(stateResult.NextStep),
-			DaysSince: stateResult.DaysSinceLastInteraction,
+			Contact:  c,
+			State:    state,
+			Type:     "followup",
+			NextStep: c.NextStep,
 		}
 
-		switch stateResult.State {
-		case outreach.StateReplied:
+		switch c.OutreachStage {
+		case string(outreach.StateReplied):
 			repliedSuggestions = append(repliedSuggestions, suggestion)
-		case outreach.StatePostMeeting:
+		case string(outreach.StatePostMeeting):
 			postMeetingSuggestions = append(postMeetingSuggestions, suggestion)
-		case outreach.StateNoReply:
+		case string(outreach.StateNoReply):
+			noReplySuggestions = append(noReplySuggestions, suggestion)
+		default:
 			noReplySuggestions = append(noReplySuggestions, suggestion)
 		}
 	}
@@ -430,26 +519,26 @@ func (s *Service) suggestFollowupContacts(ctx context.Context, userID uuid.UUID,
 		suggestions = suggestions[:limit]
 	}
 
-	return suggestions, nil
+	return suggestions, total, nil
 }
 
-func (s *Service) suggestMixedContacts(ctx context.Context, userID uuid.UUID, orgIDs []uuid.UUID, limit int) ([]*SuggestContact, error) {
+func (s *Service) suggestMixedContacts(ctx context.Context, userID uuid.UUID, orgIDs []uuid.UUID, limit int) ([]*SuggestContact, int, error) {
 	// 60% cold, 40% follow-up
 	coldLimit := int(float64(limit) * 0.6)
 	followupLimit := limit - coldLimit
 
-	coldSuggestions, _ := s.suggestColdContacts(ctx, userID, orgIDs, coldLimit)
-	followupSuggestions, _ := s.suggestFollowupContacts(ctx, userID, orgIDs, followupLimit)
+	coldSuggestions, coldTotal, _ := s.suggestColdContacts(ctx, userID, orgIDs, coldLimit)
+	followupSuggestions, followupTotal, _ := s.suggestFollowupContacts(ctx, userID, orgIDs, followupLimit)
 
 	// Fill up if one type is short
 	totalFound := len(coldSuggestions) + len(followupSuggestions)
 	if totalFound < limit {
 		remaining := limit - totalFound
 		if len(coldSuggestions) < coldLimit {
-			moreFollowup, _ := s.suggestFollowupContacts(ctx, userID, orgIDs, remaining+followupLimit)
+			moreFollowup, _, _ := s.suggestFollowupContacts(ctx, userID, orgIDs, remaining+followupLimit)
 			followupSuggestions = moreFollowup
 		} else if len(followupSuggestions) < followupLimit {
-			moreCold, _ := s.suggestColdContacts(ctx, userID, orgIDs, remaining+coldLimit)
+			moreCold, _, _ := s.suggestColdContacts(ctx, userID, orgIDs, remaining+coldLimit)
 			coldSuggestions = moreCold
 		}
 	}
@@ -458,7 +547,7 @@ func (s *Service) suggestMixedContacts(ctx context.Context, userID uuid.UUID, or
 	result = append(result, coldSuggestions...)
 	result = append(result, followupSuggestions...)
 
-	return result, nil
+	return result, coldTotal + followupTotal, nil
 }
 
 // ============================================
@@ -577,7 +666,8 @@ func (s *Service) GenerateDraftWithLanguage(ctx context.Context, contactEntity *
 	return s.generateDraftByScenario(draftCtx), nil
 }
 
-// GenerateDraftWithLanguageAndUserName generates a message draft with specified language and user name
+// GenerateDraftWithLanguageAndUserName generates a message draft with specified language and user name.
+// If language is empty, AI will auto-detect the best language based on the contact's name.
 func (s *Service) GenerateDraftWithLanguageAndUserName(ctx context.Context, contactEntity *contact.Contact, userID uuid.UUID, language string, userName string) (string, error) {
 	stateResult, err := s.DetermineConversationState(ctx, contactEntity, userID)
 	if err != nil {
@@ -676,11 +766,11 @@ func (s *Service) generateColdRoleBasedDraft(ctx *DraftContext) string {
 
 	return fmt.Sprintf(`Chào %s,
 
-Mình thấy anh/chị đang làm %s tại %s - rất ấn tượng với những gì team đang xây dựng!
+Em thấy anh/chị đang làm %s tại %s - rất ấn tượng với những gì team đang xây dựng!
 
 %s
 
-Mình có thể chia sẻ một vài insights từ các team tương tự mà mình đã hỗ trợ. Anh/chị có tiện 15 phút tuần này để mình demo nhanh không? Hoàn toàn không ràng buộc - mình chỉ muốn xem có thể giúp gì cho anh/chị.
+Em có thể chia sẻ một vài insights từ các team tương tự mà em đã hỗ trợ. Anh/chị có tiện 15 phút tuần này để em demo nhanh không? Hoàn toàn không ràng buộc - em chỉ muốn xem có thể giúp gì cho anh/chị.
 
 Cảm ơn anh/chị!`, name, jobTitle, company, valueProposition)
 }
@@ -696,13 +786,13 @@ func (s *Service) generateColdIndustryBasedDraft(ctx *DraftContext) string {
 
 	return fmt.Sprintf(`Chào %s,
 
-Mình thấy anh/chị đang làm %s tại %s - một trong những công ty ấn tượng trong ngành %s!
+Em thấy anh/chị đang làm %s tại %s - một trong những công ty ấn tượng trong ngành %s!
 
 %s
 
-Mình vừa giúp một team tương tự tăng 40%% response rate trong 2 tuần. Anh/chị có muốn mình chia sẻ cụ thể cách họ làm trong 15 phút không?
+Em vừa giúp một team tương tự tăng 40%% response rate trong 2 tuần. Anh/chị có muốn em chia sẻ cụ thể cách họ làm trong 15 phút không?
 
-Nếu không phù hợp cũng không sao - mình chỉ muốn connect và xem có thể hỗ trợ gì cho anh/chị thôi!`, name, jobTitle, company, industry, industryInsight)
+Nếu không phù hợp cũng không sao - em chỉ muốn connect và xem có thể hỗ trợ gì cho anh/chị thôi!`, name, jobTitle, company, industry, industryInsight)
 }
 
 func (s *Service) generateNoReplyFollowupDraft(ctx *DraftContext) string {
@@ -723,17 +813,17 @@ func (s *Service) generateNoReplyFollowupDraft(ctx *DraftContext) string {
 	if followupCount == 0 {
 		return fmt.Sprintf(`Chào %s,
 
-Mình quay lại về message %s - không biết anh/chị có cơ hội xem chưa?
+Em quay lại về message %s - không biết anh/chị có cơ hội xem chưa?
 
-Mình hiểu anh/chị rất bận, nên mình chỉ cần 10 phút để show một vài điều mình nghĩ có thể giúp ích cho team. Nếu không phù hợp, anh/chị cứ nói thẳng nhé - mình hoàn toàn tôn trọng!
+Em hiểu anh/chị rất bận, nên em chỉ cần 10 phút để show một vài điều em nghĩ có thể giúp ích cho team. Nếu không phù hợp, anh/chị cứ nói thẳng nhé - em hoàn toàn tôn trọng!
 
 Anh/chị thường rảnh khung nào trong tuần?`, name, timeRef)
 	} else if followupCount == 1 {
 		return fmt.Sprintf(`Chào %s,
 
-Mình follow-up lần cuối về tin nhắn %s. Mình không muốn làm phiền anh/chị.
+Em follow-up lần cuối về tin nhắn %s. Em không muốn làm phiền anh/chị.
 
-Nếu timing chưa phù hợp, mình có thể:
+Nếu timing chưa phù hợp, em có thể:
 • Gửi tài liệu để anh/chị đọc khi rảnh
 • Kết nối lại sau 1-2 tháng
 • Hoặc connect với người phù hợp hơn trong team
@@ -743,9 +833,9 @@ Anh/chị thấy option nào OK nhất?`, name, timeRef)
 
 	return fmt.Sprintf(`Chào %s,
 
-Mình hiểu timing có thể chưa phù hợp. Mình sẽ không spam thêm nữa.
+Em hiểu timing có thể chưa phù hợp. Em sẽ không spam thêm nữa.
 
-Nếu sau này có nhu cầu về outreach/sales automation, anh/chị cứ ping mình nhé. Chúc anh/chị và team %s thành công!`, name, ctx.Contact.Company)
+Nếu sau này có nhu cầu về outreach/sales automation, anh/chị cứ ping em nhé. Chúc anh/chị và team %s thành công!`, name, ctx.Contact.Company)
 }
 
 func (s *Service) generatePostReplyDraft(ctx *DraftContext) string {
@@ -769,29 +859,29 @@ func (s *Service) generatePostReplyDraft(ctx *DraftContext) string {
 	case string(outreach.SentimentPositive):
 		response = fmt.Sprintf(`Tuyệt vời! Rất vui khi anh/chị quan tâm.
 
-Để giúp anh/chị hiểu rõ hơn cách mình có thể hỗ trợ %s, mình đề xuất một cuộc gọi ngắn 20 phút:
+Để giúp anh/chị hiểu rõ hơn cách em có thể hỗ trợ %s, em đề xuất một cuộc gọi ngắn 20 phút:
 • Demo nhanh product với case study cụ thể
 • Q&A để giải đáp mọi thắc mắc
-• Nếu phù hợp, mình có thể setup trial cho team
+• Nếu phù hợp, em có thể setup trial cho team
 
-Anh/chị có thể chọn slot tại đây: [calendar link] hoặc cho mình biết khung giờ tiện nhé!`, company)
+Anh/chị có thể chọn slot tại đây: [calendar link] hoặc cho em biết khung giờ tiện nhé!`, company)
 	case string(outreach.SentimentNegative):
-		response = `Cảm ơn anh/chị đã thẳng thắn chia sẻ. Mình hoàn toàn tôn trọng quyết định của anh/chị.
+		response = `Cảm ơn anh/chị đã thẳng thắn chia sẻ. Em hoàn toàn tôn trọng quyết định của anh/chị.
 
-Nếu sau này có nhu cầu hoặc muốn tham khảo ý kiến về outreach strategy, anh/chị cứ ping mình nhé - mình luôn sẵn sàng hỗ trợ không ràng buộc.
+Nếu sau này có nhu cầu hoặc muốn tham khảo ý kiến về outreach strategy, anh/chị cứ ping em nhé - em luôn sẵn sàng hỗ trợ không ràng buộc.
 
 Chúc anh/chị và team thành công!`
 	default:
 		// Check for common phrases in reply
 		replyLower := strings.ToLower(lastReplyContent)
 		if strings.Contains(replyLower, "tuần sau") || strings.Contains(replyLower, "next week") {
-			response = `Perfect! Vậy tuần sau mình sẽ follow-up để book lịch nhé.
+			response = `Perfect! Vậy tuần sau em sẽ follow-up để book lịch nhé.
 
-Trong lúc đó, anh/chị có muốn mình gửi trước một case study của team tương tự để tham khảo không? Sẽ giúp anh/chị có cái nhìn tổng quan trước khi mình nói chuyện.`
+Trong lúc đó, anh/chị có muốn em gửi trước một case study của team tương tự để tham khảo không? Sẽ giúp anh/chị có cái nhìn tổng quan trước khi em nói chuyện.`
 		} else if strings.Contains(replyLower, "bận") || strings.Contains(replyLower, "busy") {
-			response = `Mình hiểu anh/chị đang bận. Không sao cả!
+			response = `Em hiểu anh/chị đang bận. Không sao cả!
 
-Mình có thể:
+Em có thể:
 1. Gửi video demo 3 phút để anh/chị xem khi rảnh
 2. Book lịch trước cho 2 tuần sau
 3. Kết nối với ai đó trong team có thể evaluate trước
@@ -800,12 +890,12 @@ Anh/chị thấy option nào tiện nhất?`
 		} else {
 			response = fmt.Sprintf(`Cảm ơn anh/chị đã phản hồi!
 
-Để mình có thể đề xuất giải pháp phù hợp nhất cho %s, anh/chị có thể chia sẻ thêm:
+Để em có thể đề xuất giải pháp phù hợp nhất cho %s, anh/chị có thể chia sẻ thêm:
 • Team sales hiện có bao nhiêu người?
 • Đang dùng tool gì để outreach (LinkedIn/Email/CRM)?
 • Mục tiêu chính là tăng response rate hay scale volume?
 
-Từ đó mình sẽ chuẩn bị demo custom cho anh/chị!`, company)
+Từ đó em sẽ chuẩn bị demo custom cho anh/chị!`, company)
 		}
 	}
 
@@ -819,16 +909,16 @@ func (s *Service) generateMeetingConfirmationDraft(ctx *DraftContext) string {
 
 	return fmt.Sprintf(`Chào %s,
 
-Tuyệt vời! Mình confirm lịch meeting nhé:
+Tuyệt vời! Em confirm lịch meeting nhé:
 
 📅 **Thời gian:** [Thời gian đã chốt]
 📍 **Hình thức:** [Zoom/Google Meet/Call]
 
-Trước buổi gặp, mình sẽ gửi thêm:
+Trước buổi gặp, em sẽ gửi thêm:
 • Link meeting + agenda
 • Một số tài liệu tham khảo về giải pháp
 
-Anh/chị có cần mình chuẩn bị thêm gì không? Hẹn gặp anh/chị! 🙌`, name)
+Anh/chị có cần em chuẩn bị thêm gì không? Hẹn gặp anh/chị! 🙌`, name)
 }
 
 func (s *Service) generatePostMeetingDraft(ctx *DraftContext) string {
@@ -841,16 +931,16 @@ Cảm ơn anh/chị đã dành thời gian trao đổi! Rất vui được hiể
 
 Như đã thảo luận, đây là summary và next steps:
 
-📋 **Những gì mình đã thống nhất:**
+📋 **Những gì em đã thống nhất:**
 • [Điểm chính 1 từ cuộc họp]
 • [Điểm chính 2 từ cuộc họp]
 
 🎯 **Bước tiếp theo:**
-• Mình sẽ gửi proposal/tài liệu chi tiết trong [X ngày]
+• Em sẽ gửi proposal/tài liệu chi tiết trong [X ngày]
 • [Action item từ phía anh/chị]
 • Book follow-up call vào [ngày] để review
 
-Anh/chị confirm giúp mình timeline này nhé. Nếu có gì thay đổi hoặc cần thêm thông tin, cứ ping mình bất cứ lúc nào!
+Anh/chị confirm giúp em timeline này nhé. Nếu có gì thay đổi hoặc cần thêm thông tin, cứ ping em bất cứ lúc nào!
 
 Cảm ơn anh/chị! 🙏`, name, company)
 }
@@ -871,18 +961,18 @@ func (s *Service) generateReEngageDraft(ctx *DraftContext) string {
 
 	return fmt.Sprintf(`Chào %s,
 
-Lâu rồi mình chưa liên lạc (%s rồi nhỉ!). Hy vọng anh/chị và team %s vẫn khỏe và đang có nhiều thành tựu mới!
+Lâu rồi em chưa liên lạc (%s rồi nhỉ!). Hy vọng anh/chị và team %s vẫn khỏe và đang có nhiều thành tựu mới!
 
-Mình quay lại vì có một vài updates mình nghĩ anh/chị sẽ quan tâm:
+Em quay lại vì có một vài updates em nghĩ anh/chị sẽ quan tâm:
 
 🚀 **Những gì mới:**
 • Tính năng AI giúp personalize message tự động (tăng 50%% response rate)
 • Integration mới với [CRM/tool phổ biến]
 • Case study từ team tương tự với %s
 
-Không biết context của anh/chị giờ thế nào - nếu outreach vẫn là priority, mình rất vui được catch up 15 phút và chia sẻ những gì mới.
+Không biết context của anh/chị giờ thế nào - nếu outreach vẫn là priority, em rất vui được catch up 15 phút và chia sẻ những gì mới.
 
-Nếu không phù hợp lúc này cũng không sao - mình chỉ muốn reconnect thôi! 😊`, name, timeContext, company, company)
+Nếu không phù hợp lúc này cũng không sao - em chỉ muốn reconnect thôi! 😊`, name, timeContext, company, company)
 }
 
 func (s *Service) getContactName(c *contact.Contact) string {
@@ -903,17 +993,17 @@ func (s *Service) getValuePropositionForRole(jobTitle string) string {
 
 	switch {
 	case strings.Contains(jobTitleLower, "ceo") || strings.Contains(jobTitleLower, "founder") || strings.Contains(jobTitleLower, "director"):
-		return "Mình hiểu anh/chị cần tối ưu hiệu quả của team sales với nguồn lực có hạn. Mình có thể giúp tự động hóa quy trình outreach, giúp team tập trung vào những deals quan trọng nhất."
+		return "Em hiểu anh/chị cần tối ưu hiệu quả của team sales với nguồn lực có hạn. Em có thể giúp tự động hóa quy trình outreach, giúp team tập trung vào những deals quan trọng nhất."
 	case strings.Contains(jobTitleLower, "sales") || strings.Contains(jobTitleLower, "bd") || strings.Contains(jobTitleLower, "business development"):
-		return "Mình biết việc tiếp cận đúng người, đúng thời điểm là thách thức lớn nhất. Mình có thể giúp anh/chị xác định leads tiềm năng và tối ưu message để tăng tỷ lệ phản hồi."
+		return "Em biết việc tiếp cận đúng người, đúng thời điểm là thách thức lớn nhất. Em có thể giúp anh/chị xác định leads tiềm năng và tối ưu message để tăng tỷ lệ phản hồi."
 	case strings.Contains(jobTitleLower, "marketing"):
-		return "Mình hiểu marketing cần align chặt với sales để tạo pipeline chất lượng. Mình có thể giúp team track được ROI từ từng chiến dịch outreach và cải thiện conversion."
+		return "Em hiểu marketing cần align chặt với sales để tạo pipeline chất lượng. Em có thể giúp team track được ROI từ từng chiến dịch outreach và cải thiện conversion."
 	case strings.Contains(jobTitleLower, "hr") || strings.Contains(jobTitleLower, "talent") || strings.Contains(jobTitleLower, "recruiting"):
-		return "Mình biết việc tiếp cận ứng viên tốt ngày càng khó. Mình có thể giúp anh/chị personalize outreach đến từng ứng viên và theo dõi hiệu quả của từng message."
+		return "Em biết việc tiếp cận ứng viên tốt ngày càng khó. Em có thể giúp anh/chị personalize outreach đến từng ứng viên và theo dõi hiệu quả của từng message."
 	case strings.Contains(jobTitleLower, "product") || strings.Contains(jobTitleLower, "tech") || strings.Contains(jobTitleLower, "engineer"):
-		return "Mình hiểu team tech cần tools hiệu quả, dễ integrate. Mình có API và automation giúp anh/chị connect với CRM hiện tại và tự động hóa workflow."
+		return "Em hiểu team tech cần tools hiệu quả, dễ integrate. Em có API và automation giúp anh/chị connect với CRM hiện tại và tự động hóa workflow."
 	default:
-		return "Mình có thể giúp team của anh/chị tiếp cận khách hàng tiềm năng một cách hiệu quả hơn, với message được personalize cho từng người và theo dõi kết quả real-time."
+		return "Em có thể giúp team của anh/chị tiếp cận khách hàng tiềm năng một cách hiệu quả hơn, với message được personalize cho từng người và theo dõi kết quả real-time."
 	}
 }
 
@@ -922,18 +1012,19 @@ func (s *Service) getIndustryInsight(industry string) string {
 	industryLower := strings.ToLower(industry)
 
 	switch {
-	case strings.Contains(industryLower, "tech") || strings.Contains(industryLower, "software") || strings.Contains(industryLower, "saas"):
-		return "Mình hiểu ngành tech cạnh tranh khốc liệt - khách hàng nhận hàng trăm cold outreach mỗi tuần. Mình có thể giúp anh/chị nổi bật với message cá nhân hóa dựa trên hành vi và nhu cầu thực sự của từng prospect."
 	case strings.Contains(industryLower, "finance") || strings.Contains(industryLower, "banking") || strings.Contains(industryLower, "fintech"):
-		return "Ngành tài chính đòi hỏi sự tin tưởng cao từ khách hàng. Mình có thể giúp anh/chị xây dựng relationship một cách có hệ thống, với follow-up đúng thời điểm và nội dung phù hợp."
+		return "Ngành tài chính đòi hỏi sự tin tưởng cao từ khách hàng. Em có thể giúp anh/chị xây dựng relationship một cách có hệ thống, với follow-up đúng thời điểm và nội dung phù hợp."
 	case strings.Contains(industryLower, "education") || strings.Contains(industryLower, "edtech"):
-		return "Ngành education có cycle dài và nhiều stakeholders. Mình có thể giúp anh/chị track conversation với từng người và coordinate outreach một cách thông minh."
+		return "Ngành education có cycle dài và nhiều stakeholders. Em có thể giúp anh/chị track conversation với từng người và coordinate outreach một cách thông minh."
+	// Generic "tech" goes after fintech/edtech, which also contain "tech".
+	case strings.Contains(industryLower, "tech") || strings.Contains(industryLower, "software") || strings.Contains(industryLower, "saas"):
+		return "Em hiểu ngành tech cạnh tranh khốc liệt - khách hàng nhận hàng trăm cold outreach mỗi tuần. Em có thể giúp anh/chị nổi bật với message cá nhân hóa dựa trên hành vi và nhu cầu thực sự của từng prospect."
 	case strings.Contains(industryLower, "healthcare") || strings.Contains(industryLower, "medical"):
-		return "Ngành healthcare cần approach chuyên nghiệp và compliance cao. Mình có thể giúp anh/chị personalize message cho từng role (bác sĩ, admin, procurement) một cách hiệu quả."
+		return "Ngành healthcare cần approach chuyên nghiệp và compliance cao. Em có thể giúp anh/chị personalize message cho từng role (bác sĩ, admin, procurement) một cách hiệu quả."
 	case strings.Contains(industryLower, "retail") || strings.Contains(industryLower, "ecommerce"):
-		return "Retail/E-commerce cần tiếp cận nhanh và scale lớn. Mình có thể giúp anh/chị automate outreach mà vẫn giữ được sự cá nhân hóa cho từng brand."
+		return "Retail/E-commerce cần tiếp cận nhanh và scale lớn. Em có thể giúp anh/chị automate outreach mà vẫn giữ được sự cá nhân hóa cho từng brand."
 	default:
-		return "Mình đã làm việc với nhiều team trong ngành tương tự và hiểu những thách thức về outreach. Mình có thể chia sẻ best practices và giúp anh/chị áp dụng ngay."
+		return "Em đã làm việc với nhiều team trong ngành tương tự và hiểu những thách thức về outreach. Em có thể chia sẻ best practices và giúp anh/chị áp dụng ngay."
 	}
 }
 
@@ -963,7 +1054,7 @@ Dựa vào TOÀN BỘ lịch sử hội thoại và thông tin khách hàng, vi�
 📝 PHÂN TÍCH TRƯỚC KHI VIẾT:
 - Khách hàng này đang ở giai đoạn nào? (Mới biết / Đã quan tâm / Đang cân nhắc / Đã từ chối)
 - Họ đã nói gì? Quan tâm điều gì? Lo ngại điều gì?
-- Tin nhắn trước của mình có hiệu quả không? Cần điều chỉnh gì?
+- Tin nhắn trước của em có hiệu quả không? Cần điều chỉnh gì?
 - Điều gì sẽ khiến họ MUỐN reply?
 
 💬 NGUYÊN TẮC VIẾT:
@@ -990,6 +1081,13 @@ Dựa vào TOÀN BỘ lịch sử hội thoại và thông tin khách hàng, vi�
 - Có thể dùng 1-2 emoji phù hợp
 - Nếu là tin đầu tiên: mở đầu với observation về họ
 - Nếu là follow-up: reference tin nhắn trước
+- KHÔNG ký tên ở cuối tin nhắn (không có "Anh Khoa", "Trân trọng", v.v.)
+
+⚠️ QUY TẮC XƯNG HÔ (BẮT BUỘC - QUAN TRỌNG NHẤT):
+- LUÔN LUÔN xưng "em" khi nói về bản thân. VD: "em muốn chia sẻ", "em thấy rằng"
+- LUÔN LUÔN gọi đối phương là "anh/chị" (CẢ HAI, KHÔNG ĐƯỢC CHỌN MỘT). VD: "Chào anh/chị [Tên]", "anh/chị có thể"
+- KHÔNG BAO GIỜ chỉ dùng "anh" hoặc chỉ dùng "chị" riêng lẻ. PHẢI LUÔN viết "anh/chị" đầy đủ
+- KHÔNG BAO GIỜ dùng: "tôi", "mình", "bạn", "quý khách"
 
 Output: CHỈ TRẢ VỀ NỘI DUNG TIN NHẮN. Không giải thích.`
 
@@ -1010,7 +1108,12 @@ Output: CHỈ TRẢ VỀ NỘI DUNG TIN NHẮN. Không giải thích.`
 		return "", fmt.Errorf("AI draft generation failed: %w", err)
 	}
 
-	return strings.TrimSpace(response), nil
+	// Post-process: replace any name placeholders with actual user name
+	result := strings.TrimSpace(response)
+	result = replaceNamePlaceholders(result, draftCtx.UserName)
+	result = normalizeVietnamesePronouns(result)
+
+	return result, nil
 }
 
 // generateDraftWithFullContextAndLanguage generates a personalized message using AI with language support
@@ -1042,11 +1145,109 @@ func (s *Service) generateDraftWithFullContextAndLanguage(ctx context.Context, d
 		return "", fmt.Errorf("AI draft generation failed: %w", err)
 	}
 
-	return strings.TrimSpace(response), nil
+	// Post-process: replace any name placeholders with actual user name
+	result := strings.TrimSpace(response)
+	result = replaceNamePlaceholders(result, draftCtx.UserName)
+	result = normalizeVietnamesePronouns(result)
+
+	return result, nil
 }
 
-// getSystemPromptForLanguage returns the appropriate system prompt based on language
+// replaceNamePlaceholders replaces common AI-generated name placeholders with the actual user name
+func replaceNamePlaceholders(text string, userName string) string {
+	placeholders := []string{
+		"[Tên bạn]",
+		"[tên bạn]",
+		"[Tên của bạn]",
+		"[tên của bạn]",
+		"[Your Name]",
+		"[your name]",
+		"[YOUR NAME]",
+		"[Tên Bạn]",
+	}
+	for _, placeholder := range placeholders {
+		text = strings.ReplaceAll(text, placeholder, userName)
+	}
+	return text
+}
+
+// Compiled regexes for Vietnamese pronoun normalization
+var (
+	// Match standalone "anh" not preceded by a letter and not followed by a letter or "/"
+	reStandaloneAnh = regexp.MustCompile(`(^|[^\p{L}])([Aa]nh)([^\p{L}/]|$)`)
+	// Match standalone "chị" not preceded by a letter or "/" and not followed by a letter
+	reStandaloneChi = regexp.MustCompile(`(^|[^\p{L}/])([Cc]hị)([^\p{L}]|$)`)
+)
+
+// normalizeVietnamesePronouns replaces standalone "anh" or "chị" with "anh/chị"
+// to ensure gender-neutral addressing in Vietnamese messages.
+// Safe to call on non-Vietnamese text (no Vietnamese words = no replacements).
+func normalizeVietnamesePronouns(text string) string {
+	// Run 2 passes to handle adjacent matches where boundaries overlap
+	for i := 0; i < 2; i++ {
+		text = reStandaloneAnh.ReplaceAllString(text, "${1}anh/chị${3}")
+		text = reStandaloneChi.ReplaceAllString(text, "${1}anh/chị${3}")
+	}
+	// Fix capitalization at start of text
+	if strings.HasPrefix(text, "anh/chị") {
+		text = "Anh/chị" + text[len("anh/chị"):]
+	}
+	return text
+}
+
+// getSystemPromptForLanguage returns the appropriate system prompt based on language.
+// If language is empty, returns a prompt that tells AI to auto-detect from contact name.
 func (s *Service) getSystemPromptForLanguage(language string) string {
+	if language == "" {
+		return `You are a B2B consultant expert. Your goal is to GENUINELY HELP the customer, not to sell.
+
+🌐 LANGUAGE DETECTION:
+You MUST detect the contact's nationality from their name, company, and location, then write the message in their NATIVE LANGUAGE.
+
+Use your world knowledge of name origins, phonetics, etymology, and cultural patterns. Examples:
+- "Nguyen Van Minh", "Tran Thi Lan" → Vietnamese → write in Vietnamese
+- "Hiroaki Yoshino", "Tanaka Yui" → Japanese → write in Japanese
+- "김민수", "Park Jimin" → Korean → write in Korean
+- "王伟", "Zhang Wei", "李华" → Chinese → write in Chinese
+
+⚠️ IMPORTANT: For ALL OTHER name origins, ALWAYS write in ENGLISH:
+- Indian/South Asian: "Naba Fatima", "Rajesh Kumar", "Priya Sharma", "Muhammad Ali" → ENGLISH
+- Arabic/Middle Eastern: "Ahmed Hassan", "Fatima Al-Said" → ENGLISH
+- Southeast Asian (Thai, Filipino, etc.): "Somchai", "Maria Santos" → ENGLISH
+- European: "Pierre Dubois", "Müller", "Marco Rossi", "García" → ENGLISH
+- African: "Kwame Asante", "Amara Diallo" → ENGLISH
+- Any other origin: → ENGLISH
+
+Rules:
+1. ONLY write in Vietnamese, Japanese, Korean, or Chinese if the name CLEARLY originates from those cultures.
+2. For ALL other nationalities (Indian, Arabic, European, African, etc.), ALWAYS write in ENGLISH. B2B communication with these contacts should be in English.
+3. Cross-reference with company name, city, and country as secondary signals.
+4. If truly ambiguous, default to ENGLISH.
+5. ALWAYS use polite/professional business tone appropriate for that language's culture.
+
+LANGUAGE-SPECIFIC TONE:
+- Vietnamese: LUÔN xưng "em", LUÔN gọi đối phương là "anh/chị" (CẢ HAI, KHÔNG chọn riêng "anh" hay "chị"). VD: "Chào anh/chị [Tên], em là...". KHÔNG dùng "tôi", "mình", "bạn".
+- Japanese: です/ます form, address as 〇〇さん
+- Korean: 존댓말, address as 〇〇님
+- All languages: 3-5 short sentences, natural tone, 1-2 emojis OK, DO NOT sign your name at the end
+
+CORE PRINCIPLES:
+1. REFERENCE specifically what they've said/shared before
+2. ACKNOWLEDGE their emotions and viewpoints
+3. PROVIDE VALUE before asking anything
+4. CTA must be NATURAL and LOW-PRESSURE
+
+ABSOLUTELY AVOID:
+- Generic messages that could be sent to anyone
+- Pushing sales when they're not ready
+- Ignoring what they've said before
+- Claiming to work at the contact's company. Their employer is where THEY work,
+  never yours: "At <their company>, we've been enhancing our offerings" reads as an
+  obvious template error and destroys credibility on the first line.
+
+Output: ONLY RETURN THE MESSAGE CONTENT. No explanations. No language labels.`
+	}
+
 	if language == "en" {
 		return `You are a B2B consultant expert - your goal is to GENUINELY HELP the customer, not to sell.
 
@@ -1073,6 +1274,9 @@ Based on the FULL conversation history and customer information, write the next 
 - Pushing sales when they're not ready
 - Ignoring what they've said before
 - Using rigid templates
+- Claiming to work at the contact's company. Their employer is where THEY work,
+  never yours: "At <their company>, we've been enhancing our offerings" reads as an
+  obvious template error and destroys credibility on the first line.
 
 ✅ DO:
 - Personalize based on conversation history
@@ -1080,14 +1284,79 @@ Based on the FULL conversation history and customer information, write the next 
 - Show empathy if they have concerns
 - Offer something helpful (without demanding anything)
 
+📝 MESSAGE GUIDELINES BY NEXT_STEP:
+
+📤 COLD OUTREACH:
+- SEND: Focus on insight/observation about them + offer specific value
+
+📭 NO REPLY (NO_REPLY):
+- FOLLOW_UP_1: MUST start with "Following up on my message from [X days] ago" or "Not sure if you had a chance to see my previous message". Be gentle, respectful, add new value or different angle
+- FOLLOW_UP_2: MUST mention this is "my last follow-up" or "I don't want to bother you". Offer alternatives: (1) send materials, (2) reconnect later, (3) introduce to someone else
+
+💬 REPLIED:
+- SET_MEETING: Thank them for replying, respond directly to their message, PROPOSE SPECIFIC TIMES to meet (e.g., "Would Tuesday 10am or Thursday 2pm work for you?")
+
+📅 WAITING FOR MEETING CONFIRMATION:
+- FOLLOW_UP_MEETING_1: MUST reference the proposed time "Following up on the meeting time I suggested". Ask if the time works, offer alternatives if needed
+- FOLLOW_UP_MEETING_2: MUST say "this is my last reminder about the meeting". Offer options: (1) confirm original time, (2) suggest different time, (3) reconnect when they're less busy
+
+✅ MEETING CONFIRMED:
+- PREPARE_MEETING: Confirm meeting time, SEND MEETING LINK (Zoom/Google Meet), send brief agenda, ask if they need anything else prepared
+
+🤝 POST-MEETING:
+- FOLLOW_UP: MUST start with "Thank you for taking the time to meet [yesterday/last week]". Recap key discussion points, list specific action items, propose clear next steps
+
+🔄 RE-ENGAGE:
+- RE_ENGAGE: Warm, friendly, mention something new/relevant since last contact
+
 📏 FORMAT:
 - 3-5 short sentences
 - Natural, friendly English
 - Can use 1-2 appropriate emojis
 - If first message: start with an observation about them
 - If follow-up: reference the previous message
+- DO NOT sign your name at the end of the message (no "Best regards, Name", etc.)
 
 Output: ONLY RETURN THE MESSAGE CONTENT. No explanations.`
+	}
+
+	if language == "ja" {
+		return `あなたはB2Bコンサルタントの専門家です。目標は顧客を本当に助けることであり、売り込みではありません。
+
+🎯 主な目標:
+会話履歴と顧客情報に基づいて、次のメッセージを作成してください：
+1. 顧客が「聞いてもらえている」「理解してもらえている」と感じること
+2. あなたが「助けようとしている」と認識してもらうこと
+3. 会話を続けたいと思ってもらうこと
+
+📝 書く前に分析:
+- この顧客はどの段階にいるか？（新規 / 関心あり / 検討中 / 辞退）
+- 何を言ったか？何に興味があるか？何を懸念しているか？
+- 前回のメッセージは効果的だったか？調整が必要か？
+- 何が返信したいと思わせるか？
+
+💬 ライティング原則:
+1. 相手が以前言ったことを具体的に参照する
+2. 相手の感情や視点を認める
+3. 何かを求める前に価値を提供する（インサイト、ヒント、リソース）
+4. CTAは自然で低圧力であること
+
+🚫 絶対に避けること:
+- 誰にでも送れるような汎用的なメッセージ
+- 準備ができていない時にセールスを押し付けること
+- 相手が以前言ったことを無視すること
+- 硬直したテンプレートの使用
+
+📏 フォーマット:
+- 3〜5文の短い文章
+- 自然でプロフェッショナルな日本語（です/ます体）
+- 相手を「〇〇さん」と呼ぶ
+- 適切な絵文字を1〜2個使用可能
+- 最初のメッセージ：相手に関する観察から始める
+- フォローアップ：前回のメッセージを参照する
+- メッセージの最後に署名しないこと（「よろしくお願いします、〇〇」などは不要）
+
+Output: メッセージの内容のみを返してください。説明は不要です。`
 	}
 
 	// Default: Vietnamese
@@ -1102,7 +1371,7 @@ Dựa vào TOÀN BỘ lịch sử hội thoại và thông tin khách hàng, vi�
 📝 PHÂN TÍCH TRƯỚC KHI VIẾT:
 - Khách hàng này đang ở giai đoạn nào? (Mới biết / Đã quan tâm / Đang cân nhắc / Đã từ chối)
 - Họ đã nói gì? Quan tâm điều gì? Lo ngại điều gì?
-- Tin nhắn trước của mình có hiệu quả không? Cần điều chỉnh gì?
+- Tin nhắn trước của em có hiệu quả không? Cần điều chỉnh gì?
 - Điều gì sẽ khiến họ MUỐN reply?
 
 💬 NGUYÊN TẮC VIẾT:
@@ -1129,12 +1398,25 @@ Dựa vào TOÀN BỘ lịch sử hội thoại và thông tin khách hàng, vi�
 - Có thể dùng 1-2 emoji phù hợp
 - Nếu là tin đầu tiên: mở đầu với observation về họ
 - Nếu là follow-up: reference tin nhắn trước
+- KHÔNG ký tên ở cuối tin nhắn (không có "Anh Khoa", "Trân trọng", v.v.)
+
+⚠️ QUY TẮC XƯNG HÔ (BẮT BUỘC - QUAN TRỌNG NHẤT):
+- LUÔN LUÔN xưng "em" khi nói về bản thân. VD: "em muốn chia sẻ", "em thấy rằng"
+- LUÔN LUÔN gọi đối phương là "anh/chị" (CẢ HAI, KHÔNG ĐƯỢC CHỌN MỘT). VD: "Chào anh/chị [Tên]", "anh/chị có thể"
+- KHÔNG BAO GIỜ chỉ dùng "anh" hoặc chỉ dùng "chị" riêng lẻ. PHẢI LUÔN viết "anh/chị" đầy đủ
+- KHÔNG BAO GIỜ dùng: "tôi", "mình", "bạn", "quý khách"
 
 Output: CHỈ TRẢ VỀ NỘI DUNG TIN NHẮN. Không giải thích.`
 }
 
 // buildFullContextPromptWithLanguage builds a comprehensive prompt with language support
 func (s *Service) buildFullContextPromptWithLanguage(draftCtx *DraftContext, conversationHistory []*outreach.InteractionLog, language string) string {
+	// For auto-detect (empty language), use English format for the context prompt
+	// The AI will decide the output language based on the contact name
+	if language == "" {
+		language = "en"
+	}
+
 	var sb strings.Builder
 
 	if language == "en" {
@@ -1145,22 +1427,29 @@ func (s *Service) buildFullContextPromptWithLanguage(draftCtx *DraftContext, con
 			sb.WriteString("🙋 YOUR INFORMATION (Sender)\n")
 			sb.WriteString("═══════════════════════════════════════\n")
 			sb.WriteString(fmt.Sprintf("Your name: %s\n", draftCtx.UserName))
-			sb.WriteString("(Use this name when signing messages)\n\n")
+			sb.WriteString("(This is the sender's name - DO NOT sign with this name at the end of the message)\n\n")
 		}
 
 		sb.WriteString("═══════════════════════════════════════\n")
 		sb.WriteString("👤 CUSTOMER INFORMATION\n")
 		sb.WriteString("═══════════════════════════════════════\n")
-		sb.WriteString(fmt.Sprintf("Name: %s\n", draftCtx.Contact.Name))
+		sb.WriteString(fmt.Sprintf("Name: %q\n", sanitizeField(draftCtx.Contact.Name)))
 		if draftCtx.Contact.JobTitle != "" {
-			sb.WriteString(fmt.Sprintf("Title: %s\n", draftCtx.Contact.JobTitle))
+			sb.WriteString(fmt.Sprintf("Title: %q\n", sanitizeField(draftCtx.Contact.JobTitle)))
 		}
 		if draftCtx.Contact.Company != "" {
-			sb.WriteString(fmt.Sprintf("Company: %s\n", draftCtx.Contact.Company))
+			// Spelled out because this is the only company name in the prompt.
+			// Left as a bare "Company:" the model assumed it was its own and
+			// wrote "At <their company>, we've been enhancing our offerings".
+			sb.WriteString(fmt.Sprintf("Company where THEY work: %q\n", sanitizeField(draftCtx.Contact.Company)))
+			sb.WriteString(fmt.Sprintf("(You do NOT work at %s. Never write \"At %s, we...\" or imply you are their colleague.)\n",
+				sanitizeField(draftCtx.Contact.Company), sanitizeField(draftCtx.Contact.Company)))
 		}
 		if draftCtx.Contact.Industry != "" {
-			sb.WriteString(fmt.Sprintf("Industry: %s\n", draftCtx.Contact.Industry))
+			sb.WriteString(fmt.Sprintf("Their industry: %q\n", sanitizeField(draftCtx.Contact.Industry)))
 		}
+
+		sb.WriteString(buildContactFactsBlock(draftCtx.Contact, "en"))
 
 		sb.WriteString("\n═══════════════════════════════════════\n")
 		sb.WriteString("📊 CURRENT STATUS\n")
@@ -1214,6 +1503,25 @@ func (s *Service) buildFullContextPromptWithLanguage(draftCtx *DraftContext, con
 		sb.WriteString("\n═══════════════════════════════════════\n")
 		sb.WriteString("✍️ INSTRUCTION\n")
 		sb.WriteString("═══════════════════════════════════════\n")
+
+		// Add specific requirement based on next_step (English)
+		switch draftCtx.State.NextStep {
+		case outreach.NextStepFollowUp1:
+			sb.WriteString("⚠️ THIS IS FOLLOW-UP #1: MUST start by referencing the previous message (e.g., 'Following up on my message from X days ago...')\n")
+		case outreach.NextStepFollowUp2:
+			sb.WriteString("⚠️ THIS IS FOLLOW-UP #2 (FINAL): MUST mention this is the last follow-up and offer alternatives\n")
+		case outreach.NextStepSetMeeting:
+			sb.WriteString("⚠️ CUSTOMER REPLIED: Respond directly to what they said and PROPOSE SPECIFIC MEETING TIMES\n")
+		case outreach.NextStepFollowUpMeeting1:
+			sb.WriteString("⚠️ MEETING CONFIRMATION FOLLOW-UP #1: MUST reference the proposed meeting time\n")
+		case outreach.NextStepFollowUpMeeting2:
+			sb.WriteString("⚠️ MEETING CONFIRMATION FOLLOW-UP #2 (FINAL): MUST mention this is the last reminder about the meeting\n")
+		case outreach.NextStepPrepareMeeting:
+			sb.WriteString("⚠️ PREPARE MEETING: Confirm time, SEND MEETING LINK, send brief agenda\n")
+		case outreach.NextStepFollowUp:
+			sb.WriteString("⚠️ POST-MEETING FOLLOW-UP: MUST start by thanking them for the meeting, recap key points and action items\n")
+		}
+
 		sb.WriteString("Based on the conversation history above, write the next message that naturally continues the conversation and addresses customer needs.\n")
 	} else {
 		// Vietnamese version (default)
@@ -1223,22 +1531,26 @@ func (s *Service) buildFullContextPromptWithLanguage(draftCtx *DraftContext, con
 			sb.WriteString("🙋 THÔNG TIN NGƯỜI GỬI (Bạn)\n")
 			sb.WriteString("═══════════════════════════════════════\n")
 			sb.WriteString(fmt.Sprintf("Tên của bạn: %s\n", draftCtx.UserName))
-			sb.WriteString("(Dùng tên này khi ký tên tin nhắn)\n\n")
+			sb.WriteString("(Đây là tên người gửi - KHÔNG ký tên này ở cuối tin nhắn)\n\n")
 		}
 
 		sb.WriteString("═══════════════════════════════════════\n")
 		sb.WriteString("👤 THÔNG TIN KHÁCH HÀNG\n")
 		sb.WriteString("═══════════════════════════════════════\n")
-		sb.WriteString(fmt.Sprintf("Tên: %s\n", draftCtx.Contact.Name))
+		sb.WriteString(fmt.Sprintf("Tên: %q\n", sanitizeField(draftCtx.Contact.Name)))
 		if draftCtx.Contact.JobTitle != "" {
-			sb.WriteString(fmt.Sprintf("Chức vụ: %s\n", draftCtx.Contact.JobTitle))
+			sb.WriteString(fmt.Sprintf("Chức vụ: %q\n", sanitizeField(draftCtx.Contact.JobTitle)))
 		}
 		if draftCtx.Contact.Company != "" {
-			sb.WriteString(fmt.Sprintf("Công ty: %s\n", draftCtx.Contact.Company))
+			sb.WriteString(fmt.Sprintf("Công ty NƠI HỌ LÀM VIỆC: %q\n", sanitizeField(draftCtx.Contact.Company)))
+			sb.WriteString(fmt.Sprintf("(Bạn KHÔNG làm ở %s. Tuyệt đối không viết \"Tại %s, chúng tôi...\" hay ám chỉ mình là đồng nghiệp của họ.)\n",
+				sanitizeField(draftCtx.Contact.Company), sanitizeField(draftCtx.Contact.Company)))
 		}
 		if draftCtx.Contact.Industry != "" {
-			sb.WriteString(fmt.Sprintf("Ngành: %s\n", draftCtx.Contact.Industry))
+			sb.WriteString(fmt.Sprintf("Ngành của họ: %q\n", sanitizeField(draftCtx.Contact.Industry)))
 		}
+
+		sb.WriteString(buildContactFactsBlock(draftCtx.Contact, "vi"))
 
 		sb.WriteString("\n═══════════════════════════════════════\n")
 		sb.WriteString("📊 TRẠNG THÁI HIỆN TẠI\n")
@@ -1292,6 +1604,25 @@ func (s *Service) buildFullContextPromptWithLanguage(draftCtx *DraftContext, con
 		sb.WriteString("\n═══════════════════════════════════════\n")
 		sb.WriteString("✍️ HƯỚNG DẪN\n")
 		sb.WriteString("═══════════════════════════════════════\n")
+
+		// Add specific requirement based on next_step (Vietnamese)
+		switch draftCtx.State.NextStep {
+		case outreach.NextStepFollowUp1:
+			sb.WriteString("⚠️ ĐÂY LÀ FOLLOW-UP LẦN 1: BẮT BUỘC mở đầu bằng việc nhắc lại tin nhắn trước (VD: 'Em quay lại về tin nhắn X ngày trước...')\n")
+		case outreach.NextStepFollowUp2:
+			sb.WriteString("⚠️ ĐÂY LÀ FOLLOW-UP LẦN 2 (CUỐI): BẮT BUỘC nói đây là lần cuối follow-up và offer alternatives\n")
+		case outreach.NextStepSetMeeting:
+			sb.WriteString("⚠️ KHÁCH ĐÃ REPLY: Respond trực tiếp đến họ nói gì và ĐỀ XUẤT THỜI GIAN CỤ THỂ để gặp\n")
+		case outreach.NextStepFollowUpMeeting1:
+			sb.WriteString("⚠️ FOLLOW-UP XÁC NHẬN LỊCH LẦN 1: BẮT BUỘC nhắc lại thời gian đã đề xuất\n")
+		case outreach.NextStepFollowUpMeeting2:
+			sb.WriteString("⚠️ FOLLOW-UP XÁC NHẬN LỊCH LẦN 2 (CUỐI): BẮT BUỘC nói đây là lần cuối nhắc về lịch meeting\n")
+		case outreach.NextStepPrepareMeeting:
+			sb.WriteString("⚠️ CHUẨN BỊ MEETING: Xác nhận lại thời gian, GỬI LINK MEETING, gửi agenda ngắn gọn\n")
+		case outreach.NextStepFollowUp:
+			sb.WriteString("⚠️ FOLLOW-UP SAU MEETING: BẮT BUỘC mở đầu bằng cảm ơn đã dành thời gian gặp, recap key points và action items\n")
+		}
+
 		sb.WriteString("Dựa trên lịch sử hội thoại ở trên, hãy viết tin nhắn tiếp theo sao cho tự nhiên và đáp ứng nhu cầu khách hàng.\n")
 	}
 
@@ -1424,15 +1755,15 @@ func (s *Service) buildFullContextPrompt(draftCtx *DraftContext, conversationHis
 	sb.WriteString("═══════════════════════════════════════\n")
 	sb.WriteString("👤 THÔNG TIN KHÁCH HÀNG\n")
 	sb.WriteString("═══════════════════════════════════════\n")
-	sb.WriteString(fmt.Sprintf("Tên: %s\n", draftCtx.Contact.Name))
+	sb.WriteString(fmt.Sprintf("Tên: %q\n", sanitizeField(draftCtx.Contact.Name)))
 	if draftCtx.Contact.JobTitle != "" {
-		sb.WriteString(fmt.Sprintf("Chức vụ: %s\n", draftCtx.Contact.JobTitle))
+		sb.WriteString(fmt.Sprintf("Chức vụ: %q\n", sanitizeField(draftCtx.Contact.JobTitle)))
 	}
 	if draftCtx.Contact.Company != "" {
-		sb.WriteString(fmt.Sprintf("Công ty: %s\n", draftCtx.Contact.Company))
+		sb.WriteString(fmt.Sprintf("Công ty: %q\n", sanitizeField(draftCtx.Contact.Company)))
 	}
 	if draftCtx.Contact.Industry != "" {
-		sb.WriteString(fmt.Sprintf("Ngành: %s\n", draftCtx.Contact.Industry))
+		sb.WriteString(fmt.Sprintf("Ngành: %q\n", sanitizeField(draftCtx.Contact.Industry)))
 	}
 
 	// Current state
@@ -1537,7 +1868,7 @@ Nhiệm vụ: Viết tin nhắn LinkedIn mang tính GIÁ TRỊ và CHÂN THÀNH,
 NGUYÊN TẮC VÀNG:
 1. LUÔN mở đầu bằng một observation cụ thể về contact (công ty, role, achievement)
 2. FOCUS vào giá trị bạn có thể MANG LẠI, không phải sản phẩm bạn muốn bán
-3. Đặt mình vào vị trí NGƯỜI GIÚP ĐỠ, không phải người bán hàng
+3. Đặt em vào vị trí NGƯỜI GIÚP ĐỠ, không phải người bán hàng
 4. CTA phải low-commitment (hỏi ý kiến, share insight, 10 phút call)
 5. Tham khảo NOTES của team sales - đây là thông tin quan trọng nhất
 
@@ -1545,8 +1876,14 @@ QUY TẮC VIẾT:
 - Ngắn gọn: 4-6 câu tối đa
 - Tự nhiên như đang nhắn tin với đồng nghiệp
 - Tiếng Việt thân thiện, có thể dùng emoji vừa phải (1-2 emoji)
-- TRÁNH: "Mình muốn giới thiệu...", "Sản phẩm của mình...", "Công ty mình..."
-- NÊN: "Mình có thể giúp...", "Mình vừa thấy một cách...", "Team tương tự đã..."
+- TRÁNH: "Em muốn giới thiệu...", "Sản phẩm của em...", "Công ty em..."
+- NÊN: "Em có thể giúp...", "Em vừa thấy một cách...", "Team tương tự đã..."
+
+⚠️ QUY TẮC XƯNG HÔ (BẮT BUỘC - QUAN TRỌNG NHẤT):
+- LUÔN LUÔN xưng "em" khi nói về bản thân. VD: "em muốn chia sẻ", "em thấy rằng"
+- LUÔN LUÔN gọi đối phương là "anh/chị" (CẢ HAI, KHÔNG ĐƯỢC CHỌN MỘT). VD: "Chào anh/chị [Tên]", "anh/chị có thể"
+- KHÔNG BAO GIỜ chỉ dùng "anh" hoặc chỉ dùng "chị" riêng lẻ. PHẢI LUÔN viết "anh/chị" đầy đủ
+- KHÔNG BAO GIỜ dùng: "tôi", "mình", "bạn", "quý khách"
 
 THEO CONTEXT VÀ NEXT_STEP:
 
@@ -1554,15 +1891,15 @@ THEO CONTEXT VÀ NEXT_STEP:
 - SEND: Focus vào insight/observation về họ + offer value cụ thể
 
 📭 KHÔNG CÓ PHẢN HỒI (NO_REPLY):
-- FOLLOW_UP_1: BẮT BUỘC mở đầu bằng "Mình quay lại về tin nhắn [X ngày] trước" hoặc "Không biết anh/chị đã xem tin nhắn mình gửi chưa". Nhẹ nhàng, tôn trọng, thêm giá trị mới hoặc góc nhìn khác
-- FOLLOW_UP_2: BẮT BUỘC nói đây là "lần cuối mình follow-up" hoặc "mình không muốn làm phiền". Offer alternatives: (1) gửi tài liệu, (2) kết nối lại sau, (3) giới thiệu người khác
+- FOLLOW_UP_1: BẮT BUỘC mở đầu bằng "Em quay lại về tin nhắn [X ngày] trước" hoặc "Không biết anh/chị đã xem tin nhắn em gửi chưa". Nhẹ nhàng, tôn trọng, thêm giá trị mới hoặc góc nhìn khác
+- FOLLOW_UP_2: BẮT BUỘC nói đây là "lần cuối em follow-up" hoặc "em không muốn làm phiền". Offer alternatives: (1) gửi tài liệu, (2) kết nối lại sau, (3) giới thiệu người khác
 
 💬 ĐÃ PHẢN HỒI (REPLIED):
 - SET_MEETING: Cảm ơn họ đã reply, respond trực tiếp đến content họ nói, ĐỀ XUẤT THỜI GIAN CỤ THỂ để gặp (VD: "Anh/chị có thể gặp 10h sáng thứ 3 hoặc 2h chiều thứ 5 không?")
 
 📅 CHỜ XÁC NHẬN LỊCH MEETING:
-- FOLLOW_UP_MEETING_1: BẮT BUỘC nhắc lại thời gian đã đề xuất "Mình quay lại về lịch meeting [thời gian] mình đề xuất". Hỏi xem thời gian đó có phù hợp không, offer thời gian khác nếu cần
-- FOLLOW_UP_MEETING_2: BẮT BUỘC nói "đây là lần cuối mình nhắc về lịch meeting". Offer options: (1) confirm thời gian cũ, (2) đề xuất thời gian khác, (3) kết nối lại sau khi anh/chị rảnh hơn
+- FOLLOW_UP_MEETING_1: BẮT BUỘC nhắc lại thời gian đã đề xuất "Em quay lại về lịch meeting [thời gian] em đề xuất". Hỏi xem thời gian đó có phù hợp không, offer thời gian khác nếu cần
+- FOLLOW_UP_MEETING_2: BẮT BUỘC nói "đây là lần cuối em nhắc về lịch meeting". Offer options: (1) confirm thời gian cũ, (2) đề xuất thời gian khác, (3) kết nối lại sau khi anh/chị rảnh hơn
 
 ✅ ĐÃ CONFIRM LỊCH:
 - PREPARE_MEETING: Xác nhận lại thời gian meeting, GỬI LINK MEETING (Zoom/Google Meet), gửi agenda ngắn gọn, hỏi có cần chuẩn bị gì thêm không
@@ -1572,6 +1909,8 @@ THEO CONTEXT VÀ NEXT_STEP:
 
 🔄 RE-ENGAGE:
 - RE_ENGAGE: Warm, friendly, mention something new/relevant kể từ lần cuối liên hệ
+
+KHÔNG ký tên ở cuối tin nhắn (không có "Anh Khoa", "Trân trọng", v.v.)
 
 Output: CHỈ TRẢ VỀ NỘI DUNG TIN NHẮN, không giải thích. Bắt đầu ngay bằng câu mở.`
 
@@ -1592,7 +1931,12 @@ Output: CHỈ TRẢ VỀ NỘI DUNG TIN NHẮN, không giải thích. Bắt đ�
 		return "", fmt.Errorf("AI draft generation failed: %w", err)
 	}
 
-	return strings.TrimSpace(response), nil
+	// Post-process: replace any name placeholders with actual user name
+	result := strings.TrimSpace(response)
+	result = replaceNamePlaceholders(result, draftCtx.UserName)
+	result = normalizeVietnamesePronouns(result)
+
+	return result, nil
 }
 
 // buildAIDraftPrompt builds the prompt for AI draft generation
@@ -1601,15 +1945,15 @@ func (s *Service) buildAIDraftPrompt(draftCtx *DraftContext) string {
 
 	// Contact info
 	sb.WriteString("=== THÔNG TIN CONTACT ===\n")
-	sb.WriteString(fmt.Sprintf("Tên: %s\n", draftCtx.Contact.Name))
+	sb.WriteString(fmt.Sprintf("Tên: %q\n", sanitizeField(draftCtx.Contact.Name)))
 	if draftCtx.Contact.JobTitle != "" {
-		sb.WriteString(fmt.Sprintf("Chức vụ: %s\n", draftCtx.Contact.JobTitle))
+		sb.WriteString(fmt.Sprintf("Chức vụ: %q\n", sanitizeField(draftCtx.Contact.JobTitle)))
 	}
 	if draftCtx.Contact.Company != "" {
-		sb.WriteString(fmt.Sprintf("Công ty: %s\n", draftCtx.Contact.Company))
+		sb.WriteString(fmt.Sprintf("Công ty: %q\n", sanitizeField(draftCtx.Contact.Company)))
 	}
 	if draftCtx.Contact.Industry != "" {
-		sb.WriteString(fmt.Sprintf("Ngành: %s\n", draftCtx.Contact.Industry))
+		sb.WriteString(fmt.Sprintf("Ngành: %q\n", sanitizeField(draftCtx.Contact.Industry)))
 	}
 
 	// Conversation state
@@ -1658,7 +2002,7 @@ func (s *Service) buildAIDraftPrompt(draftCtx *DraftContext) string {
 	// Add specific requirement based on next_step
 	switch draftCtx.State.NextStep {
 	case outreach.NextStepFollowUp1:
-		sb.WriteString("⚠️ ĐÂY LÀ FOLLOW-UP LẦN 1: BẮT BUỘC mở đầu bằng việc nhắc lại tin nhắn trước (VD: 'Mình quay lại về tin nhắn X ngày trước...')\n")
+		sb.WriteString("⚠️ ĐÂY LÀ FOLLOW-UP LẦN 1: BẮT BUỘC mở đầu bằng việc nhắc lại tin nhắn trước (VD: 'Em quay lại về tin nhắn X ngày trước...')\n")
 	case outreach.NextStepFollowUp2:
 		sb.WriteString("⚠️ ĐÂY LÀ FOLLOW-UP LẦN 2 (CUỐI): BẮT BUỘC nói đây là lần cuối follow-up và offer alternatives\n")
 	case outreach.NextStepSetMeeting:
@@ -1715,10 +2059,12 @@ func (s *Service) UpdateOutreach(ctx context.Context, input *UpdateOutreachInput
 		return err
 	}
 
+	cfg := s.configFor(ctx, input.UserID)
 	if state == nil {
 		state = &outreach.OutreachState{
-			UserID:    input.UserID,
-			ContactID: input.ContactID,
+			UserID:       input.UserID,
+			ContactID:    input.ContactID,
+			MaxFollowups: cfg.MaxFollowups,
 		}
 	}
 
@@ -1753,15 +2099,30 @@ func (s *Service) UpdateOutreach(ctx context.Context, input *UpdateOutreachInput
 
 		state.LastOutcome = string(outreach.OutcomeSent)
 		state.LastInteractionAt = &now
-		state.ConversationState = string(outreach.StateNoReply)
-		state.NextStep = string(outreach.NextStepWait) // Wait for response
+
+		// Preserve conversation state based on current state (don't reset to COLD)
+		switch outreach.ConversationState(state.ConversationState) {
+		case outreach.StateNoReply:
+			// Sending a follow-up: stay NO_REPLY, increment followup count, wait for response
+			state.FollowupCount++
+			state.NextStep = string(outreach.NextStepWait)
+		case outreach.StateReplied:
+			// Responding to a reply: stay REPLIED, wait for next response
+			state.NextStep = string(outreach.NextStepWait)
+		case outreach.StatePostMeeting:
+			// Follow-up on deal: stay POST_MEETING, wait
+			state.NextStep = string(outreach.NextStepWait)
+		default:
+			// Initial cold outreach: transition to NO_REPLY, wait for response
+			state.ConversationState = string(outreach.StateNoReply)
+			state.NextStep = string(outreach.NextStepWait)
+		}
 
 		// Update contact fields including next_step and outreach_stage
 		updatedContact, updateErr := s.contactRepo.UpdateFields(ctx, input.ContactID, map[string]interface{}{
-			"lifecycle_stage":     "contacted",
 			"last_interaction_at": now,
 			"next_step":           string(outreach.NextStepWait),
-			"outreach_stage":      string(outreach.StateNoReply),
+			"outreach_stage":      state.ConversationState,
 			"last_outcome":        string(outreach.OutcomeSent),
 		}, input.UserID, uuid.Nil)
 		if updateErr != nil {
@@ -1799,12 +2160,11 @@ func (s *Service) UpdateOutreach(ctx context.Context, input *UpdateOutreachInput
 		state.LastOutcome = string(outreach.OutcomeReplied)
 		state.LastInteractionAt = &now
 		state.ConversationState = string(outreach.StateReplied)
-		state.FollowupCount = 0 // Reset followup count when customer replies
+		state.FollowupCount = 0                              // Reset followup count when customer replies
 		state.NextStep = string(outreach.NextStepSetMeeting) // Propose meeting schedule
 
 		// Update contact fields including next_step and outreach_stage
 		s.contactRepo.UpdateFields(ctx, input.ContactID, map[string]interface{}{
-			"lifecycle_stage":     "replied",
 			"last_interaction_at": now,
 			"next_step":           string(outreach.NextStepSetMeeting),
 			"outreach_stage":      string(outreach.StateReplied),
@@ -1819,10 +2179,12 @@ func (s *Service) UpdateOutreach(ctx context.Context, input *UpdateOutreachInput
 		state.ConversationState = string(outreach.StateNoReply)
 
 		// Determine next step based on followup count
-		// followup_count = 0 (initial sent) → FOLLOW_UP_1
-		// followup_count = 1 (FU1 sent) → FOLLOW_UP_2
-		// followup_count = 2 (FU2 sent) → DROP
-		if state.FollowupCount >= state.MaxFollowups {
+		// followup_count = 1 (initial sent, no reply) → FOLLOW_UP_1
+		// followup_count = 2 (FU1 sent, no reply) → FOLLOW_UP_2
+		// followup_count = 3+ (FU2 sent, no reply) → DROP
+		// The organisation's cap, as in DetermineConversationState — not the
+		// value frozen into the row when it was first created.
+		if state.FollowupCount >= cfg.MaxFollowups+1 {
 			state.NextStep = string(outreach.NextStepDrop)
 			state.ConversationState = string(outreach.StateDropped)
 		} else if state.FollowupCount == 1 {
@@ -1832,12 +2194,13 @@ func (s *Service) UpdateOutreach(ctx context.Context, input *UpdateOutreachInput
 		}
 
 		// Update contact fields including next_step and outreach_stage
-		s.contactRepo.UpdateFields(ctx, input.ContactID, map[string]interface{}{
+		updateFields := map[string]interface{}{
 			"next_step":      state.NextStep,
 			"outreach_stage": state.ConversationState,
 			"last_outcome":   string(outreach.OutcomeNoReply),
 			"followup_count": state.FollowupCount,
-		}, input.UserID, uuid.Nil)
+		}
+		s.contactRepo.UpdateFields(ctx, input.ContactID, updateFields, input.UserID, uuid.Nil)
 
 	case EventMeetingBooked:
 		// Meeting proposed, waiting for customer confirmation
@@ -1850,7 +2213,6 @@ func (s *Service) UpdateOutreach(ctx context.Context, input *UpdateOutreachInput
 
 		// Update contact fields including next_step and outreach_stage
 		s.contactRepo.UpdateFields(ctx, input.ContactID, map[string]interface{}{
-			"lifecycle_stage":     "meeting",
 			"last_interaction_at": now,
 			"next_step":           string(outreach.NextStepWait),
 			"outreach_stage":      string(outreach.StateReplied),
@@ -1863,7 +2225,7 @@ func (s *Service) UpdateOutreach(ctx context.Context, input *UpdateOutreachInput
 		// No meeting schedule confirmation - need meeting follow-up
 		state.FollowupCount++
 
-		if state.FollowupCount >= 2 {
+		if state.FollowupCount >= 3 {
 			// Already followed up meeting 2 times but still no confirmation → DROP
 			state.NextStep = string(outreach.NextStepDrop)
 			state.ConversationState = string(outreach.StateDropped)
@@ -1874,11 +2236,12 @@ func (s *Service) UpdateOutreach(ctx context.Context, input *UpdateOutreachInput
 		}
 
 		// Update contact fields including next_step and outreach_stage
-		s.contactRepo.UpdateFields(ctx, input.ContactID, map[string]interface{}{
+		noConfirmFields := map[string]interface{}{
 			"next_step":      state.NextStep,
 			"outreach_stage": state.ConversationState,
 			"followup_count": state.FollowupCount,
-		}, input.UserID, uuid.Nil)
+		}
+		s.contactRepo.UpdateFields(ctx, input.ContactID, noConfirmFields, input.UserID, uuid.Nil)
 
 	case EventMeetingConfirmed:
 		// Customer confirmed meeting schedule
@@ -1907,7 +2270,6 @@ func (s *Service) UpdateOutreach(ctx context.Context, input *UpdateOutreachInput
 
 		// Update contact fields including next_step and outreach_stage
 		s.contactRepo.UpdateFields(ctx, input.ContactID, map[string]interface{}{
-			"lifecycle_stage":     "qualified",
 			"last_interaction_at": now,
 			"next_step":           string(outreach.NextStepFollowUp),
 			"outreach_stage":      string(outreach.StatePostMeeting),
@@ -1923,11 +2285,13 @@ func (s *Service) UpdateOutreach(ctx context.Context, input *UpdateOutreachInput
 
 		// Update contact fields including next_step and outreach_stage
 		s.contactRepo.UpdateFields(ctx, input.ContactID, map[string]interface{}{
-			"lifecycle_stage":  "dropped",
-			"next_step":        string(outreach.NextStepDrop),
-			"outreach_stage":   string(outreach.StateDropped),
-			"last_outcome":     string(outreach.OutcomeDropped),
+			"next_step":      string(outreach.NextStepDrop),
+			"outreach_stage": string(outreach.StateDropped),
+			"last_outcome":   string(outreach.OutcomeDropped),
 		}, input.UserID, uuid.Nil)
+
+	default:
+		return fmt.Errorf("%w: %q", ErrUnknownEvent, input.Event)
 	}
 
 	// Recalculate days since last interaction
@@ -2009,7 +2373,7 @@ func (s *Service) UpdateMeeting(ctx context.Context, input *UpdateMeetingInput) 
 	if err != nil {
 		return nil, err
 	}
-	if meeting == nil {
+	if meeting == nil || meeting.UserID != input.UserID {
 		return nil, fmt.Errorf("meeting not found")
 	}
 
@@ -2060,6 +2424,13 @@ type DraftResult struct {
 	ContextLevel outreach.ContextLevel      `json:"context_level"`
 	State        *outreach.OutreachState    `json:"state"`
 	Notes        []*outreach.InteractionLog `json:"notes,omitempty"` // Team notes for context
+
+	// Contact info for display
+	ContactName        string `json:"contact_name,omitempty"`
+	ContactCompany     string `json:"contact_company,omitempty"`
+	ContactJobTitle    string `json:"contact_job_title,omitempty"`
+	ContactInformation string `json:"contact_information,omitempty"` // LinkedIn URL or email
+	ContactChannel     string `json:"contact_channel,omitempty"`     // LinkedIn, Email, etc.
 }
 
 // GenerateDraftForHandler generates a draft for a contact (handler-compatible signature)
@@ -2180,6 +2551,12 @@ func (s *Service) GenerateDraftForHandlerWithLanguage(ctx context.Context, userI
 		ContextLevel: contextLevel,
 		State:        state,
 		Notes:        notes,
+
+		ContactName:        contactEntity.Name,
+		ContactCompany:     contactEntity.Company,
+		ContactJobTitle:    contactEntity.JobTitle,
+		ContactInformation: contactEntity.ContactInformation,
+		ContactChannel:     contactEntity.ContactChannel,
 	}, nil
 }
 
@@ -2244,24 +2621,14 @@ func (s *Service) UpdateOutreachForHandler(ctx context.Context, userID, contactI
 }
 
 // GetOutreachState gets the outreach state for a contact (handler-compatible)
-// If no state exists, it auto-creates one based on the contact's current situation
+// Always recalculates from DetermineConversationState and syncs both outreach_states and contacts tables
 func (s *Service) GetOutreachState(ctx context.Context, userID, contactID uuid.UUID) (*outreach.OutreachState, error) {
-	// Try to find existing state
-	existingState, err := s.stateRepo.FindByContactID(ctx, contactID, userID)
-	if err != nil {
-		return nil, err
-	}
-	if existingState != nil {
-		return existingState, nil
-	}
-
-	// No state exists - auto-create one based on contact's current situation
 	contactEntity, err := s.contactRepo.FindByIDAndUserID(ctx, userID, contactID)
 	if err != nil {
 		return nil, fmt.Errorf("contact not found: %w", err)
 	}
 
-	// Determine the conversation state
+	// Always recalculate real-time state
 	stateResult, err := s.DetermineConversationState(ctx, contactEntity, userID)
 	if err != nil {
 		return nil, err
@@ -2272,37 +2639,63 @@ func (s *Service) GetOutreachState(ctx context.Context, userID, contactID uuid.U
 	if contactEntity.Company != "" && contactEntity.JobTitle != "" {
 		contextLevel = string(outreach.ContextMedium)
 	}
-	// Check if we have AI insights or confirmed facts
-	if len(contactEntity.AIInsights) > 0 || len(contactEntity.ConfirmedFacts) > 0 {
+	// Both columns default to '{}', so "non-empty bytes" is true for everyone.
+	if jsonHasContent(contactEntity.AIInsights) || jsonHasContent(contactEntity.ConfirmedFacts) {
 		contextLevel = string(outreach.ContextHigh)
 	}
 
-	// Create the initial state
-	newState := &outreach.OutreachState{
+	// Try to find existing state to preserve fields like LastOutcome
+	existingState, _ := s.stateRepo.FindByContactID(ctx, contactID, userID)
+	lastOutcome := string(outreach.OutcomeNone)
+	if existingState != nil {
+		lastOutcome = existingState.LastOutcome
+	}
+
+	// Build state with real-time values
+	state := &outreach.OutreachState{
 		UserID:            userID,
 		ContactID:         contactID,
 		ConversationState: string(stateResult.State),
 		ContextLevel:      contextLevel,
 		OutreachIntent:    string(stateResult.OutreachIntent),
 		Scenario:          string(stateResult.Scenario),
-		LastOutcome:       string(outreach.OutcomeNone),
+		LastOutcome:       lastOutcome,
 		NextStep:          string(stateResult.NextStep),
 		FollowupCount:     stateResult.FollowupCount,
 		MaxFollowups:      s.config.MaxFollowups,
 	}
 
-	// Set last interaction time if available
 	if stateResult.LastOutgoing != nil {
-		newState.LastInteractionAt = &stateResult.LastOutgoing.Timestamp
-		newState.DaysSinceLastInteraction = stateResult.DaysSinceLastInteraction
+		state.LastInteractionAt = &stateResult.LastOutgoing.Timestamp
+		state.DaysSinceLastInteraction = stateResult.DaysSinceLastInteraction
 	}
 
-	// Save the state using Upsert
-	if err := s.stateRepo.Upsert(ctx, newState); err != nil {
-		return nil, fmt.Errorf("failed to create outreach state: %w", err)
+	// Save to outreach_states table
+	if err := s.stateRepo.Upsert(ctx, state); err != nil {
+		return nil, fmt.Errorf("failed to save outreach state: %w", err)
 	}
 
-	return newState, nil
+	// Sync contacts table so left panel matches right panel
+	newNextStep := string(stateResult.NextStep)
+	newOutreachStage := string(stateResult.State)
+	if contactEntity.NextStep != newNextStep || contactEntity.OutreachStage != newOutreachStage {
+		s.contactRepo.UpdateFields(ctx, contactID, map[string]interface{}{
+			"next_step":      newNextStep,
+			"outreach_stage": newOutreachStage,
+		}, userID, uuid.Nil)
+	}
+
+	return state, nil
+}
+
+// jsonHasContent reports whether a JSONB value holds anything beyond an empty
+// object, empty array or null.
+func jsonHasContent(raw []byte) bool {
+	switch strings.TrimSpace(string(raw)) {
+	case "", "{}", "[]", "null":
+		return false
+	}
+	return true
 }
 
 // GetInteractionHistory gets interaction history for a contact (handler-compatible)
@@ -2366,6 +2759,12 @@ func (s *Service) GetMeetingsForHandler(ctx context.Context, userID, contactID u
 	return s.GetMeetings(ctx, contactID, userID)
 }
 
+// GetUpcomingMeetingsForHandler gets all upcoming scheduled meetings for a user (handler-compatible)
+func (s *Service) GetUpcomingMeetingsForHandler(ctx context.Context, userID uuid.UUID) ([]*outreach.Meeting, error) {
+	meetings, _, err := s.meetingRepo.FindUpcoming(ctx, userID, nil)
+	return meetings, err
+}
+
 // DeleteMeetingForHandler deletes a meeting (handler-compatible)
 func (s *Service) DeleteMeetingForHandler(ctx context.Context, userID, meetingID uuid.UUID) error {
 	meeting, err := s.meetingRepo.FindByID(ctx, meetingID)
@@ -2384,12 +2783,13 @@ func (s *Service) DeleteMeetingForHandler(ctx context.Context, userID, meetingID
 
 // GenerateMeetingPrep generates meeting preparation document (talking points, discovery questions)
 // This is generated BEFORE the meeting based on conversation history and contact info
-func (s *Service) GenerateMeetingPrep(ctx context.Context, userID, meetingID uuid.UUID) (*outreach.Meeting, error) {
+// language: "vi" for Vietnamese, "en" for English
+func (s *Service) GenerateMeetingPrep(ctx context.Context, userID, meetingID uuid.UUID, language string) (*outreach.Meeting, error) {
 	meeting, err := s.meetingRepo.FindByID(ctx, meetingID)
 	if err != nil {
 		return nil, err
 	}
-	if meeting == nil {
+	if meeting == nil || meeting.UserID != userID {
 		return nil, fmt.Errorf("meeting not found")
 	}
 
@@ -2413,11 +2813,11 @@ func (s *Service) GenerateMeetingPrep(ctx context.Context, userID, meetingID uui
 	// Get team notes for additional context
 	notes, _ := s.interactionRepo.FindNotes(ctx, meeting.ContactID, userID, 10)
 
-	// Build prompt for AI
-	prompt := s.buildMeetingPrepPrompt(meeting, contact, interactions, notes)
+	// Build prompt for AI based on language
+	prompt := s.buildMeetingPrepPrompt(meeting, contact, interactions, notes, language)
 
 	// Generate prep using AI
-	prep, err := s.generateMeetingPrepWithAI(ctx, prompt)
+	prep, err := s.generateMeetingPrepWithAI(ctx, prompt, language)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate meeting prep: %w", err)
 	}
@@ -2432,9 +2832,15 @@ func (s *Service) GenerateMeetingPrep(ctx context.Context, userID, meetingID uui
 }
 
 // buildMeetingPrepPrompt builds the prompt for generating meeting preparation document
-func (s *Service) buildMeetingPrepPrompt(meeting *outreach.Meeting, contactEntity *contact.Contact, interactions []*outreach.InteractionLog, notes []*outreach.InteractionLog) string {
+// language: "vi" for Vietnamese, "en" for English
+func (s *Service) buildMeetingPrepPrompt(meeting *outreach.Meeting, contactEntity *contact.Contact, interactions []*outreach.InteractionLog, notes []*outreach.InteractionLog, language string) string {
 	var sb strings.Builder
 
+	if language == "en" {
+		return s.buildMeetingPrepPromptEnglish(meeting, contactEntity, interactions, notes)
+	}
+
+	// Vietnamese version (default)
 	sb.WriteString("Bạn là trợ lý AI chuyên chuẩn bị tài liệu cho cuộc họp kinh doanh.\n\n")
 	sb.WriteString("Dựa trên thông tin khách hàng và lịch sử trao đổi dưới đây, hãy tạo tài liệu chuẩn bị cuộc họp (Meeting Prep) với các câu hỏi discovery cực kỳ chuẩn xác và các talking points phù hợp.\n\n")
 
@@ -2442,16 +2848,16 @@ func (s *Service) buildMeetingPrepPrompt(meeting *outreach.Meeting, contactEntit
 	sb.WriteString("=== THÔNG TIN KHÁCH HÀNG ===\n")
 	if contactEntity != nil {
 		if contactEntity.Name != "" && contactEntity.Name != "N/A" {
-			sb.WriteString(fmt.Sprintf("Tên: %s\n", contactEntity.Name))
+			sb.WriteString(fmt.Sprintf("Tên: %q\n", sanitizeField(contactEntity.Name)))
 		}
 		if contactEntity.JobTitle != "" && contactEntity.JobTitle != "N/A" {
-			sb.WriteString(fmt.Sprintf("Chức vụ: %s\n", contactEntity.JobTitle))
+			sb.WriteString(fmt.Sprintf("Chức vụ: %q\n", sanitizeField(contactEntity.JobTitle)))
 		}
 		if contactEntity.Company != "" && contactEntity.Company != "N/A" {
-			sb.WriteString(fmt.Sprintf("Công ty: %s\n", contactEntity.Company))
+			sb.WriteString(fmt.Sprintf("Công ty: %q\n", sanitizeField(contactEntity.Company)))
 		}
 		if contactEntity.Industry != "" && contactEntity.Industry != "N/A" {
-			sb.WriteString(fmt.Sprintf("Ngành: %s\n", contactEntity.Industry))
+			sb.WriteString(fmt.Sprintf("Ngành: %q\n", sanitizeField(contactEntity.Industry)))
 		}
 		if contactEntity.ContactInformation != "" && contactEntity.ContactInformation != "N/A" {
 			sb.WriteString(fmt.Sprintf("Thông tin liên hệ: %s\n", contactEntity.ContactInformation))
@@ -2515,14 +2921,104 @@ func (s *Service) buildMeetingPrepPrompt(meeting *outreach.Meeting, contactEntit
 	return sb.String()
 }
 
+// buildMeetingPrepPromptEnglish builds the English version of meeting prep prompt
+func (s *Service) buildMeetingPrepPromptEnglish(meeting *outreach.Meeting, contactEntity *contact.Contact, interactions []*outreach.InteractionLog, notes []*outreach.InteractionLog) string {
+	var sb strings.Builder
+
+	sb.WriteString("You are an AI assistant specialized in preparing business meeting documents.\n\n")
+	sb.WriteString("Based on the customer information and conversation history below, create a Meeting Prep document with highly accurate discovery questions and appropriate talking points.\n\n")
+
+	// Contact info
+	sb.WriteString("=== CUSTOMER INFORMATION ===\n")
+	if contactEntity != nil {
+		if contactEntity.Name != "" && contactEntity.Name != "N/A" {
+			sb.WriteString(fmt.Sprintf("Name: %q\n", sanitizeField(contactEntity.Name)))
+		}
+		if contactEntity.JobTitle != "" && contactEntity.JobTitle != "N/A" {
+			sb.WriteString(fmt.Sprintf("Job Title: %q\n", sanitizeField(contactEntity.JobTitle)))
+		}
+		if contactEntity.Company != "" && contactEntity.Company != "N/A" {
+			sb.WriteString(fmt.Sprintf("Company: %q\n", sanitizeField(contactEntity.Company)))
+		}
+		if contactEntity.Industry != "" && contactEntity.Industry != "N/A" {
+			sb.WriteString(fmt.Sprintf("Industry: %q\n", sanitizeField(contactEntity.Industry)))
+		}
+		if contactEntity.ContactInformation != "" && contactEntity.ContactInformation != "N/A" {
+			sb.WriteString(fmt.Sprintf("Contact Information: %s\n", contactEntity.ContactInformation))
+		}
+		if contactEntity.ContextLevel != "" {
+			sb.WriteString(fmt.Sprintf("Context Level: %s\n", contactEntity.ContextLevel))
+		}
+	}
+
+	// Meeting info
+	sb.WriteString("\n=== MEETING INFORMATION ===\n")
+	if meeting.Title != nil && *meeting.Title != "" {
+		sb.WriteString(fmt.Sprintf("Title: %s\n", *meeting.Title))
+	}
+	sb.WriteString(fmt.Sprintf("Time: %s\n", meeting.Time.Format("01/02/2006 15:04")))
+	sb.WriteString(fmt.Sprintf("Duration: %d minutes\n", meeting.DurationMinutes))
+	sb.WriteString(fmt.Sprintf("Channel: %s\n", meeting.Channel))
+
+	// Conversation history
+	sb.WriteString("\n=== CONVERSATION HISTORY ===\n")
+	if len(interactions) == 0 {
+		sb.WriteString("No conversation history yet.\n")
+	} else {
+		for i, interaction := range interactions {
+			direction := "→ Sent"
+			if interaction.Direction == string(outreach.DirectionIncoming) {
+				direction = "← Received"
+			}
+			sb.WriteString(fmt.Sprintf("%d. [%s] %s (%s):\n", i+1, interaction.Timestamp.Format("01/02/2006"), direction, interaction.Channel))
+			sb.WriteString(fmt.Sprintf("   %s\n\n", interaction.Content))
+		}
+	}
+
+	// Team notes
+	if len(notes) > 0 {
+		sb.WriteString("\n=== TEAM NOTES ===\n")
+		for _, note := range notes {
+			sb.WriteString(fmt.Sprintf("- [%s] %s\n", note.Timestamp.Format("01/02/2006"), note.Content))
+		}
+	}
+
+	// Instructions
+	sb.WriteString("\n\n=== REQUIREMENTS ===\n")
+	sb.WriteString("Create a Meeting Prep Document with the following sections:\n\n")
+	sb.WriteString("1. **Meeting Objectives** (2-3 specific goals to achieve)\n\n")
+	sb.WriteString("2. **Talking Points** (5-7 key points to discuss in the meeting, based on existing context)\n\n")
+	sb.WriteString("3. **Discovery Questions** (7-10 highly accurate questions to uncover needs, pain points, and opportunities):\n")
+	sb.WriteString("   - Questions about current state\n")
+	sb.WriteString("   - Questions about challenges/pain points\n")
+	sb.WriteString("   - Questions about goals/expectations\n")
+	sb.WriteString("   - Questions about decision-making process\n")
+	sb.WriteString("   - Questions about timeline and budget\n\n")
+	sb.WriteString("4. **Potential Objections** (3-5 possible objections and how to handle them)\n\n")
+	sb.WriteString("5. **Suggested Next Steps** (follow-up actions after the meeting)\n\n")
+	sb.WriteString("Notes:\n")
+	sb.WriteString("- Questions must be BASED ON the existing information about the customer and conversation history\n")
+	sb.WriteString("- Avoid asking about things already known\n")
+	sb.WriteString("- Questions should be specific, not generic\n")
+	sb.WriteString("- Respond in English, clear and easy to use in the meeting")
+
+	return sb.String()
+}
+
 // generateMeetingPrepWithAI generates meeting prep using AI
-func (s *Service) generateMeetingPrepWithAI(ctx context.Context, prompt string) (string, error) {
+// language: "vi" for Vietnamese, "en" for English
+func (s *Service) generateMeetingPrepWithAI(ctx context.Context, prompt string, language string) (string, error) {
 	if s.openAIClient == nil {
 		return "", fmt.Errorf("OpenAI client not configured")
 	}
 
+	systemPrompt := "Bạn là trợ lý AI chuyên chuẩn bị tài liệu cho cuộc họp kinh doanh. Bạn giỏi trong việc đặt câu hỏi discovery chính xác và tạo talking points hiệu quả. Trả lời bằng tiếng Việt."
+	if language == "en" {
+		systemPrompt = "You are an AI assistant specialized in preparing business meeting documents. You excel at crafting accurate discovery questions and creating effective talking points. Respond in English."
+	}
+
 	response, err := s.openAIClient.ChatCompletion(ctx, ai.ChatCompletionRequest{
-		SystemPrompt: "Bạn là trợ lý AI chuyên chuẩn bị tài liệu cho cuộc họp kinh doanh. Bạn giỏi trong việc đặt câu hỏi discovery chính xác và tạo talking points hiệu quả. Trả lời bằng tiếng Việt.",
+		SystemPrompt: systemPrompt,
 		Messages: []ai.Message{
 			{
 				Role:    "user",

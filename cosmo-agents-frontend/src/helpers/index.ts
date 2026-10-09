@@ -14,6 +14,18 @@ function getPreviewData(
     Object.entries(contact).map(([key, value]) => {
       previewData[`contact_${key}`] = value;
     });
+
+    // The contacts table merged first/last name into a single `name` column,
+    // but every stock template still writes {contact_first_name}. Derive the
+    // parts so those tags resolve instead of rendering as unfilled.
+    const fullName = String(contact.name ?? '').trim();
+    if (fullName) {
+      const parts = fullName.split(/\s+/);
+      previewData.contact_first_name = parts[0];
+      previewData.contact_last_name =
+        parts.length > 1 ? parts.slice(1).join(' ') : '';
+      previewData.contact_full_name = fullName;
+    }
   }
 
   if (agent) {
@@ -36,11 +48,36 @@ function getPreviewData(
   return previewData;
 }
 
+const SIGN_OFF_LINE =
+  /^\s*(best|best regards?|kind regards?|warm regards?|regards?|thanks|thank you|many thanks|cheers|sincerely|yours sincerely|all the best|take care|wishing you well|trân trọng|thân mến|thân ái|cảm ơn)[,.!]?\s*$/i;
+
+/**
+ * Drops the template's own closing line when the signature brings one. This
+ * mirrors the backend's dropDuplicateSignOff, so the preview shows what will
+ * be sent: "Best," + a signature starting "Best regards," produced both.
+ */
+export function dropDuplicateSignOff(template: string, signature: string) {
+  const idx = template.indexOf('{agent_signature}');
+  if (idx < 0) return template;
+  const firstSigLine = signature.trim().split('\n')[0] ?? '';
+  if (!SIGN_OFF_LINE.test(firstSigLine)) return template;
+  const lines = template.slice(0, idx).split('\n');
+  let i = lines.length - 1;
+  while (i >= 0 && lines[i].trim() === '') i--;
+  if (i < 0 || !SIGN_OFF_LINE.test(lines[i])) return template;
+  lines.splice(i, 1);
+  return lines.join('\n') + template.slice(idx);
+}
+
 function replaceMergeTags(text: string, data: Record<string, any>) {
   return text.replaceAll(/\{([^}]+)\}/g, (match, p1) => {
-    return data[p1]
-      ? `<span style="background-color: #FF99001A; color: #FF9900;" title="${match}">${data[p1]}</span>`
-      : `<span style="background-color: #FF00001A; color: #FF0000;" title="Not available">${match}</span>`;
+    const value = data[p1];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return `<span style="background-color: #FF99001A; color: #FF9900;" title="Filled from ${match}">${value}</span>`;
+    }
+    // Say why it is red. A bare red tag leaves the reader guessing whether the
+    // template is wrong or the data is simply missing for this contact.
+    return `<span style="background-color: #FF00001A; color: #FF0000;" title="No value for ${match} on this contact — the email will send with this blank">${match}</span>`;
   });
 }
 
@@ -55,7 +92,10 @@ export function getContent(
 
   const signature = agent?.data.entity.signature;
   if (signature) {
-    const signatureContent = content.replace('{agent_signature}', signature);
+    const signatureContent = dropDuplicateSignOff(content, signature).replace(
+      '{agent_signature}',
+      signature
+    );
     return replaceMergeTags(signatureContent, previewData);
   }
   return replaceMergeTags(content, previewData);
@@ -85,7 +125,9 @@ export function replaceTag(input: string, tagsOptions: Record<string, string>) {
   return input.replace(/\{([^}]+)\}/g, (match, p1) => {
     const isAgent = p1.startsWith('agent_');
     const value = tagsOptions[p1] || 'Not available';
-    return `<span className="mx-0.5 p-1 rounded-sm ${isAgent ? 'bg-[#FFE8E9] text-[#FF0000]' : 'bg-[#FFF5EA] text-[#FF9900]'}" title="${match}">${value}</span>`;
+    // `class`, not `className`: this string is injected as raw HTML, where
+    // React's prop name means nothing and the styling silently drops.
+    return `<span class="mx-0.5 p-1 rounded-sm ${isAgent ? 'bg-[#FFE8E9] text-[#FF0000]' : 'bg-[#FFF5EA] text-[#FF9900]'}" title="${match}">${value}</span>`;
   });
 }
 
@@ -127,6 +169,9 @@ export const fakeStream = ({
       onFinished?.();
     }
   }, time);
+  // Trả về hàm huỷ: nếu không dọn, mỗi lần effect chạy lại sẽ đẻ thêm một
+  // interval và chúng ghi đè nhau giữa chừng.
+  return () => clearInterval(intervalContent);
 };
 
 export function formatAndCapitalize(str: string, prefix?: string): string {

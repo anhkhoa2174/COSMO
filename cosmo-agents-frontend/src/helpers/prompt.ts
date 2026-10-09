@@ -12,9 +12,10 @@ export const promptAIReply = () => {
   
       Could you let me know your availability for a quick conversation? I look forward to exploring potential opportunities together.
   
-      Best regards,
       {agent_signature}
       </EmailContent>
+
+      Do not write a closing line such as "Best regards," before {agent_signature}: the signature already contains one.
       `;
 };
 

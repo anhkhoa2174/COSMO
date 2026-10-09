@@ -179,11 +179,15 @@ export default function AgentDetailPage({
                       <p className="text-base font-semibold">{agent.name}</p>
                       <Badge
                         variant={
-                          agent.status === 'active' ? 'success' : 'destructive'
+                          agent.status === 'active'
+                            ? 'success'
+                            : agent.status === 'inactive'
+                              ? 'secondary'
+                              : 'destructive'
                         }
                         className="capitalize"
                       >
-                        {agent.status}
+                        {agent.status ?? 'unknown'}
                       </Badge>
                     </div>
                     <p className="text-muted-foreground">{agent.email}</p>

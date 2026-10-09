@@ -3,27 +3,47 @@ package salerep
 import (
 	"context"
 	"fmt"
+	"github.com/lib/pq"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/rockship/cosmo-agents-go/internal/domain"
 	base "github.com/rockship/cosmo-agents-go/internal/repository/base"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupTestDB creates a test database
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 
 	// Auto-migrate the SaleRep schema
-	err = db.AutoMigrate(&domain.SaleRep{})
+	err = db.AutoMigrate(&domain.User{}, &domain.Organization{}, &domain.SaleRep{})
 	require.NoError(t, err)
 
 	return db
+}
+
+// seedOwner inserts the user and organization a sale rep belongs to. sale_reps
+// carries foreign keys to both (migration 000005). SQLite did not enforce them,
+// so these tests used to insert reps that pointed at rows that did not exist -
+// a state production's schema rejects.
+func seedOwner(t *testing.T, db *gorm.DB) (uuid.UUID, uuid.UUID) {
+	t.Helper()
+	user := domain.User{Email: uuid.NewString() + "@example.com", Name: "owner", PhoneNumber: pq.StringArray{"123"}}
+	require.NoError(t, db.Create(&user).Error)
+	org := domain.Organization{
+		UserID:                  &user.ID,
+		Name:                    "org",
+		CompanyDescription:      "desc",
+		ValueOffering:           "value",
+		CompanyTargetingPersona: pq.StringArray{"buyer"},
+	}
+	require.NoError(t, db.Create(&org).Error)
+	return user.ID, org.ID
 }
 
 // TestSaleRepRepository_Create tests creating a new sale rep
@@ -33,8 +53,7 @@ func TestSaleRepRepository_Create(t *testing.T) {
 	ctx := context.Background()
 
 	// Test data
-	userID := uuid.New()
-	orgID := uuid.New()
+	userID, orgID := seedOwner(t, db)
 	saleRep := &domain.SaleRep{
 		FirstName:      "John",
 		LastName:       "Doe",
@@ -64,8 +83,7 @@ func TestSaleRepRepository_GetByUserIDAndEmail(t *testing.T) {
 	ctx := context.Background()
 
 	// Create test sale rep
-	userID := uuid.New()
-	orgID := uuid.New()
+	userID, orgID := seedOwner(t, db)
 	saleRep := &domain.SaleRep{
 		FirstName:      "Jane",
 		LastName:       "Smith",
@@ -97,8 +115,7 @@ func TestSaleRepRepository_GetByIDs(t *testing.T) {
 	ctx := context.Background()
 
 	// Create test sale reps
-	userID := uuid.New()
-	orgID := uuid.New()
+	userID, orgID := seedOwner(t, db)
 	var saleRepIDs []string
 
 	for i := 0; i < 3; i++ {
@@ -142,8 +159,7 @@ func TestSaleRepRepository_GetByEmail(t *testing.T) {
 	ctx := context.Background()
 
 	// Create test sale rep
-	userID := uuid.New()
-	orgID := uuid.New()
+	userID, orgID := seedOwner(t, db)
 	saleRep := &domain.SaleRep{
 		FirstName:      "Alice",
 		LastName:       "Johnson",
@@ -175,8 +191,7 @@ func TestSaleRepRepository_GetByUserID(t *testing.T) {
 	ctx := context.Background()
 
 	// Create test sale reps
-	userID := uuid.New()
-	orgID := uuid.New()
+	userID, orgID := seedOwner(t, db)
 
 	for i := 0; i < 5; i++ {
 		saleRep := &domain.SaleRep{
@@ -220,8 +235,7 @@ func TestSaleRepRepository_Update(t *testing.T) {
 	ctx := context.Background()
 
 	// Create test sale rep
-	userID := uuid.New()
-	orgID := uuid.New()
+	userID, orgID := seedOwner(t, db)
 	saleRep := &domain.SaleRep{
 		FirstName:      "Bob",
 		LastName:       "Wilson",
@@ -256,8 +270,7 @@ func TestSaleRepRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 
 	// Create test sale rep
-	userID := uuid.New()
-	orgID := uuid.New()
+	userID, orgID := seedOwner(t, db)
 	saleRep := &domain.SaleRep{
 		FirstName:      "Charlie",
 		LastName:       "Brown",
@@ -285,8 +298,7 @@ func TestSaleRepRepository_ComplexSaleRep(t *testing.T) {
 	ctx := context.Background()
 
 	// Create test data
-	userID := uuid.New()
-	orgID := uuid.New()
+	userID, orgID := seedOwner(t, db)
 
 	// Test complex sale rep
 	saleRep := &domain.SaleRep{

@@ -1,6 +1,7 @@
 package contact
 
 import (
+	"context"
 	"errors"
 
 	"github.com/gofiber/fiber/v3"
@@ -72,6 +73,15 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 	deletedContacts, err := h.repo.DeleteByIDs(c.Context(), ids, user.ID, orgIDPtr)
 	if err != nil {
 		return h.responseHelper.InternalServerError(c, "Failed to delete contacts", err)
+	}
+
+	// Clean up vectors from Redis for deleted contacts
+	if h.intelSvc != nil && len(deletedContacts) > 0 {
+		deletedIDs := make([]uuid.UUID, len(deletedContacts))
+		for i, contact := range deletedContacts {
+			deletedIDs[i] = contact.ID
+		}
+		go h.intelSvc.DeleteContactVectors(context.Background(), deletedIDs)
 	}
 
 	// Convert to responses

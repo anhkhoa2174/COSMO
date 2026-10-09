@@ -163,6 +163,9 @@ func (h *OrganizationHandler) CreateOrganization(c fiber.Ctx) error {
 			CompanyDescription:      req.CompanyDescription,
 			CompanyTargetingPersona: req.CompanyTargetingPersona,
 			ValueOffering:           req.ValueOffering,
+			CRM:                     req.CRM,
+			LeadHandling:            req.LeadHandling,
+			LeadHandlingOther:       req.LeadHandlingOther,
 		}
 
 		if _, err := h.repo.Create(txCtx, org); err != nil {
@@ -286,6 +289,15 @@ func (h *OrganizationHandler) UpdateOrganization(c fiber.Ctx) error {
 	}
 	if req.ValueOffering != nil {
 		org.ValueOffering = *req.ValueOffering
+	}
+	if req.CRM != nil {
+		org.CRM = *req.CRM
+	}
+	if req.LeadHandling != nil {
+		org.LeadHandling = req.LeadHandling
+	}
+	if req.LeadHandlingOther != nil {
+		org.LeadHandlingOther = *req.LeadHandlingOther
 	}
 
 	// Save

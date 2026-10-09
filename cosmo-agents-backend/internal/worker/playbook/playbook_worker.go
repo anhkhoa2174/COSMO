@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/rockship/cosmo-agents-go/internal/contactinfo"
 	"strings"
 	"time"
 
@@ -24,19 +25,9 @@ import (
 	queueworker "github.com/rockship/cosmo-agents-go/pkg/worker"
 )
 
-// extractEmailFromProfile extracts email from contact's profile JSONB
-func extractEmailFromProfile(profile base.JSONB) string {
-	if len(profile) == 0 {
-		return ""
-	}
-	var profileData map[string]interface{}
-	if err := json.Unmarshal(profile, &profileData); err != nil {
-		return ""
-	}
-	if email, ok := profileData["email"].(string); ok {
-		return email
-	}
-	return ""
+// extractContactEmail extracts email from contact, checking ContactInformation first, then profile JSONB.
+func extractContactEmail(contactInformation string, profile base.JSONB) string {
+	return contactinfo.Resolve(contactInformation, profile)
 }
 
 type Worker struct {
@@ -172,12 +163,12 @@ func (w *Worker) HandleEvaluateRules(ctx context.Context, task *asynq.Task) erro
 			}
 
 			if criteria.RequireHumanApproval {
-				pending, err := w.approvalRepo.GetPendingByContactRule(ctx, score.ContactID, rule.PlaybookID, rule.AutomationRuleID)
+				latest, err := w.approvalRepo.GetLatestByContactRule(ctx, score.ContactID, rule.PlaybookID, rule.AutomationRuleID)
 				if err != nil {
-					logger.Logger.Error().Err(err).Msg("playbook: failed to check pending approval")
+					logger.Logger.Error().Err(err).Msg("playbook: failed to check previous approval")
 					continue
 				}
-				if pending != nil {
+				if !shouldRequestApproval(latest, score.FitScore) {
 					continue
 				}
 
@@ -357,6 +348,16 @@ func (w *Worker) executeEmailStage(ctx context.Context, enrollment *playbookDoma
 		return fmt.Errorf("contact not found")
 	}
 
+	// Tôn trọng opt-out: contact đã DO_NOT_CONTACT thì không gửi gì nữa
+	if contact.DoNotContact {
+		log.Events = append(log.Events, eventLog{
+			Type:    "email",
+			Message: "Contact is marked do-not-contact; skipping send",
+			At:      time.Now(),
+		})
+		return nil
+	}
+
 	agentID, err := w.findDefaultAgentID(ctx, contact.UserID)
 	if err != nil {
 		log.Events = append(log.Events, eventLog{
@@ -376,7 +377,7 @@ func (w *Worker) executeEmailStage(ctx context.Context, enrollment *playbookDoma
 		}
 	}
 
-	contactEmail := extractEmailFromProfile(contact.Profile)
+	contactEmail := extractContactEmail(contact.ContactInformation, contact.Profile)
 	payload := workerpayloads.SendEmailPayload{
 		AgentID:   agentID,
 		ContactID: contact.ID,
@@ -525,15 +526,18 @@ func findStage(stages []v1schema.PlaybookStage, stageID string, stageOrder int) 
 	return nil
 }
 
+// nextStageByOrder returns the stage with the lowest order above currentOrder.
+// Orders need not be consecutive: looking only for currentOrder+1 ended the
+// playbook early at the first gap (orders 1, 3 never reached stage 3).
 func nextStageByOrder(stages []v1schema.PlaybookStage, currentOrder int) *v1schema.PlaybookStage {
-	nextOrder := currentOrder + 1
+	var next *v1schema.PlaybookStage
 	for _, stage := range stages {
-		if stage.Order == nextOrder {
+		if stage.Order > currentOrder && (next == nil || stage.Order < next.Order) {
 			stageCopy := stage
-			return &stageCopy
+			next = &stageCopy
 		}
 	}
-	return nil
+	return next
 }
 
 func buildStageContent(stage v1schema.PlaybookStage, name, company, jobTitle string) (string, string) {
@@ -584,5 +588,27 @@ func extractEngagementScore(profileRaw base.JSONB) int {
 		return v
 	default:
 		return 0
+	}
+}
+
+// shouldRequestApproval decides whether a rule may ask for approval to enroll
+// a contact, given the contact's latest request under that rule.
+//
+// A pending request is still waiting for a person, so asking again would only
+// duplicate it. A rejected one is reconsidered only once the contact's fit
+// score has risen above the score it was rejected at: the rule re-runs every
+// few minutes, and without this a contact a person turned down would be put
+// back in front of them on the next run with nothing about it changed.
+func shouldRequestApproval(latest *playbookDomain.EnrollmentApprovalRequest, fitScore int) bool {
+	if latest == nil {
+		return true
+	}
+	switch latest.Status {
+	case "pending":
+		return false
+	case "rejected":
+		return fitScore > latest.FitScore
+	default:
+		return true
 	}
 }

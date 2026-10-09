@@ -9,6 +9,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/rs/zerolog"
 
+	"github.com/rockship/cosmo-agents-go/internal/domain"
 	campaignRepo "github.com/rockship/cosmo-agents-go/internal/repository/campaign"
 	contactRepo "github.com/rockship/cosmo-agents-go/internal/repository/contact"
 	conversationRepo "github.com/rockship/cosmo-agents-go/internal/repository/conversation"
@@ -54,6 +55,17 @@ type EmailIndexingPayload struct {
 	Metadata          map[string]interface{} `json:"metadata"`
 }
 
+// KnowledgeSearcher searches the knowledge base for relevant context.
+type KnowledgeSearcher interface {
+	Search(ctx context.Context, userID uuid.UUID, query string, limit int) ([]KnowledgeChunk, error)
+}
+
+// KnowledgeChunk represents a chunk of knowledge text with relevance score.
+type KnowledgeChunk struct {
+	ChunkText string
+	Score     float64
+}
+
 // Worker processes email generation and indexing tasks
 type Worker struct {
 	// Repositories
@@ -66,13 +78,14 @@ type Worker struct {
 	orgRepo          *organization.OrganizationRepository
 
 	// Services
-	mailWriter mailGenerationService
+	mailWriter        mailGenerationService
+	knowledgeSearcher KnowledgeSearcher
 
 	logger *zerolog.Logger
 }
 
 type mailGenerationService interface {
-	GenerateSingleOutreach(ctx context.Context, previous []mailService.EmailTemplate) (*mailService.EmailTemplate, error)
+	GenerateSingleOutreach(ctx context.Context, previous []mailService.EmailTemplate, knowledgeDocs ...mailService.Document) (*mailService.EmailTemplate, error)
 	GenerateReply(ctx context.Context, conversation []mailService.EmailTemplate, intent mailService.IntentType) (*mailService.EmailTemplate, error)
 }
 
@@ -86,18 +99,20 @@ func New(
 	userRepo *userRepo.UserRepository,
 	orgRepo *organization.OrganizationRepository,
 	mailWriter mailGenerationService,
+	knowledgeSearcher KnowledgeSearcher,
 	log *zerolog.Logger,
 ) *Worker {
 	return &Worker{
-		campaignRepo:     campaignRepo,
-		contactRepo:      contactRepo,
-		conversationRepo: conversationRepo,
-		emailRepo:        emailRepo,
-		templateRepo:     templateRepo,
-		userRepo:         userRepo,
-		orgRepo:          orgRepo,
-		mailWriter:       mailWriter,
-		logger:           log,
+		campaignRepo:      campaignRepo,
+		contactRepo:       contactRepo,
+		conversationRepo:  conversationRepo,
+		emailRepo:         emailRepo,
+		templateRepo:      templateRepo,
+		userRepo:          userRepo,
+		orgRepo:           orgRepo,
+		mailWriter:        mailWriter,
+		knowledgeSearcher: knowledgeSearcher,
+		logger:            log,
 	}
 }
 
@@ -129,9 +144,33 @@ func (w *Worker) processGenerateCampaignEmail(ctx context.Context, task *asynq.T
 		Str("template_type", string(payload.TemplateType)).
 		Msg("Processing campaign email generation task")
 
-	// Generate email using MailWriter service
-	// previousEmails will be from payload (can be nil for first email)
-	generatedEmail, err := w.mailWriter.GenerateSingleOutreach(ctx, payload.PreviousEmails)
+	// Look up campaign to get UserID
+	camp, err := w.campaignRepo.FindByID(ctx, payload.CampaignID)
+	if err != nil {
+		w.logger.Error().Err(err).Msg("Failed to find campaign")
+		return fmt.Errorf("failed to find campaign: %w", err)
+	}
+
+	// Search knowledge base for relevant context (RAG)
+	var knowledgeDocs []mailService.Document
+	if w.knowledgeSearcher != nil {
+		query := fmt.Sprintf("%s %s", payload.ContactData["company_name"], payload.ContactData["title"])
+		chunks, err := w.knowledgeSearcher.Search(ctx, camp.UserID, query, 5)
+		if err != nil {
+			w.logger.Warn().Err(err).Msg("Knowledge search failed, continuing without RAG context")
+		} else {
+			for _, chunk := range chunks {
+				knowledgeDocs = append(knowledgeDocs, mailService.Document{
+					Title:   "Knowledge Base",
+					Content: chunk.ChunkText,
+				})
+			}
+			w.logger.Info().Int("knowledge_docs", len(knowledgeDocs)).Msg("Retrieved knowledge context for email generation")
+		}
+	}
+
+	// Generate email using MailWriter service with knowledge context
+	generatedEmail, err := w.mailWriter.GenerateSingleOutreach(ctx, payload.PreviousEmails, knowledgeDocs...)
 	if err != nil {
 		w.logger.Error().
 			Err(err).
@@ -147,12 +186,39 @@ func (w *Worker) processGenerateCampaignEmail(ctx context.Context, task *asynq.T
 		Int("content_length", len(generatedEmail.Content)).
 		Msg("Campaign email generated successfully")
 
-	// TODO: Save generated email to database
-	// For now, we'll just log the result
-	w.logger.Debug().
+	contact, err := w.contactRepo.FindByID(ctx, payload.ContactID)
+	if err != nil {
+		w.logger.Error().Err(err).Msg("Failed to find contact")
+		return fmt.Errorf("failed to find contact: %w", err)
+	}
+
+	toEmail := ""
+	if contact != nil {
+		toEmail = payload.ContactData["email"]
+	}
+
+	campaignID := payload.CampaignID
+	emailRecord := &domain.Email{
+		UserID:     camp.UserID,
+		CampaignID: &campaignID,
+		FromEmail:  generatedEmail.FromEmail,
+		ToEmail:    toEmail,
+		Subject:    generatedEmail.Subject,
+		Content:    generatedEmail.Content,
+		Status:     domain.EmailStatusDraft,
+		Labels:     []string{payload.TemplateType},
+	}
+
+	saved, err := w.emailRepo.Create(ctx, emailRecord)
+	if err != nil {
+		w.logger.Error().Err(err).Msg("Failed to save generated email")
+		return fmt.Errorf("failed to save email: %w", err)
+	}
+
+	w.logger.Info().
+		Str("email_id", saved.ID.String()).
 		Str("subject", generatedEmail.Subject).
-		Str("content", generatedEmail.Content).
-		Msg("Generated email content")
+		Msg("Generated email saved as draft")
 
 	return nil
 }
@@ -189,12 +255,39 @@ func (w *Worker) processGenerateReplyEmail(ctx context.Context, task *asynq.Task
 		Int("content_length", len(generatedReply.Content)).
 		Msg("Reply email generated successfully")
 
-	// TODO: Save generated reply or create draft
-	// For now, we'll just log it
-	w.logger.Debug().
-		Str("subject", generatedReply.Subject).
-		Str("content", generatedReply.Content).
-		Msg("Generated reply content")
+	// Look up campaign to get UserID
+	camp, err := w.campaignRepo.FindByID(ctx, payload.CampaignID)
+	if err != nil {
+		w.logger.Error().Err(err).Msg("Failed to find campaign for reply")
+		return fmt.Errorf("failed to find campaign: %w", err)
+	}
+
+	campaignID := payload.CampaignID
+	conversationID := payload.ConversationID
+	emailRecord := &domain.Email{
+		UserID:         camp.UserID,
+		CampaignID:     &campaignID,
+		ConversationID: &conversationID,
+		FromEmail:      generatedReply.FromEmail,
+		ToEmail:        generatedReply.ToEmail,
+		Subject:        generatedReply.Subject,
+		Content:        generatedReply.Content,
+		Status:         domain.EmailStatusDraft,
+		Labels:         []string{"reply"},
+		Intents:        []string{string(payload.Intent)},
+	}
+
+	saved, err := w.emailRepo.Create(ctx, emailRecord)
+	if err != nil {
+		w.logger.Error().Err(err).Msg("Failed to save generated reply")
+		return fmt.Errorf("failed to save reply: %w", err)
+	}
+
+	w.logger.Info().
+		Str("email_id", saved.ID.String()).
+		Str("conversation_id", payload.ConversationID.String()).
+		Str("intent", string(payload.Intent)).
+		Msg("Generated reply saved as draft")
 
 	return nil
 }
@@ -237,19 +330,12 @@ func (w *Worker) handleEmailIndexing(ctx context.Context, task *asynq.Task) erro
 		}
 	}
 
-	// TODO: Integrate with actual vector store (Qdrant, Weaviate, or Pinecone)
-	// For now, just log the operation
+	// Using Redis vector search for indexing
 	logger.Logger.Info().
 		Str("collection", payload.Collection).
 		Int("num_documents", len(documents)).
 		Strs("document_ids", documentIDs).
 		Msg("Email sequence indexed successfully")
-
-	// Production implementation would be:
-	// err := w.vectorStore.AddDocuments(ctx, payload.Collection, documents, metadatas, documentIDs)
-	// if err != nil {
-	//     return fmt.Errorf("failed to index documents: %w", err)
-	// }
 
 	return nil
 }

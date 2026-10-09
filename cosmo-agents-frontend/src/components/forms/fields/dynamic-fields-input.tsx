@@ -64,16 +64,22 @@ export function DynamicFieldsInput({
   const handleAddField = () => {
     if (!newFieldKey.trim()) return;
 
-    const updatedFields = [...fields, { key: newFieldKey, value: newFieldValue }];
+    const updatedFields = [
+      ...fields,
+      { key: newFieldKey, value: newFieldValue },
+    ];
     setFields(updatedFields);
 
     // Update parent form
-    const newValue = updatedFields.reduce((acc, field) => {
-      if (field.key && field.value) {
-        acc[toSlugKey(field.key)] = field.value;
-      }
-      return acc;
-    }, {} as Record<string, any>);
+    const newValue = updatedFields.reduce(
+      (acc, field) => {
+        if (field.key && field.value) {
+          acc[toSlugKey(field.key)] = field.value;
+        }
+        return acc;
+      },
+      {} as Record<string, any>
+    );
 
     onChange(newValue);
 
@@ -87,12 +93,15 @@ export function DynamicFieldsInput({
     setFields(updatedFields);
 
     // Update parent form
-    const newValue = updatedFields.reduce((acc, field) => {
-      if (field.key && field.value) {
-        acc[toSlugKey(field.key)] = field.value;
-      }
-      return acc;
-    }, {} as Record<string, any>);
+    const newValue = updatedFields.reduce(
+      (acc, field) => {
+        if (field.key && field.value) {
+          acc[toSlugKey(field.key)] = field.value;
+        }
+        return acc;
+      },
+      {} as Record<string, any>
+    );
     onChange(newValue);
   };
 
@@ -102,12 +111,15 @@ export function DynamicFieldsInput({
     setFields(updatedFields);
 
     // Update parent form
-    const newValue = updatedFields.reduce((acc, field) => {
-      if (field.key && field.value) {
-        acc[toSlugKey(field.key)] = field.value;
-      }
-      return acc;
-    }, {} as Record<string, any>);
+    const newValue = updatedFields.reduce(
+      (acc, field) => {
+        if (field.key && field.value) {
+          acc[toSlugKey(field.key)] = field.value;
+        }
+        return acc;
+      },
+      {} as Record<string, any>
+    );
     onChange(newValue);
   };
 
@@ -116,7 +128,7 @@ export function DynamicFieldsInput({
       <div>
         <Label>{label}</Label>
         {description && (
-          <p className="text-sm text-muted-foreground mt-1">{description}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         )}
       </div>
 
@@ -127,12 +139,14 @@ export function DynamicFieldsInput({
             key={index}
             className="rounded-lg border border-gray-200 bg-white p-3"
           >
-            <div className="flex items-start justify-between gap-2 mb-2">
+            <div className="mb-2 flex items-start justify-between gap-2">
               <Input
                 placeholder="Field name"
                 value={field.key}
-                onChange={(e) => handleUpdateField(index, e.target.value, field.value)}
-                className="font-medium text-gray-700 border-0 p-0 h-auto focus-visible:ring-0"
+                onChange={(e) =>
+                  handleUpdateField(index, e.target.value, field.value)
+                }
+                className="h-auto border-0 p-0 font-medium text-gray-700 focus-visible:ring-0"
               />
               <Button
                 type="button"
@@ -147,8 +161,10 @@ export function DynamicFieldsInput({
             <Input
               placeholder="Field value"
               value={field.value}
-              onChange={(e) => handleUpdateField(index, field.key, e.target.value)}
-              className="text-sm text-gray-900 border-0 p-0 h-auto focus-visible:ring-0"
+              onChange={(e) =>
+                handleUpdateField(index, field.key, e.target.value)
+              }
+              className="h-auto border-0 p-0 text-sm text-gray-900 focus-visible:ring-0"
             />
           </div>
         ))}
@@ -194,7 +210,7 @@ export function DynamicFieldsInput({
       </div>
 
       {fields.length === 0 && (
-        <p className="text-center text-sm text-muted-foreground py-4 border border-dashed rounded-md">
+        <p className="rounded-md border border-dashed py-4 text-center text-sm text-muted-foreground">
           No additional fields. Add custom fields specific to this contact.
         </p>
       )}

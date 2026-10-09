@@ -96,14 +96,16 @@ export function CreateContactForm({
       return {};
     }
 
-    const profile = contactData.profile || {};
-    const customFields = profile.custom_fields || {};
+    // The list endpoint spreads the profile into the entity, so the stored
+    // fields arrive at the top level; the detail endpoint nests them.
+    const customFields =
+      contactData.custom_fields || contactData.profile?.custom_fields || {};
 
     // Convert from AI format {field: {value, source, updated_at}} to simple {field: value}
     const additionalFields: Record<string, any> = {};
     Object.entries(customFields).forEach(([key, fieldData]: [string, any]) => {
-      // Skip system fields like 'id'
-      if (key === 'id') {
+      // Skip system fields like 'id', and values that have their own input
+      if (key === 'id' || customFieldNames.has(key)) {
         return;
       }
 
@@ -128,14 +130,46 @@ export function CreateContactForm({
       options,
     })
   ) as Field[];
+  const customFieldNames = new Set(_customFields.map((f) => f.normalized_name));
 
-  const [additionalFields, setAdditionalFields] = useState<Record<string, any>>(
+  const [initialAdditionalFields] = useState<Record<string, any>>(() =>
     getAdditionalFieldsFromData(data)
   );
+  const [additionalFields, setAdditionalFields] = useState<Record<string, any>>(
+    initialAdditionalFields
+  );
+
+  // Edit form defaults: only the fields this form renders. Seeding it with the
+  // whole list row sent read-only keys (user_id, created_at, status, ...) back
+  // on save, where the backend filed each one as a custom field.
+  const getDefaultValues = (contactData: any) => {
+    if (!contactData) return undefined;
+    const stored =
+      contactData.custom_fields || contactData.profile?.custom_fields || {};
+    const defaults: Record<string, any> = {};
+    systemFields.forEach(({ normalized_name }) => {
+      defaults[normalized_name] = contactData[normalized_name];
+    });
+    _customFields.forEach(({ normalized_name, data_type }) => {
+      const raw = stored[normalized_name];
+      const value =
+        raw && typeof raw === 'object' && 'value' in raw ? raw.value : raw;
+      if (value === null || value === undefined || value === '') return;
+      if (data_type === 'number') defaults[normalized_name] = Number(value);
+      else if (data_type === 'date')
+        defaults[normalized_name] = new Date(value);
+      else defaults[normalized_name] = String(value);
+    });
+    return getValuable(defaults);
+  };
 
   const normalizeAdditionalValue = (value: any) => {
     if (value === null || value === undefined) return '';
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    if (
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean'
+    ) {
       return String(value);
     }
     try {
@@ -154,7 +188,9 @@ export function CreateContactForm({
     return withSpaces.replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
-  const handleScreenshotExtract = async (extractedData: Record<string, any>) => {
+  const handleScreenshotExtract = async (
+    extractedData: Record<string, any>
+  ) => {
     const knownFields = new Set(
       [...systemFields, ..._customFields].map((field) => field.normalized_name)
     );
@@ -245,7 +281,7 @@ export function CreateContactForm({
 
   const form = useForm<any>({
     resolver: zodResolver(FormSchema),
-    defaultValues: data ? { ...getValuable(data) } : undefined,
+    defaultValues: getDefaultValues(data),
   });
   const mutation = useMutation({
     mutationFn: isEdit
@@ -276,12 +312,25 @@ export function CreateContactForm({
     // Filter out system/special fields from additionalFields
     const { id, ...cleanAdditionalFields } = additionalFields;
 
-    const payload = {
+    const payload: Record<string, any> = {
       ...cleanFormData,
       ...cleanAdditionalFields, // Spread additional fields at root level
     };
 
-    mutation.mutate(payload);
+    if (isEdit) {
+      // getValuable drops empty strings, so a cleared input never reached the
+      // backend and the old value stayed. Send '' for what the user emptied
+      // (the backend clears a column, and deletes a custom field, on '').
+      const initial = form.formState.defaultValues || {};
+      Object.keys(initial).forEach((key) => {
+        if (!(key in payload)) payload[key] = '';
+      });
+      Object.keys(initialAdditionalFields).forEach((key) => {
+        if (!(key in payload)) payload[key] = '';
+      });
+    }
+
+    mutation.mutate(payload as any);
   };
 
   const renderFields = (fields: Field[]) => {
@@ -359,7 +408,8 @@ export function CreateContactForm({
                   Quick Fill from Screenshot
                 </p>
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  Upload a screenshot of a profile to auto-fill contact information
+                  Upload a screenshot of a profile to auto-fill contact
+                  information
                 </p>
               </div>
               <ExtractFromScreenshotDialog
@@ -397,8 +447,12 @@ export function CreateContactForm({
         </div>
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <p className="text-base font-semibold uppercase">Additional fields</p>
-            <p className="text-xs text-muted-foreground">(specific to this contact)</p>
+            <p className="text-base font-semibold uppercase">
+              Additional fields
+            </p>
+            <p className="text-xs text-muted-foreground">
+              (specific to this contact)
+            </p>
           </div>
           <DynamicFieldsInput
             value={additionalFields}
@@ -417,8 +471,7 @@ export function CreateContactForm({
 }
 
 interface CreateContactDialogProps
-  extends CreateContactFormProps,
-    DialogProps {}
+  extends CreateContactFormProps, DialogProps {}
 
 export function CreateContactDialog({
   data,
@@ -432,11 +485,13 @@ export function CreateContactDialog({
       {/* <DialogTrigger asChild>{children}</DialogTrigger> */}
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-screen-lg">
         <DialogHeader>
-          <DialogTitle>Add a New Contact</DialogTitle>
+          <DialogTitle>
+            {isEdit ? 'Edit Contact' : 'Add a New Contact'}
+          </DialogTitle>
           <DialogDescription>
-            Manually add a new contact to your list. Provide the essential
-            details to keep your records up-to-date and stay connected
-            effortlessly.
+            {isEdit
+              ? 'Update the details of this contact.'
+              : 'Manually add a new contact to your list. Provide the essential details to keep your records up-to-date and stay connected effortlessly.'}
           </DialogDescription>
         </DialogHeader>
         <CreateContactForm

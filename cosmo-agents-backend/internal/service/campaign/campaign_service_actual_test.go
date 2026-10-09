@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
@@ -91,8 +91,7 @@ func TestCampaignService_ScheduleOutreach_CreatesTasksBeforeScheduler(t *testing
 	campaignID := uuid.New()
 	agentID := uuid.New()
 
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&template.Template{}, &task.Task{}, &agent.Agent{}))
 
@@ -143,8 +142,7 @@ func TestCampaignService_TriggerEmailSequenceNode_CreatesTasksBeforeEnqueue(t *t
 	campaignID := uuid.New()
 	agentID := uuid.New()
 
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&template.Template{}, &task.Task{}, &agent.Agent{}))
 
@@ -193,8 +191,7 @@ func TestCampaignService_NoTemplatesOrAgent(t *testing.T) {
 	userID := uuid.New()
 	campaignID := uuid.New()
 
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&template.Template{}, &task.Task{}, &agent.Agent{}))
 

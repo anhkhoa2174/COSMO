@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rockship/cosmo-agents-go/internal/domain"
+	templatedomain "github.com/rockship/cosmo-agents-go/internal/domain/template"
 	agent "github.com/rockship/cosmo-agents-go/internal/repository/agent"
 	taskRepo "github.com/rockship/cosmo-agents-go/internal/repository/task"
 	templateRepo "github.com/rockship/cosmo-agents-go/internal/repository/template"
@@ -113,13 +114,16 @@ func (s *CampaignService) ScheduleOutreachToContacts(
 		scheduleAt = *campaign.Schedule
 	}
 
+	sendTimes := templatedomain.SequenceSendTimes(scheduleAt, templates)
+
 	// Create tasks for each contact-template combination
 	var taskIDs []uuid.UUID
 
 	for _, contact := range contacts {
-		for _, template := range templates {
-			// Calculate send time based on template send_after (in days)
-			sendTime := scheduleAt.Add(time.Duration(template.SendAfter) * 24 * time.Hour)
+		for i, template := range templates {
+			// Same rule as the campaign worker: working days after the
+			// previous step.
+			sendTime := sendTimes[i]
 
 			taskAttrs := domain.TaskAttributes{
 				ContactID:  contact.ID,
@@ -232,13 +236,16 @@ func (s *CampaignService) TriggerEmailSequenceNode(
 		scheduleAt = *campaign.Schedule
 	}
 
+	sendTimes := templatedomain.SequenceSendTimes(scheduleAt, templates)
+
 	// Create tasks for each contact-template combination
 	var taskIDs []uuid.UUID
 
 	for _, contact := range contacts {
-		for _, template := range templates {
-			// Calculate send time based on template send_after (in hours, converted from days)
-			sendTime := scheduleAt.Add(time.Duration(template.SendAfter) * 24 * time.Hour)
+		for i, template := range templates {
+			// Same rule as the campaign worker: working days after the
+			// previous step.
+			sendTime := sendTimes[i]
 
 			taskAttrs := domain.TaskAttributes{
 				ContactID:  contact.ID,

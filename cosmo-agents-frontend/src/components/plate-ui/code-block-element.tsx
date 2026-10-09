@@ -42,7 +42,7 @@ export const CodeBlockElement = withRef<typeof PlateElement>(
             <code>{children}</code>
           </pre>
 
-          <div className="absolute top-1 right-1 z-10 flex gap-0.5 select-none">
+          <div className="absolute right-1 top-1 z-10 flex select-none gap-0.5">
             {isLangSupported(element.lang as string) && (
               <Button
                 size="icon"
@@ -75,10 +75,11 @@ export function CopyButton({
   value,
   onClickCopy,
   ...props
-}: { value: (() => string) | string; showLabel?: boolean; onClickCopy?: () => void; } & Omit<
-  React.ComponentProps<typeof Button>,
-  'value'
->) {
+}: {
+  value: (() => string) | string;
+  showLabel?: boolean;
+  onClickCopy?: () => void;
+} & Omit<React.ComponentProps<typeof Button>, 'value'>) {
   const [hasCopied, setHasCopied] = React.useState(false);
 
   React.useEffect(() => {

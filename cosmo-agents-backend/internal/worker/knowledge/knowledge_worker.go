@@ -68,8 +68,17 @@ type Summarizer interface {
 func New(db *gorm.DB, vectorStore VectorStore, summarizer Summarizer) *Worker {
 	// Create text splitter with default config
 	textSplitter := splitter.NewRecursiveCharacterSplitter(splitter.RecursiveConfig{
-		ChunkSize:    300,
-		ChunkOverlap: 100,
+		// 300 characters is roughly fifty words — too little to carry a
+		// self-contained fact. With five chunks retrieved that gave the model
+		// about 1,500 characters of grounding in total, so a question whose
+		// answer spans a sentence or two arrived split across chunk
+		// boundaries, or not at all.
+		//
+		// 1,000 characters holds a paragraph, which is the unit the uploaded
+		// material is actually written in. The overlap grows with it so a fact
+		// straddling a boundary still appears whole in one of the two chunks.
+		ChunkSize:    1000,
+		ChunkOverlap: 150,
 	})
 
 	return &Worker{

@@ -3,6 +3,7 @@ package embedder
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/sashabaranov/go-openai"
 )
@@ -36,6 +37,11 @@ func NewOpenAIEmbedder(config OpenAIConfig) (*OpenAIEmbedder, error) {
 	}
 
 	client := openai.NewClient(config.APIKey)
+	if base := os.Getenv("OPENAI_BASE_URL"); base != "" {
+		conf := openai.DefaultConfig(config.APIKey)
+		conf.BaseURL = base
+		client = openai.NewClientWithConfig(conf)
+	}
 
 	return &OpenAIEmbedder{
 		client:     client,

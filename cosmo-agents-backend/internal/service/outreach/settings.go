@@ -34,6 +34,11 @@ type OutreachSettings struct {
 	// "how this organisation runs outreach", but it is resolved separately:
 	// Config stays a comparable value type, and a reply policy carries a set.
 	AutoReply *autoreply.Policy `json:"auto_reply,omitempty"`
+
+	// NextStepEngine turns on the next-step decision engine for the
+	// organisation. Off (or unset) keeps the fixed cadence as the only source
+	// of next steps, which is how outreach behaved before the engine existed.
+	NextStepEngine *bool `json:"next_step_engine,omitempty"`
 }
 
 // bound describes the range a setting may take.
@@ -119,6 +124,20 @@ func AutoReplyFrom(raw []byte) autoreply.Resolved {
 		return autoreply.Disabled()
 	}
 	return s.AutoReply.Resolve()
+}
+
+// NextStepEngineFrom reports whether the organisation has turned the
+// next-step engine on. Unreadable settings read as off: the cadence is the
+// behaviour the organisation had before it chose anything.
+func NextStepEngineFrom(raw []byte) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	var s OutreachSettings
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return false
+	}
+	return s.NextStepEngine != nil && *s.NextStepEngine
 }
 
 // Apply overlays the settings onto a base config, leaving unset fields alone.

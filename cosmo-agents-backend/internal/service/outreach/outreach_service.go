@@ -96,6 +96,11 @@ func (s *Service) configFor(ctx context.Context, userID uuid.UUID) Config {
 	return s.orgConfig.Get(ctx, userID, s.config)
 }
 
+// ConfigFor returns the effective cadence for a user's organisation.
+func (s *Service) ConfigFor(ctx context.Context, userID uuid.UUID) Config {
+	return s.configFor(ctx, userID)
+}
+
 // OutreachService is an alias for Service for handler compatibility
 type OutreachService = Service
 
@@ -445,6 +450,19 @@ func (s *Service) SuggestContacts(ctx context.Context, userID uuid.UUID, organiz
 	}, nil
 }
 
+// heldByNextStep is true when the next-step engine has put the contact on
+// hold — waiting until a stated date, nurtured until a revisit date, or
+// closed — so suggesting it today would contradict that decision.
+func heldByNextStep(c *contact.Contact, now time.Time) bool {
+	if c.NextAction != nil {
+		switch *c.NextAction {
+		case "SUPPRESS", "DISQUALIFY":
+			return true
+		}
+	}
+	return c.NextActionDueAt != nil && c.NextActionDueAt.After(now)
+}
+
 func (s *Service) suggestColdContacts(ctx context.Context, userID uuid.UUID, orgIDs []uuid.UUID, limit int) ([]*SuggestContact, int, error) {
 	// Find READY contacts needing initial outreach (next_step = SEND)
 	contacts, total, err := s.contactRepo.SearchWithFilter(ctx, userID, orgIDs, map[string]interface{}{
@@ -460,6 +478,9 @@ func (s *Service) suggestColdContacts(ctx context.Context, userID uuid.UUID, org
 	for _, c := range contacts {
 		if len(suggestions) >= limit {
 			break
+		}
+		if heldByNextStep(c, time.Now()) {
+			continue
 		}
 		suggestions = append(suggestions, &SuggestContact{
 			Contact:  c,
@@ -488,6 +509,9 @@ func (s *Service) suggestFollowupContacts(ctx context.Context, userID uuid.UUID,
 	postMeetingSuggestions := make([]*SuggestContact, 0)
 
 	for _, c := range contacts {
+		if heldByNextStep(c, time.Now()) {
+			continue
+		}
 		// Load outreach state so mapActionTypeAndCategory can determine category
 		state, _ := s.stateRepo.FindByContactID(ctx, c.ID, userID)
 

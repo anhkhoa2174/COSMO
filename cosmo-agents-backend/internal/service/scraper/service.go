@@ -1,14 +1,12 @@
 package scraper
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -22,8 +20,6 @@ import (
 type Service struct {
 	openaiClient *ai.OpenAIClient
 	httpClient   *http.Client
-	apifyToken   string
-	tavilyToken  string
 }
 
 // NewService creates a new scraper service
@@ -31,10 +27,8 @@ func NewService(openaiClient *ai.OpenAIClient) *Service {
 	return &Service{
 		openaiClient: openaiClient,
 		httpClient: &http.Client{
-			Timeout: 60 * time.Second, // Increased for Jina AI Reader
+			Timeout: 60 * time.Second,
 		},
-		apifyToken:  os.Getenv("APIFY_TOKEN"),
-		tavilyToken: os.Getenv("TAVILY_API_KEY"),
 	}
 }
 
@@ -50,47 +44,6 @@ type ExtractedData struct {
 // ExtractFromURL fetches a URL and uses AI to extract structured contact data
 func (s *Service) ExtractFromURL(ctx context.Context, url string) (*ExtractedData, error) {
 	log.Info().Str("url", url).Msg("Starting URL extraction")
-
-	// Fast path: use Apify actor if token is available
-	if s.apifyToken != "" {
-		fields, rawText, err := s.runApifyProfile(ctx, url)
-		if err == nil && len(fields) > 0 {
-			// Enrich with Tavily if available
-			if s.tavilyToken != "" {
-				enrichedFields, _ := s.enrichWithTavily(ctx, fields, url)
-				if enrichedFields != nil {
-					fields = enrichedFields
-				}
-			}
-			return &ExtractedData{
-				RawHTML:   "",
-				RawText:   rawText,
-				Fields:    fields,
-				Source:    url,
-				Timestamp: time.Now().UTC(),
-			}, nil
-		}
-		if err != nil {
-			log.Warn().Err(err).Msg("Apify extraction failed, falling back to Tavily or OpenAI")
-		}
-	}
-
-	// Try Tavily search if available and it's a LinkedIn URL
-	if s.tavilyToken != "" && strings.Contains(url, "linkedin.com") {
-		fields, rawText, err := s.searchWithTavily(ctx, url)
-		if err == nil && len(fields) > 0 {
-			return &ExtractedData{
-				RawHTML:   "",
-				RawText:   rawText,
-				Fields:    fields,
-				Source:    url,
-				Timestamp: time.Now().UTC(),
-			}, nil
-		}
-		if err != nil {
-			log.Warn().Err(err).Msg("Tavily search failed, falling back to OpenAI")
-		}
-	}
 
 	// Step 1: Fetch URL content
 	html, text, err := s.fetchURL(ctx, url)
@@ -229,59 +182,8 @@ func (s *Service) ExtractFromText(ctx context.Context, text string) (*ExtractedD
 	}, nil
 }
 
-// runApifyProfile calls Apify LinkedIn profile scraper and returns structured fields and raw text (pretty JSON)
-func (s *Service) runApifyProfile(ctx context.Context, profileURL string) (map[string]interface{}, string, error) {
-	if s.apifyToken == "" {
-		return nil, "", fmt.Errorf("apify token not set")
-	}
-
-	apiURL := fmt.Sprintf("https://api.apify.com/v2/acts/logical_scrapers~linkedin-profile-scraper/run-sync-get-dataset-items?token=%s", s.apifyToken)
-	payload := map[string]interface{}{
-		"profileUrl": profileURL,
-	}
-	body, _ := json.Marshal(payload)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(body))
-	if err != nil {
-		return nil, "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, "", fmt.Errorf("apify request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(resp.Body)
-		return nil, "", fmt.Errorf("apify returned HTTP %d: %s", resp.StatusCode, string(b))
-	}
-
-	var items []map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
-		return nil, "", fmt.Errorf("failed to decode apify response: %w", err)
-	}
-	if len(items) == 0 {
-		return nil, "", fmt.Errorf("apify returned no items")
-	}
-
-	// Use first item
-	fields := items[0]
-	pretty, _ := json.MarshalIndent(fields, "", "  ")
-
-	log.Info().
-		Str("url", profileURL).
-		Int("apify_fields", len(fields)).
-		Msg("Successfully extracted via Apify")
-
-	return fields, string(pretty), nil
-}
-
-// fetchURL retrieves HTML and text content from a URL
-// Uses Jina AI Reader to bypass anti-scraping protections
+// fetchURL retrieves HTML and text content from a URL via direct GET
 func (s *Service) fetchURL(ctx context.Context, url string) (string, string, error) {
-	// First try direct GET (some public pages may allow it)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return "", "", err
@@ -290,37 +192,13 @@ func (s *Service) fetchURL(ctx context.Context, url string) (string, string, err
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 
 	resp, err := s.httpClient.Do(req)
-	if err == nil && resp.StatusCode == http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		text := string(bodyBytes)
-		log.Info().
-			Str("url", url).
-			Int("content_length", len(text)).
-			Msg("Successfully fetched URL via direct GET")
-		return text, text, nil
-	}
-	if resp != nil {
-		resp.Body.Close()
-	}
-
-	// Fallback: Jina reader (may return empty if blocked)
-	jinaURL := "https://r.jina.ai/" + url
-	req, err = http.NewRequestWithContext(ctx, "GET", jinaURL, nil)
 	if err != nil {
-		return "", "", err
-	}
-	req.Header.Set("Accept", "text/plain")
-	req.Header.Set("X-Return-Format", "text")
-
-	resp, err = s.httpClient.Do(req)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to fetch via Jina Reader: %w", err)
+		return "", "", fmt.Errorf("failed to fetch URL: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("Jina Reader returned HTTP %d: %s", resp.StatusCode, resp.Status)
+		return "", "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
@@ -332,7 +210,7 @@ func (s *Service) fetchURL(ctx context.Context, url string) (string, string, err
 	log.Info().
 		Str("url", url).
 		Int("content_length", len(text)).
-		Msg("Successfully fetched URL via Jina Reader")
+		Msg("Successfully fetched URL")
 
 	return text, text, nil
 }
@@ -886,199 +764,3 @@ func getStringFromValue(value interface{}) string {
 	return strings.TrimSpace(fmt.Sprintf("%v", value))
 }
 
-// searchWithTavily uses Tavily API to search for information about a person from LinkedIn URL
-func (s *Service) searchWithTavily(ctx context.Context, linkedinURL string) (map[string]interface{}, string, error) {
-	if s.tavilyToken == "" {
-		return nil, "", fmt.Errorf("tavily token not set")
-	}
-
-	// Extract name from LinkedIn URL if possible
-	// Example: linkedin.com/in/john-doe -> search for "John Doe LinkedIn"
-	name := extractNameFromLinkedInURL(linkedinURL)
-	query := fmt.Sprintf("%s LinkedIn profile professional background", name)
-
-	apiURL := "https://api.tavily.com/search"
-	payload := map[string]interface{}{
-		"api_key":             s.tavilyToken,
-		"query":               query,
-		"search_depth":        "advanced",
-		"include_answer":      true,
-		"include_raw_content": true,
-		"max_results":         3,
-		"include_domains":     []string{"linkedin.com"},
-	}
-	body, _ := json.Marshal(payload)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(body))
-	if err != nil {
-		return nil, "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, "", fmt.Errorf("tavily request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(resp.Body)
-		return nil, "", fmt.Errorf("tavily returned HTTP %d: %s", resp.StatusCode, string(b))
-	}
-
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, "", fmt.Errorf("failed to decode tavily response: %w", err)
-	}
-
-	// Extract useful information from Tavily results
-	fields := make(map[string]interface{})
-	var rawText strings.Builder
-
-	// Get answer if available
-	if answer, ok := result["answer"].(string); ok && answer != "" {
-		rawText.WriteString("AI Summary:\n")
-		rawText.WriteString(answer)
-		rawText.WriteString("\n\n")
-	}
-
-	// Process search results
-	if results, ok := result["results"].([]interface{}); ok {
-		for _, r := range results {
-			if resultMap, ok := r.(map[string]interface{}); ok {
-				if content, ok := resultMap["content"].(string); ok {
-					rawText.WriteString(content)
-					rawText.WriteString("\n\n")
-				}
-			}
-		}
-	}
-
-	// Use OpenAI to extract structured data from Tavily results
-	if rawText.Len() > 0 {
-		extractedFields, err := s.extractWithAI(ctx, linkedinURL, rawText.String())
-		if err == nil {
-			fields = extractedFields
-		}
-	}
-
-	log.Info().
-		Str("url", linkedinURL).
-		Int("tavily_fields", len(fields)).
-		Msg("Successfully extracted via Tavily")
-
-	return fields, rawText.String(), nil
-}
-
-// enrichWithTavily enriches existing profile data with additional information from Tavily
-func (s *Service) enrichWithTavily(ctx context.Context, existingFields map[string]interface{}, linkedinURL string) (map[string]interface{}, error) {
-	if s.tavilyToken == "" {
-		return existingFields, nil
-	}
-
-	// Build search query from existing data
-	firstName := getStringFromValue(existingFields["first_name"])
-	lastName := getStringFromValue(existingFields["last_name"])
-	company := getStringFromValue(existingFields["company"])
-
-	if firstName == "" && lastName == "" {
-		// Can't enrich without at least a name
-		return existingFields, nil
-	}
-
-	name := strings.TrimSpace(firstName + " " + lastName)
-	query := fmt.Sprintf("%s %s professional achievements projects", name, company)
-
-	apiURL := "https://api.tavily.com/search"
-	payload := map[string]interface{}{
-		"api_key":        s.tavilyToken,
-		"query":          query,
-		"search_depth":   "basic",
-		"include_answer": true,
-		"max_results":    2,
-	}
-	body, _ := json.Marshal(payload)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(body))
-	if err != nil {
-		return existingFields, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return existingFields, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return existingFields, fmt.Errorf("tavily enrichment returned HTTP %d", resp.StatusCode)
-	}
-
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return existingFields, err
-	}
-
-	// Add enrichment data as additional fields
-	enrichedFields := make(map[string]interface{})
-	for k, v := range existingFields {
-		enrichedFields[k] = v
-	}
-
-	// Add Tavily answer as additional context
-	if answer, ok := result["answer"].(string); ok && answer != "" {
-		enrichedFields["tavily_summary"] = answer
-	}
-
-	// Extract notable achievements/projects from results
-	var highlights []string
-	if results, ok := result["results"].([]interface{}); ok {
-		for _, r := range results {
-			if resultMap, ok := r.(map[string]interface{}); ok {
-				if content, ok := resultMap["content"].(string); ok && len(content) > 50 {
-					highlights = append(highlights, content)
-				}
-			}
-		}
-	}
-
-	if len(highlights) > 0 {
-		enrichedFields["web_highlights"] = highlights
-	}
-
-	log.Info().
-		Str("name", name).
-		Int("enriched_fields", len(enrichedFields)-len(existingFields)).
-		Msg("Enriched profile with Tavily data")
-
-	return enrichedFields, nil
-}
-
-// extractNameFromLinkedInURL extracts person's name from LinkedIn URL
-// Example: linkedin.com/in/john-doe -> John Doe
-func extractNameFromLinkedInURL(url string) string {
-	// Remove protocol and domain
-	parts := strings.Split(url, "/in/")
-	if len(parts) < 2 {
-		return ""
-	}
-
-	// Get the username part
-	username := strings.Split(parts[1], "/")[0]
-	username = strings.Split(username, "?")[0]
-
-	// Convert dashes/underscores to spaces and title case
-	name := strings.ReplaceAll(username, "-", " ")
-	name = strings.ReplaceAll(name, "_", " ")
-
-	// Title case each word
-	words := strings.Fields(name)
-	for i, word := range words {
-		if len(word) > 0 {
-			words[i] = strings.ToUpper(word[:1]) + strings.ToLower(word[1:])
-		}
-	}
-
-	return strings.Join(words, " ")
-}

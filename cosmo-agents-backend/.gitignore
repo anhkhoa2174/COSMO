@@ -65,3 +65,9 @@ test_data.sql
 test_jwt.py
 coverage.out
 .env.remote.bak
+
+# Backups of env files carry real secrets; never commit them
+.env*.bak*
+.env*.backup
+*.bak
+*.bak.*

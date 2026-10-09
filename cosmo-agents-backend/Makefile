@@ -61,16 +61,16 @@ clean: ## Clean build artifacts
 # Docker commands
 docker-up: ## Start Docker services (Postgres, Redis)
 	@echo "Starting Docker services..."
-	@docker-compose -f docker/docker-compose.yml up -d
+	@docker compose -f docker/docker-compose.local.yml up -d
 	@echo "Services started!"
 
 docker-down: ## Stop Docker services
 	@echo "Stopping Docker services..."
-	@docker-compose -f docker/docker-compose.yml down
+	@docker compose -f docker/docker-compose.local.yml down
 	@echo "Services stopped!"
 
 docker-logs: ## View Docker logs
-	@docker-compose -f docker/docker-compose.yml logs -f
+	@docker compose -f docker/docker-compose.local.yml logs -f
 
 # Migration commands
 # Prefer a dedicated golang-migrate URL if provided; fallback to SQLALCHEMY_POSTGRES_URI

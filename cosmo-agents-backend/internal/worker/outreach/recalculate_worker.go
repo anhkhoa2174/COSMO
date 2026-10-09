@@ -93,7 +93,7 @@ func (w *RecalculateWorker) HandleRecalculateNextStep(ctx context.Context, _ *as
 	return nil
 }
 
-// recalculateForUser recalculates next_step for all contacts of a user that are in WAIT state
+// recalculateForUser recalculates next_step for all active contacts of a user
 func (w *RecalculateWorker) recalculateForUser(ctx context.Context, userID uuid.UUID) (int, error) {
 	// Create outreach service for state determination
 	outreachSvc := outreachservice.NewService(
@@ -105,8 +105,8 @@ func (w *RecalculateWorker) recalculateForUser(ctx context.Context, userID uuid.
 		w.outreachConfig,
 	)
 
-	// Find contacts with next_step = WAIT (they need time-based recalculation)
-	contacts, err := w.findWaitingContacts(ctx, userID)
+	// Find all active contacts (excluding DROPPED) that may need recalculation
+	contacts, err := w.findActiveContacts(ctx, userID)
 	if err != nil {
 		return 0, err
 	}
@@ -114,7 +114,7 @@ func (w *RecalculateWorker) recalculateForUser(ctx context.Context, userID uuid.
 	if len(contacts) == 0 {
 		logger.Logger.Debug().
 			Str("user_id", userID.String()).
-			Msg("outreach: no waiting contacts to recalculate")
+			Msg("outreach: no active contacts to recalculate")
 		return 0, nil
 	}
 
@@ -155,10 +155,22 @@ func (w *RecalculateWorker) recalculateForUser(ctx context.Context, userID uuid.
 			Bool("has_last_incoming", result.LastIncoming != nil).
 			Msg("outreach: recalculate debug info")
 
-		// Check if next_step changed
+		// Log 8-hour NO_REPLY auto-transition
+		newOutreachStage := string(result.State)
+		if contact.OutreachStage != newOutreachStage && newOutreachStage == "NO_REPLY" {
+			logger.Logger.Info().
+				Str("contact_id", contact.ID.String()).
+				Str("old_stage", contact.OutreachStage).
+				Str("new_stage", newOutreachStage).
+				Msg("outreach: contact auto-transitioned to NO_REPLY after 8h")
+		}
+
+		// Check if next_step or outreach_stage changed
 		newNextStep := string(result.NextStep)
-		if contact.NextStep != newNextStep {
-			// Update contact's next_step
+		stageChanged := contact.OutreachStage != newOutreachStage
+		nextStepChanged := contact.NextStep != newNextStep
+		if nextStepChanged || stageChanged {
+			// Update contact's next_step and outreach_stage
 			if err := w.updateContactNextStep(ctx, contact.ID, newNextStep, result); err != nil {
 				logger.Logger.Error().
 					Err(err).
@@ -171,7 +183,9 @@ func (w *RecalculateWorker) recalculateForUser(ctx context.Context, userID uuid.
 				Str("contact_id", contact.ID.String()).
 				Str("old_next_step", contact.NextStep).
 				Str("new_next_step", newNextStep).
-				Msg("outreach: next_step updated")
+				Str("old_stage", contact.OutreachStage).
+				Str("new_stage", newOutreachStage).
+				Msg("outreach: contact state updated")
 
 			updatedCount++
 		}
@@ -180,12 +194,12 @@ func (w *RecalculateWorker) recalculateForUser(ctx context.Context, userID uuid.
 	return updatedCount, nil
 }
 
-// findWaitingContacts finds all contacts with next_step = WAIT for a user
-func (w *RecalculateWorker) findWaitingContacts(ctx context.Context, userID uuid.UUID) ([]*contactdomain.Contact, error) {
+// findActiveContacts finds all non-dropped contacts for a user that may need recalculation
+func (w *RecalculateWorker) findActiveContacts(ctx context.Context, userID uuid.UUID) ([]*contactdomain.Contact, error) {
 	var contacts []*contactdomain.Contact
 
 	err := w.db.WithContext(ctx).
-		Where("user_id = ? AND next_step = ? AND is_deleted = ?", userID, "WAIT", false).
+		Where("user_id = ? AND is_deleted = ? AND outreach_stage != ?", userID, false, "DROPPED").
 		Find(&contacts).Error
 
 	if err != nil {
@@ -197,11 +211,11 @@ func (w *RecalculateWorker) findWaitingContacts(ctx context.Context, userID uuid
 // updateContactNextStep updates the contact's next_step and related fields
 func (w *RecalculateWorker) updateContactNextStep(ctx context.Context, contactID uuid.UUID, newNextStep string, result *outreachservice.ConversationStateResult) error {
 	updates := map[string]interface{}{
-		"next_step":       newNextStep,
-		"outreach_stage":  string(result.State),
-		"scenario":        string(result.Scenario),
-		"followup_count":  result.FollowupCount,
-		"updated_at":      time.Now(),
+		"next_step":      newNextStep,
+		"outreach_stage": string(result.State),
+		"scenario":       string(result.Scenario),
+		"followup_count": result.FollowupCount,
+		"updated_at":     time.Now(),
 	}
 
 	return w.db.WithContext(ctx).
@@ -210,7 +224,7 @@ func (w *RecalculateWorker) updateContactNextStep(ctx context.Context, contactID
 		Updates(updates).Error
 }
 
-// listActiveUsers returns all distinct user IDs that have contacts
+// listActiveUsers returns all distinct user IDs that have active (non-dropped) contacts
 func (w *RecalculateWorker) listActiveUsers(ctx context.Context) ([]uuid.UUID, error) {
 	type row struct {
 		UserID uuid.UUID `gorm:"column:user_id"`
@@ -220,7 +234,7 @@ func (w *RecalculateWorker) listActiveUsers(ctx context.Context) ([]uuid.UUID, e
 	err := w.db.WithContext(ctx).
 		Table("contacts").
 		Select("DISTINCT user_id").
-		Where("is_deleted = ? AND next_step = ?", false, "WAIT").
+		Where("is_deleted = ? AND outreach_stage != ?", false, "DROPPED").
 		Scan(&rows).Error
 
 	if err != nil {

@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -24,117 +24,34 @@ func emailFromProfile(t *testing.T, contact *domain.Contact) string {
 	return email
 }
 
-// sqliteContactRepo builds a sqlite-backed repo exercising real GORM code.
-func sqliteContactRepo(t *testing.T) (*ContactRepository, *gorm.DB) {
+// pgContactRepo builds a PostgreSQL-backed repo exercising real GORM code.
+func pgContactRepo(t *testing.T) (*ContactRepository, *gorm.DB) {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := pgtest.Open(t, &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	require.NoError(t, err)
 
-	// Manually create contacts table without Postgres-specific indexes
-	createContacts := `
-	DROP TABLE IF EXISTS contacts;
-	CREATE TABLE contacts (
-		id TEXT PRIMARY KEY,
-		created_at DATETIME,
-		updated_at DATETIME,
-		is_deleted BOOLEAN,
-		user_id TEXT,
-		source_id TEXT,
-		hubspot_id TEXT,
-		source TEXT,
-		name TEXT,
-		first_name TEXT,
-		last_name TEXT,
-		email TEXT,
-		phone TEXT,
-		company TEXT,
-		job_title TEXT,
-		address TEXT,
-		city TEXT,
-		country TEXT,
-		state TEXT,
-		zip TEXT,
-		profile TEXT,
-		confirmed_facts TEXT,
-		ai_insights TEXT,
-		insight_validation TEXT,
-		scores TEXT,
-		do_not_contact BOOLEAN,
-		organization_id TEXT,
-		tags TEXT,
-		status TEXT,
-		missing_fields TEXT,
-		contact_information TEXT,
-		industry TEXT,
-		contact_channel TEXT,
-		lifecycle_stage TEXT,
-		context_level TEXT,
-		outreach_decision TEXT,
-		scenario TEXT,
-		message_draft TEXT,
-		last_outcome TEXT,
-		next_step TEXT,
-		meeting TEXT,
-		business_stage TEXT
-	);`
-	require.NoError(t, db.Exec(createContacts).Error)
-	require.NoError(t, db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_contacts_user_source_source_id ON contacts(user_id, source, source_id);`).Error)
-
-	createListContacts := `
-	DROP TABLE IF EXISTS list_contacts;
-	CREATE TABLE list_contacts (
-		id TEXT PRIMARY KEY,
-		created_at DATETIME,
-		updated_at DATETIME,
-		is_deleted BOOLEAN,
-		user_id TEXT,
-		name TEXT,
-		source TEXT,
-		source_id TEXT,
-		hubspot_id TEXT,
-		organization_id TEXT
-	);`
-	require.NoError(t, db.Exec(createListContacts).Error)
-
-	createAssoc := `
-	DROP TABLE IF EXISTS list_contact_association;
-	CREATE TABLE list_contact_association (
-		id TEXT PRIMARY KEY,
-		created_at DATETIME,
-		updated_at DATETIME,
-		is_deleted BOOLEAN,
-		list_contact_id TEXT,
-		contact_id TEXT
-	);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_list_contact_assoc_pair ON list_contact_association(list_contact_id, contact_id);`
-	require.NoError(t, db.Exec(createAssoc).Error)
-
-	createInboundAssoc := `
-	DROP TABLE IF EXISTS inbound_lead_form_list_contact_association;
-	CREATE TABLE inbound_lead_form_list_contact_association (
-		id TEXT PRIMARY KEY,
-		created_at DATETIME,
-		updated_at DATETIME,
-		is_deleted BOOLEAN,
-		inbound_lead_form_id TEXT,
-		list_contact_id TEXT
-	);`
-	require.NoError(t, db.Exec(createInboundAssoc).Error)
-
-	createInboundLeadForm := `
-	DROP TABLE IF EXISTS inbound_lead_forms;
-	CREATE TABLE inbound_lead_forms (
-		id TEXT PRIMARY KEY
-	);`
-	require.NoError(t, db.Exec(createInboundLeadForm).Error)
+	// The schema comes from the domain models. The hand-written CREATE TABLE
+	// statements this replaces existed only because SQLite cannot build the GIN
+	// index on contacts.profile; PostgreSQL can, so the tests now run on the real
+	// column types. The two unique indexes the de-duplication paths rely on are
+	// created explicitly.
+	require.NoError(t, db.AutoMigrate(
+		&domain.Contact{},
+		&domain.ListContact{},
+		&domain.ListContactAssociation{},
+		&domain.InboundLeadForm{},
+		&domain.InboundLeadFormListContactAssociation{},
+	))
+	require.NoError(t, db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_contacts_user_source_source_id ON contacts(user_id, source, source_id)`).Error)
+	require.NoError(t, db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_list_contact_assoc_pair ON list_contact_association(list_contact_id, contact_id)`).Error)
 
 	return NewContactRepository(db), db
 }
 
-func TestContactRepository_FindByEmail_SQLite(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+func TestContactRepository_FindByEmail_Postgres(t *testing.T) {
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 
@@ -149,7 +66,6 @@ func TestContactRepository_FindByEmail_SQLite(t *testing.T) {
 	require.NoError(t, db.Table("contacts").Create(map[string]interface{}{
 		"id":         c.ID.String(),
 		"user_id":    c.UserID.String(),
-		"email":      "john@example.com",
 		"name":       c.Name,
 		"source":     c.Source,
 		"source_id":  c.SourceID,
@@ -168,8 +84,8 @@ func TestContactRepository_FindByEmail_SQLite(t *testing.T) {
 	assert.Nil(t, none)
 }
 
-func TestContactRepository_DeleteByIDs_SQLite(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+func TestContactRepository_DeleteByIDs_Postgres(t *testing.T) {
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 
@@ -187,8 +103,8 @@ func TestContactRepository_DeleteByIDs_SQLite(t *testing.T) {
 	assert.True(t, check.IsDeleted)
 }
 
-func TestContactRepository_FindIDsByListContact_SQLite(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+func TestContactRepository_FindIDsByListContact_Postgres(t *testing.T) {
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 	listID := uuid.New()
@@ -208,9 +124,8 @@ func TestContactRepository_FindIDsByListContact_SQLite(t *testing.T) {
 	assert.ElementsMatch(t, []uuid.UUID{c1.ID, c2.ID}, ids)
 }
 
-func TestContactRepository_Search_SQLite(t *testing.T) {
-	t.Skip("sqlite does not support ILIKE; repository uses ILIKE for search")
-	repo, db := sqliteContactRepo(t)
+func TestContactRepository_Search_Postgres(t *testing.T) {
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 
@@ -234,8 +149,8 @@ func TestContactRepository_Search_SQLite(t *testing.T) {
 	assert.Len(t, filtered, 2)
 }
 
-func TestContactRepository_UpsertMany_SQLite(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+func TestContactRepository_UpsertMany_Postgres(t *testing.T) {
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 
@@ -253,8 +168,8 @@ func TestContactRepository_UpsertMany_SQLite(t *testing.T) {
 	assert.Equal(t, "Updated", check.Name)
 }
 
-func TestContactRepository_UpsertBySource_SQLite(t *testing.T) {
-	repo, _ := sqliteContactRepo(t)
+func TestContactRepository_UpsertBySource_Postgres(t *testing.T) {
+	repo, _ := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 
@@ -269,8 +184,8 @@ func TestContactRepository_UpsertBySource_SQLite(t *testing.T) {
 	assert.Equal(t, "updated@example.com", emailFromProfile(t, updated))
 }
 
-func TestContactRepository_DeleteByIDs_WithOrg_SQLite(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+func TestContactRepository_DeleteByIDs_WithOrg_Postgres(t *testing.T) {
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 	org := uuid.New()
@@ -284,8 +199,8 @@ func TestContactRepository_DeleteByIDs_WithOrg_SQLite(t *testing.T) {
 	assert.True(t, deleted[0].IsDeleted)
 }
 
-func TestContactRepository_FindByUserIDWithPagination_SQLite(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+func TestContactRepository_FindByUserIDWithPagination_Postgres(t *testing.T) {
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 
@@ -305,7 +220,7 @@ func TestContactRepository_FindByUserIDWithPagination_SQLite(t *testing.T) {
 }
 
 func TestContactRepository_UpdateFields_AccessControl(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 	org := uuid.New()
@@ -331,7 +246,7 @@ func TestContactRepository_UpdateFields_AccessControl(t *testing.T) {
 }
 
 func TestContactRepository_UpdateFields_Denied(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 
@@ -349,7 +264,7 @@ func TestContactRepository_UpdateFields_Denied(t *testing.T) {
 }
 
 func TestContactRepository_GetDistinctFieldValues(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 
@@ -367,7 +282,7 @@ func TestContactRepository_GetDistinctFieldValues(t *testing.T) {
 }
 
 func TestContactRepository_FindByIDs(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 
@@ -393,7 +308,7 @@ func TestContactRepository_FindByIDs(t *testing.T) {
 }
 
 func TestContactRepository_BatchCreateAndUpdate(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 
@@ -415,7 +330,7 @@ func TestContactRepository_BatchCreateAndUpdate(t *testing.T) {
 }
 
 func TestContactRepository_AddToList_NoDuplicate(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 	listID := uuid.New()
@@ -432,7 +347,7 @@ func TestContactRepository_AddToList_NoDuplicate(t *testing.T) {
 }
 
 func TestContactRepository_SearchWithFilter_DefaultPagination(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 
@@ -452,7 +367,7 @@ func TestContactRepository_SearchWithFilter_DefaultPagination(t *testing.T) {
 }
 
 func TestContactRepository_FindByIDAndSourceAndSearch(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 
@@ -481,7 +396,7 @@ func TestContactRepository_FindByIDAndSourceAndSearch(t *testing.T) {
 }
 
 func TestContactRepository_GetBySourceIDs(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 
 	contacts := []*domain.Contact{
@@ -496,7 +411,7 @@ func TestContactRepository_GetBySourceIDs(t *testing.T) {
 }
 
 func TestContactRepository_CreateAndSoftDelete(t *testing.T) {
-	repo, db := sqliteContactRepo(t)
+	repo, db := pgContactRepo(t)
 	ctx := context.Background()
 	user := uuid.New()
 
@@ -516,12 +431,16 @@ func TestContactRepository_CreateAndSoftDelete(t *testing.T) {
 }
 
 func TestContactRepository_IsValidContactField(t *testing.T) {
-	assert.True(t, IsValidContactField("email"))
+	// email was dropped from contacts by migration 000043. This assertion used to
+	// require it to be valid, which held only because the SQLite stand-in table
+	// still had the column; on the real schema accepting it leads to a SQL error.
+	assert.False(t, IsValidContactField("email"))
+	assert.True(t, IsValidContactField("company"))
 	assert.False(t, IsValidContactField("unknown_field"))
 }
 
 func TestListContactRepository_Basics(t *testing.T) {
-	contactRepo, db := sqliteContactRepo(t)
+	contactRepo, db := pgContactRepo(t)
 	_ = contactRepo
 	listRepo := NewListContactRepository(db)
 	ctx := context.Background()
@@ -567,7 +486,7 @@ func TestListContactRepository_Basics(t *testing.T) {
 }
 
 func TestListContactRepository_InboundAndUpsert(t *testing.T) {
-	_, db := sqliteContactRepo(t)
+	_, db := pgContactRepo(t)
 	listRepo := NewListContactRepository(db)
 	ctx := context.Background()
 	user := uuid.New()
@@ -577,8 +496,12 @@ func TestListContactRepository_InboundAndUpsert(t *testing.T) {
 
 	f1 := uuid.New()
 	f2 := uuid.New()
-	require.NoError(t, db.Exec("INSERT INTO inbound_lead_forms (id) VALUES (?)", f1.String()).Error)
-	require.NoError(t, db.Exec("INSERT INTO inbound_lead_forms (id) VALUES (?)", f2.String()).Error)
+	// inbound_lead_forms requires a name and a unique slug. The SQLite stand-in
+	// table had only an id column, so the old inserts omitted both.
+	for _, id := range []uuid.UUID{f1, f2} {
+		require.NoError(t, db.Exec("INSERT INTO inbound_lead_forms (id, name, slug) VALUES (?, ?, ?)",
+			id.String(), "Form "+id.String()[:8], "form-"+id.String()).Error)
+	}
 
 	require.NoError(t, listRepo.AddInboundForms(ctx, list.ID, []uuid.UUID{f1, f2}))
 

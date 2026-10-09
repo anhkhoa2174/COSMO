@@ -97,7 +97,8 @@ func (r *ContactRepository) FindAllWithPagination(ctx context.Context, offset, l
 func (r *ContactRepository) FindByEmail(ctx context.Context, userID uuid.UUID, email string) (*domain.Contact, error) {
 	var contact domain.Contact
 	err := r.db.WithContext(ctx).
-		Where("user_id = ? AND email = ? AND is_deleted = ?", userID, email, false).
+		Where("user_id = ? AND is_deleted = ?", userID, false).
+		Where("LOWER(contact_information) = LOWER(?) OR LOWER(profile->>'email') = LOWER(?)", email, email).
 		First(&contact).Error
 
 	if err != nil {
@@ -159,9 +160,13 @@ func (r *ContactRepository) Search(ctx context.Context, userID uuid.UUID, query 
 
 	if query != "" {
 		searchPattern := "%" + query + "%"
+		// Migration 000043 dropped contacts.email; an address now lives in
+		// contact_information or profile->>'email', the same two places
+		// FindByEmailInOrg reads. Querying the dropped column failed on every
+		// search with a query string.
 		dbQuery = dbQuery.Where(
-			"(name ILIKE ? OR email ILIKE ? OR company ILIKE ?)",
-			searchPattern, searchPattern, searchPattern,
+			"(name ILIKE ? OR company ILIKE ? OR contact_information ILIKE ? OR profile->>'email' ILIKE ?)",
+			searchPattern, searchPattern, searchPattern, searchPattern,
 		)
 	}
 
@@ -208,7 +213,7 @@ func (r *ContactRepository) SearchWithFilter(ctx context.Context, userID uuid.UU
 	// Apply additional filters (supports legacy operators like $ilike, $and, $or)
 	if len(filter) > 0 {
 		builder := filterPkg.NewFilterBuilder(dbQuery)
-		dbQuery = builder.Apply(normalizeContactFilter(filter))
+		dbQuery = builder.Apply(NormalizeContactFilter(filter))
 	}
 
 	// Count total
@@ -274,7 +279,8 @@ func (r *ContactRepository) FindBySegment(
 // - Converts plain string text fields to ILIKE "%value%" for partial matching.
 // - Preserves legacy operators ($ilike, $and, $or, etc.) when provided.
 // - Treats slices as $in filters for convenience.
-func normalizeContactFilter(filter map[string]interface{}) baseRepo.Filter {
+// NormalizeContactFilter prepares contact filters for the generic baseRepo.FilterBuilder.
+func NormalizeContactFilter(filter map[string]interface{}) baseRepo.Filter {
 	normalized := make(baseRepo.Filter)
 	var cityOrFilters []interface{}
 	var titleOrFilters []interface{}
@@ -335,7 +341,7 @@ func normalizeContactFilter(filter map[string]interface{}) baseRepo.Filter {
 				continue
 			}
 			if isExactMatchField(key) {
-				// Exact match for enum-like fields (lifecycle_stage, status, etc.)
+				// Exact match for enum-like fields (outreach_stage, status, etc.)
 				normalized[key] = v
 			} else if isTextSearchField(key) {
 				// Partial match for text fields (name, company, etc.)
@@ -363,7 +369,9 @@ func normalizeContactFilter(filter map[string]interface{}) baseRepo.Filter {
 
 func isTextSearchField(field string) bool {
 	switch field {
-	case "name", "first_name", "last_name", "email", "phone", "company", "job_title", "address", "city", "country", "state", "zip":
+	// first_name/last_name (migration 000041) and email/phone (000043) no longer
+	// exist as columns, so they are not accepted as text filters.
+	case "name", "company", "job_title", "address", "city", "country", "state", "zip":
 		return true
 	default:
 		return false
@@ -373,7 +381,7 @@ func isTextSearchField(field string) bool {
 // isExactMatchField returns true for fields that should use exact match (=) instead of ILIKE
 func isExactMatchField(field string) bool {
 	switch field {
-	case "contact_channel", "lifecycle_stage", "context_level", "outreach_decision", "scenario", "next_step", "status":
+	case "contact_channel", "context_level", "outreach_decision", "scenario", "next_step", "outreach_stage", "status":
 		return true
 	default:
 		return false
@@ -458,20 +466,24 @@ func normalizeAlphaToken(value string) string {
 
 func buildCityRawExpr(normalized string) string {
 	// Match both normalized city text and initials (e.g., "HCM" -> "Ho Chi Minh").
+	// Use placeholders to prevent SQL injection
+	escaped := strings.ReplaceAll(normalized, "'", "''")
 	return fmt.Sprintf(
 		"(regexp_replace(lower(city), '[^a-z]', '', 'g') LIKE '%%%s%%' OR "+
 			"array_to_string(ARRAY(SELECT substring(w,1,1) FROM unnest(regexp_split_to_array(regexp_replace(lower(city), '[^a-z]', ' ', 'g'), '\\\\s+')) AS w WHERE w <> ''), '') LIKE '%s%%')",
-		normalized,
-		normalized,
+		escaped,
+		escaped,
 	)
 }
 
 func buildJobTitleRawExpr(normalized string) string {
+	// Use placeholders to prevent SQL injection
+	escaped := strings.ReplaceAll(normalized, "'", "''")
 	return fmt.Sprintf(
 		"(regexp_replace(lower(job_title), '[^a-z]', '', 'g') LIKE '%%%s%%' OR "+
 			"array_to_string(ARRAY(SELECT substring(w,1,1) FROM unnest(regexp_split_to_array(regexp_replace(lower(job_title), '[^a-z]', ' ', 'g'), '\\\\s+')) AS w WHERE w <> ''), '') LIKE '%s%%')",
-		normalized,
-		normalized,
+		escaped,
+		escaped,
 	)
 }
 
@@ -505,13 +517,15 @@ func buildFieldFuzzyFilters(field string, value string) []interface{} {
 }
 
 func buildFieldRawExpr(field string, normalized string) string {
+	// Use placeholders to prevent SQL injection
+	escaped := strings.ReplaceAll(normalized, "'", "''")
 	return fmt.Sprintf(
 		"(regexp_replace(lower(%s), '[^a-z]', '', 'g') LIKE '%%%s%%' OR "+
 			"array_to_string(ARRAY(SELECT substring(w,1,1) FROM unnest(regexp_split_to_array(regexp_replace(lower(%s), '[^a-z]', ' ', 'g'), '\\\\s+')) AS w WHERE w <> ''), '') LIKE '%s%%')",
 		field,
-		normalized,
+		escaped,
 		field,
-		normalized,
+		escaped,
 	)
 }
 
@@ -626,9 +640,35 @@ func (r *ContactRepository) UpsertMany(ctx context.Context, contacts []*domain.C
 
 	tx := core.DB(ctx, r.db)
 
+	// On a re-import, a value the file does not carry keeps what is stored.
+	// Overwriting every listed column put "N/A" over a real company when the
+	// file had no company column, while the address and the custom fields,
+	// which were not listed, were dropped although reported as imported.
+	// Profile keys are merged, the file's values winning, so enrichment and
+	// fields the file does not mention survive.
+	//
+	// email and phone were dropped by migration 000043. PostgreSQL resolves
+	// DO UPDATE SET columns when it parses the statement, so naming them made
+	// every call fail - including the first insert - not only the conflicts.
+	keepUnlessGiven := func(col string) clause.Assignment {
+		return clause.Assignment{Column: clause.Column{Name: col}, Value: gorm.Expr(
+			"CASE WHEN EXCLUDED."+col+" IS NULL OR EXCLUDED."+col+" IN ('', ?) THEN contacts."+col+" ELSE EXCLUDED."+col+" END",
+			domain.NOT_AVAILABLE)}
+	}
+	assignments := []clause.Assignment{}
+	for _, col := range []string{"name", "company", "job_title", "address", "city", "country", "state", "zip",
+		"contact_information", "industry", "contact_channel"} {
+		assignments = append(assignments, keepUnlessGiven(col))
+	}
+	assignments = append(assignments,
+		clause.Assignment{Column: clause.Column{Name: "profile"}, Value: gorm.Expr(
+			"COALESCE(contacts.profile, '{}'::jsonb) || COALESCE(EXCLUDED.profile, '{}'::jsonb)")},
+		clause.Assignment{Column: clause.Column{Name: "updated_at"}, Value: gorm.Expr("NOW()")},
+	)
+
 	return tx.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "user_id"}, {Name: "source"}, {Name: "source_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"name", "email", "phone", "company", "job_title", "address", "city", "country", "state", "zip"}),
+		DoUpdates: clause.Set(assignments),
 	}).Clauses(clause.Returning{}).Create(contacts).Error
 }
 
@@ -648,24 +688,56 @@ func (r *ContactRepository) UpsertBySource(ctx context.Context, contact *domain.
 	case err != nil:
 		return nil, err
 	default:
-		existing.Name = contact.Name
-		existing.Company = contact.Company
-		existing.JobTitle = contact.JobTitle
-		existing.Address = contact.Address
-		existing.City = contact.City
-		existing.Country = contact.Country
-		existing.State = contact.State
-		existing.Zip = contact.Zip
-		existing.OrganizationID = contact.OrganizationID
-		// Merge profile (email/phone are now stored in profile)
-		if len(contact.Profile) > 0 {
-			existing.Profile = contact.Profile
+		// A repeat submission may carry fewer fields than the first; a value it
+		// leaves out must not blank what is already known.
+		for _, f := range []struct {
+			dst *string
+			src string
+		}{
+			{&existing.Name, contact.Name}, {&existing.Company, contact.Company},
+			{&existing.JobTitle, contact.JobTitle}, {&existing.Address, contact.Address},
+			{&existing.City, contact.City}, {&existing.Country, contact.Country},
+			{&existing.State, contact.State}, {&existing.Zip, contact.Zip},
+			{&existing.ContactInformation, contact.ContactInformation},
+		} {
+			if f.src != "" && f.src != domain.NOT_AVAILABLE {
+				*f.dst = f.src
+			}
 		}
+		existing.OrganizationID = contact.OrganizationID
+		// Merge profile key by key (email/phone are now stored in profile).
+		// Replacing it wholesale dropped everything added since the first
+		// submission: custom fields, research findings, the LinkedIn URL.
+		existing.Profile = overlayJSONB(existing.Profile, contact.Profile)
+		existing.CalculateStatus()
 		if err := r.db.WithContext(ctx).Save(&existing).Error; err != nil {
 			return nil, err
 		}
 		return &existing, nil
 	}
+}
+
+// overlayJSONB returns existing with every top-level key of update written
+// over it. Unlike mergeJSONB, update wins where both have a value.
+func overlayJSONB(existing, update base.JSONB) base.JSONB {
+	if len(update) == 0 {
+		return existing
+	}
+	var dst, src map[string]interface{}
+	if err := existing.Unmarshal(&dst); err != nil || dst == nil {
+		return update
+	}
+	if err := update.Unmarshal(&src); err != nil {
+		return existing
+	}
+	for k, v := range src {
+		dst[k] = v
+	}
+	var out base.JSONB
+	if err := out.Marshal(dst); err != nil {
+		return existing
+	}
+	return out
 }
 
 // AddToList associates a contact with a list contact (no-op if already associated).
@@ -878,7 +950,7 @@ func (r *ContactRepository) UpdateFields(ctx context.Context, contactID uuid.UUI
 	}
 
 	// Reload to get fresh timestamps and all fields
-	if err := r.db.WithContext(ctx).First(&contact, contactID).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("is_deleted = ?", false).First(&contact, contactID).Error; err != nil {
 		return nil, err
 	}
 
@@ -925,10 +997,6 @@ func isValidContactField(field string) bool {
 		"source":          true,
 		"hubspot_id":      true,
 		"name":            true,
-		"first_name":      true,
-		"last_name":       true,
-		"email":           true,
-		"phone":           true,
 		"company":         true,
 		"job_title":       true,
 		"address":         true,
@@ -953,6 +1021,19 @@ func IsValidContactField(field string) bool {
 func (r *ContactRepository) Create(ctx context.Context, contact *domain.Contact) error {
 	_, err := r.GormRepository.Create(ctx, contact)
 	return err
+}
+
+// FindDeleted returns soft-deleted contacts for a user/org with pagination.
+func (r *ContactRepository) FindDeleted(ctx context.Context, userID uuid.UUID, orgID *uuid.UUID, offset, limit int) ([]*domain.Contact, error) {
+	var contacts []*domain.Contact
+	query := r.db.WithContext(ctx).Where("is_deleted = ?", true)
+	if orgID != nil {
+		query = query.Where("user_id = ? OR organization_id = ?", userID, *orgID)
+	} else {
+		query = query.Where("user_id = ?", userID)
+	}
+	err := query.Select("id").Offset(offset).Limit(limit).Find(&contacts).Error
+	return contacts, err
 }
 
 // SoftDelete soft deletes a contact (interface implementation)
@@ -1333,4 +1414,75 @@ func (r *ContactRepository) UpsertManyWithOwnershipCheck(ctx context.Context, co
 	}
 
 	return checkResult, nil
+}
+
+// PipelineSummary counts one user's contacts by where they sit in outreach.
+type PipelineSummary struct {
+	Total int64 `json:"total"`
+	// ByStage counts contacts per outreach stage (COLD, NO_REPLY, REPLIED,
+	// POST_MEETING, DROPPED). A contact with no stage recorded is COLD.
+	ByStage map[string]int64 `json:"by_stage"`
+	// FollowupDepth[i] counts contacts with i follow-ups; the last bucket
+	// holds three or more.
+	FollowupDepth [4]int64 `json:"followup_depth"`
+	// Stalled counts contacts still in play whose latest logged interaction is
+	// older than the cutoff. A contact never interacted with is not stalled:
+	// nothing has gone quiet yet.
+	Stalled int64 `json:"stalled"`
+}
+
+// PipelineSummary aggregates the caller's contacts in the database.
+//
+// The dashboard previously derived these figures from the outreach
+// suggestion list, which holds only contacts due an action now and is capped
+// at fifty: a contact who had replied was never in it, so "replies to answer"
+// read zero, and the stage chart described a handful of contacts rather than
+// the book.
+func (r *ContactRepository) PipelineSummary(ctx context.Context, userID uuid.UUID, stalledBefore time.Time) (*PipelineSummary, error) {
+	out := &PipelineSummary{ByStage: map[string]int64{}}
+	scope := r.db.WithContext(ctx).Table("contacts").
+		Where("user_id = ? AND is_deleted = ?", userID, false)
+
+	var stages []struct {
+		Stage string
+		N     int64
+	}
+	if err := scope.Session(&gorm.Session{}).
+		Select("UPPER(COALESCE(NULLIF(outreach_stage, ''), 'COLD')) AS stage, COUNT(*) AS n").
+		Group("stage").Scan(&stages).Error; err != nil {
+		return nil, fmt.Errorf("pipeline stages: %w", err)
+	}
+	for _, s := range stages {
+		out.ByStage[s.Stage] = s.N
+		out.Total += s.N
+	}
+
+	var depths []struct {
+		Bucket int
+		N      int64
+	}
+	if err := scope.Session(&gorm.Session{}).
+		// A COLD contact has never been written to, so it has had no
+		// follow-ups whatever the column holds (imported and test rows carry
+		// stray counts); counting it there contradicted the stage chart.
+		Select(`CASE WHEN UPPER(COALESCE(NULLIF(outreach_stage, ''), 'COLD')) = 'COLD' THEN 0
+			ELSE LEAST(GREATEST(COALESCE(followup_count, 0), 0), 3) END AS bucket, COUNT(*) AS n`).
+		Group("bucket").Scan(&depths).Error; err != nil {
+		return nil, fmt.Errorf("pipeline follow-up depth: %w", err)
+	}
+	for _, d := range depths {
+		out.FollowupDepth[d.Bucket] = d.N
+	}
+
+	if err := scope.Session(&gorm.Session{}).
+		// contacts.last_interaction_at is not maintained by any code path (it
+		// holds the import time), so the interaction log is the source.
+		Where(`id IN (SELECT contact_id FROM interaction_logs
+		               GROUP BY contact_id HAVING MAX("timestamp") <= ?)`, stalledBefore).
+		Where("UPPER(COALESCE(outreach_stage, '')) NOT IN ('REPLIED', 'DROPPED')").
+		Count(&out.Stalled).Error; err != nil {
+		return nil, fmt.Errorf("pipeline stalled: %w", err)
+	}
+
+	return out, nil
 }

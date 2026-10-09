@@ -114,7 +114,7 @@ func TestNormalizeContactFilter(t *testing.T) {
 		"$or":     []interface{}{"keep"},
 	}
 
-	normalized := normalizeContactFilter(filter)
+	normalized := NormalizeContactFilter(filter)
 
 	andBlock, ok := normalized["$and"].([]interface{})
 	require.True(t, ok, "expected $and block for fuzzy filters")

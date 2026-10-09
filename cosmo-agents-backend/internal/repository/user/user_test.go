@@ -11,16 +11,15 @@ import (
 	"github.com/rockship/cosmo-agents-go/internal/domain"
 	"github.com/rockship/cosmo-agents-go/internal/domain/base"
 	baseRepo "github.com/rockship/cosmo-agents-go/internal/repository/base"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupTestDB creates a test database
 func setupTestDB(t *testing.T) *gorm.DB {
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString())
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	db = db.Session(&gorm.Session{AllowGlobalUpdate: true})
 
@@ -296,22 +295,20 @@ func TestUserRepository_ComplexUser(t *testing.T) {
 	hubspotCreds := base.JSON([]byte(`{"access_token": "abc123", "refresh_token": "def456"}`))
 	fieldMapping := base.JSON([]byte(`{"email": "email_property", "name": "name_property"}`))
 	uiMetadata := base.JSONB([]byte(`{"theme": "dark", "language": "en"}`))
-	accessToken := "meta_access_token_123"
 
 	// Test complex user
 	user := &domain.User{
-		Email:                 "complex@example.com",
-		Name:                  "Complex User",
-		Picture:               "https://example.com/complex-avatar.jpg",
-		LastHistoryID:         "history_12345",
-		Provider:              "microsoft",
-		PhoneNumber:           phoneNumbers,
-		StaffEmails:           staffEmails,
-		HubspotCredentials:    hubspotCreds,
-		JobTitle:              "Product Manager",
-		HubspotFieldMapping:   fieldMapping,
-		UIMetadata:            uiMetadata,
-		MetaLlivedAccessToken: &accessToken,
+		Email:               "complex@example.com",
+		Name:                "Complex User",
+		Picture:             "https://example.com/complex-avatar.jpg",
+		LastHistoryID:       "history_12345",
+		Provider:            "microsoft",
+		PhoneNumber:         phoneNumbers,
+		StaffEmails:         staffEmails,
+		HubspotCredentials:  hubspotCreds,
+		JobTitle:            "Product Manager",
+		HubspotFieldMapping: fieldMapping,
+		UIMetadata:          uiMetadata,
 	}
 
 	// Create
@@ -329,7 +326,6 @@ func TestUserRepository_ComplexUser(t *testing.T) {
 	assert.Equal(t, phoneNumbers, result.PhoneNumber)
 	assert.Equal(t, staffEmails, result.StaffEmails)
 	assert.Equal(t, "Product Manager", result.JobTitle)
-	assert.Equal(t, &accessToken, result.MetaLlivedAccessToken)
 }
 
 // TestUserRepository_BulkOperations tests bulk user operations

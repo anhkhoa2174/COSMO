@@ -833,6 +833,70 @@ of AI effectiveness over time. This human-in-the-loop design allows
 BD representatives to validate, modify, or override AI outputs, 
 addressing the risk of over-automation identified in the literature.
 
+\subsection{Deciding the Next Step}
+\label{sec:lit-nextstep}
+
+The platforms reviewed above share one assumption: once a message is sent,
+the next step is the next item of a predefined sequence. Four bodies of work
+treat the next step as a \emph{decision} instead, and agree on its shape.
+
+\textbf{Marketing science and operations research} formalise it as a policy:
+given a compact summary of a customer's history, choose one of a small set of
+discrete actions --- one of which is to do nothing --- so as to maximise value
+over a horizon rather than the response to the next
+message~\cite{pednault2002sequential, simester2006dynamic, tkachenko2015crm}.
+The cost of ignoring the horizon has been measured: for one email retailer,
+sending four or ten emails instead of the optimal seven lost 32\% or 16\% of
+lifetime profit per customer~\cite{zhang2017email}. This work is almost
+entirely consumer marketing; the nearest B2B results are field experiments in
+which a model told salespeople what to offer and
+when~\cite{kumar2008customerfocused} and a deployed tax-collection system
+whose learned policy is bounded by legal and resource
+constraints~\cite{miller2012tax}. Lead scoring, the best-studied B2B problem,
+stops at ranking~\cite{wu2023leadscoring, duncan2015funnel}: what to do with a
+ranked lead is left to the representative, where leads are
+lost~\cite{sabnis2013sales}, and a high score is not a high payoff from
+acting~\cite{ascarza2018retention}.
+
+\textbf{Commercial decisioning} separates three things a fixed sequence
+merges: a catalogue of executable actions, rules that decide which of them
+are eligible for a given record, and a ranking over what remains, with a
+person accepting or rejecting the result~\cite{salesforce_nba_about}. Sales
+engagement tools apply a narrower form of the same idea. A sequence
+branches automatically on a few unambiguous events --- an out-of-office
+notice with a return date, a bounce, an unsubscribe, a booked meeting --- and
+hands every other reply to a person~\cite{outreach_rulesets, outreach_ooo_faq,
+hubspot_sequence_unenroll, gong_flows}; reply classification, where it is
+offered, is advisory~\cite{outreach_sentiment_classification}.
+
+\textbf{Research on LLM agents} explains why that separation matters when
+the ranking step is a language model. Agents that call functions over a
+typed schema outperform agents that plan in free
+text~\cite{yao2024taubench, huang2025crmarena}, yet rules stated only in a
+prompt are followed unreliably: on CRM benchmarks, agents complete workflow
+steps far more often than tasks that require following a
+policy~\cite{huang2025crmarenapro}. The reason a model gives for its choice
+is plausible rather than faithful~\cite{turpin2023unfaithful}. Models of
+human--automation interaction separate selecting an action from carrying it
+out~\cite{parasuraman2000automation}, which is the line COSMO draws: the
+system may select, and a person approves whatever is sent.
+
+\textbf{Evidence on cadence} is the weakest. Response speed to inbound
+enquiries is documented in practitioner
+research~\cite{oldroyd2011shortlife}, but for cold outbound email the number
+and spacing of follow-ups rest on vendors' analyses of their own customers;
+no peer-reviewed study was found, and widely repeated statistics that could
+not be traced to a source are not used here. The only binding rules are
+legal: a request to stop must be
+honoured~\cite{ftc_canspam, gdpr_art21, vn_decree91}.
+
+Two conclusions follow. The next step should be \emph{chosen} from a
+catalogue, after eligibility rules that live in code rather than in a prompt,
+with waiting as an action in its own right; and since no published work
+evaluates such an engine for B2B outbound, its follow-up counts and spacings
+are configurable conventions, not findings
+(Section~\ref{sec:nextstep-engine}, Appendix~\ref{app:nextstep}).
+
 \subsection{Summary and Gap Analysis}
 
 Table~\ref{tab:comparison} compares COSMO with the reviewed systems 
@@ -1152,7 +1216,9 @@ distinction between \textbf{lead pipeline} (pre-opportunity) and
 CRM platforms such as Salesforce and HubSpot. The Purchase stage
 (proposal acceptance, negotiation, and contract signing) and the
 Retain stage (post-sale onboarding, customer success, and expansion)
-are explicitly out of scope and shown for completeness only.
+are explicitly out of scope and shown for completeness only: they are
+handled by the human sales team and by customer success tooling, and are
+future work for integration rather than direct implementation.
 
 \textbf{Stage 1 -- Identify.}
 Leads enter the system through both \emph{outbound} and \emph{inbound}
@@ -1179,14 +1245,19 @@ agent drafts personalized messages using one of two strategies:
 agent also recommends the optimal channel and send timing.
 
 \textbf{Stage 4 -- Nurture.}
-If no reply is received within the organisation's no-reply window
-(eight hours by default, and configurable by an administrator), the
-contact transitions to a follow-up sequence: Follow-up~1 on days~4--5 and Follow-up~2 on
-days~9--12, each with an adjusted messaging strategy. When the
-contact replies, the AI analyzes sentiment (positive, neutral, or
-negative) and recommends the appropriate next action. Contacts that
-remain unresponsive after two follow-ups are automatically dropped;
-dormant contacts may be re-engaged after 60~days.
+After first contact the pipeline follows no fixed order of steps: each
+event on a lead triggers a decision about what happens next, taken from a
+catalogue of actions (Section~\ref{sec:nextstep-engine}). While nothing has
+come back, the default cadence applies: a wait of the organisation's no-reply
+window (eight hours by default, and configurable by an administrator), then
+Follow-up~1 on days~4--5 and Follow-up~2 on days~9--12. A reply is handled
+by what it says: an out-of-office notice postpones contact until the stated
+return date, a referral opens outreach to the person named, a question or
+objection is answered from the knowledge base, ``not now'' moves the contact
+to nurture with a date to return, and a request to stop suppresses all
+further mail. A contact who stays silent is recycled into long-interval
+nurture with the reason recorded, rather than dropped, and may be re-engaged
+after 60~days.
 
 \textbf{Stage 5 -- Engage.}
 For engaged contacts, the system proposes meeting times and tracks
@@ -1198,13 +1269,6 @@ off to the human sales team with full context (profile, conversation
 history, meeting notes) for the deal-closing process.
 \textbf{Stage 5 is the final stage handled by COSMO.}
 
-\textbf{Purchase} (proposal acceptance, negotiation, and contract
-signing) and \textbf{Retain} (post-sale onboarding, customer
-success, and expansion) are shown in the diagram for completeness
-but lie outside the COSMO scope. They are typically handled by the
-human sales team and dedicated customer success tooling, and are
-identified as future work for integration rather than direct
-implementation.
 
 
 \newpage
@@ -1225,8 +1289,10 @@ AI-powered inbox management, contact intelligence, autonomous AI
 processing, conversational assistance, and system administration.
 BD is the primary actor; Admin inherits all BD capabilities with
 additional management privileges. A Visitor actor represents an
-unauthenticated user of the public assistant. External actors
-include LLM Service (OpenAI), Gmail Pub/Sub, and Apollo API.
+unauthenticated user of the public assistant, and a Prospect actor
+represents a lead who submits a public lead form and receives campaign
+emails. External actors include LLM Service (OpenAI), Gmail Pub/Sub,
+and Apollo API.
 Detailed diagrams for each functional area are provided in
 Appendix~\ref{appendix:usecase-diagrams}.
 
@@ -2105,6 +2171,106 @@ document reference, and creation timestamp.
 
 
 
+\subsection{Next-Step Decision Engine}
+\label{sec:nextstep-engine}
+
+The outreach state machine was first designed as a fixed order of steps:
+send, wait, follow up twice, stop. That order treats every lead alike and
+reads a reply only as ``replied''. Following
+Section~\ref{sec:lit-nextstep}, the next step is redesigned as a decision
+taken on every event, in five stages (Figure~\ref{fig:nextstep-loop}). The
+division of labour is deliberate: code holds the facts and the rules, the
+model chooses only among what the rules allow, and a person approves
+whatever leaves the system.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.66\textwidth]{graphics/nextstep_decision_loop.png}
+    \caption{Next-step decision loop}
+    \label{fig:nextstep-loop}
+\end{figure}
+
+\paragraph{Action catalogue.} A decision returns one of thirteen typed
+actions (Table~\ref{tab:nextstep-actions}). The fixed cadence is the special
+case in which the catalogue has four actions and exactly one is eligible at a
+time. The former terminal state, \emph{dropped}, is split into three outcomes
+that mean different things: nurture (return later), disqualify (not a fit)
+and suppress (asked to stop).
+
+\begin{table}[H]
+\centering
+\caption{Next-step action catalogue}
+\label{tab:nextstep-actions}
+\small
+\begin{tblr}{
+  colspec = {Q[l,m,4.1cm] X[l,m] Q[l,m,3.4cm]},
+  row{1} = {bg=blue!12, font=\bfseries},
+  rowsep = 1.5pt,
+  hline{1,2,Z} = {0.8pt},
+}
+Action & Arguments & Approval \\
+\texttt{SEND\_INTRO}           & ---                                           & Person approves \\
+\texttt{SEND\_FOLLOW\_UP}      & angle                                         & Person approves \\
+\texttt{ANSWER\_REPLY}         & kind: answer, objection, clarify              & Person approves \\
+\texttt{PROPOSE\_MEETING}      & ---                                           & Person approves \\
+\texttt{MEETING\_FOLLOW\_UP}   & kind: confirm, prepare, after                 & Person approves \\
+\texttt{CONTACT\_STAKEHOLDER}  & person, referrer                              & Person approves \\
+\texttt{SWITCH\_CHANNEL}       & channel: LinkedIn, call                       & Task for the rep \\
+\texttt{WAIT}                  & until, reason                                 & Automatic \\
+\texttt{NURTURE}               & reason, revisit date or trigger               & Automatic \\
+\texttt{FIX\_DATA}             & field                                         & Automatic \\
+\texttt{SUPPRESS}              & ---                                           & Automatic on request \\
+\texttt{DISQUALIFY}            & reason                                        & Person confirms \\
+\texttt{ESCALATE}              & reason                                        & Person decides \\
+\end{tblr}
+\end{table}
+
+\paragraph{Situation and rules.} Stage~1 assembles facts from stored data
+only: outreach stage, messages sent and the time since the last one,
+meetings, lead score, and the intent of the latest reply. The nine intent
+labels of Table~\ref{tab:intent} are unchanged; a second structured
+extraction adds the details an action needs --- a return date, a referred
+person, a date to come back, the kind of objection. Stage~2 then removes
+the actions that must not be offered. The rules are code, evaluated in a
+fixed order (Table~\ref{tab:nextstep-rules}): an opted-out contact admits
+only suppression, a contact inside the no-reply window or away until a
+stated date only waiting, and a contact enrolled in an active campaign is
+left to that campaign, so the two never write to the same person twice.
+Because the model never sees an ineligible action, a poor choice cannot
+break a rule.
+
+\paragraph{Selection.} If one action remains it is taken without a model
+call, which covers waiting and suppression. Otherwise the LLM receives the
+situation and the eligible actions as an enumerated schema and returns one
+action, its arguments and a one-sentence reason. An answer outside the
+schema, or none within the time limit, falls back to the default cadence,
+so the engine is never worse than the sequence it replaces.
+
+\paragraph{Approval and drafting.} Approval is tiered by reversibility
+(third column of Table~\ref{tab:nextstep-actions}): internal actions run
+automatically, every outbound message waits for a person, and sensitive
+replies are handed over for a person to decide. The draft is written after
+the action is chosen, and for that action: the action supplies the goal of
+the message --- answer and propose a next step, address an objection,
+introduce COSMO to a referred person and name the referrer --- while
+retrieval and generation remain those of Section~\ref{sec:rag-pipeline}.
+Actions that send nothing produce no draft.
+
+\paragraph{Decision record.} Every pass stores its trigger, the situation,
+the rules that fired, the eligible set, the chosen action and arguments,
+whether the fallback was used, the model and prompt versions, and the
+reviewer's verdict. The record, not the model's stated reason, is the
+explanation: ``action $X$ was not offered because rule $R$ applied'' is
+exact by construction, whereas a generated rationale is not guaranteed to
+be faithful~\cite{turpin2023unfaithful}. The same records are the data from
+which a policy could later be learned and evaluated
+(Appendix~\ref{app:nextstep-eval}).
+
+\paragraph{Status.} The catalogue, rules and record are specified here; the
+release tested in Section~\ref{ch:testing} executes the default cadence and
+the intent routes of Table~\ref{tab:intent}, which the engine keeps as its
+fallback.
+
 \subsection{API Design}
 
 The COSMO system exposes a RESTful API organized into versioned
@@ -2209,20 +2375,20 @@ Meetings, and Tasks for tracking active engagements),
 \emph{Prospects} (prospect management with All Prospects,
 Audiences, Profile Fields, and Lead Forms for inbound capture,
 plus sub-pages for CSV Import and HubSpot Import),
-\emph{Campaigns} (campaign creation with playbook strategy,
-reusable Playbooks, and email Templates), and \emph{Resources}
-(the Knowledge Base for RAG-grounded content generation and
-Files \& Attachments for uploaded assets). The \emph{Settings}
-group lets administrators configure email agents, company
-information, team members, and sales reps, while the separate
-\emph{Integrations} group manages third-party connections
-(HubSpot and Outlook). A small set of UI elements is role-gated:
-only administrators can delete team members, see the
-``Added By'' column on All Prospects, view the ``Assigned to AI''
-and ``Sent'' inbox tabs, and assign or delete conversations.
-One route operates without authentication and serves external
-audiences: the public lead form (\texttt{/public/forms/[slug]})
-for prospect submissions.
+\emph{Campaigns} (campaign creation, with Campaign Detail and the
+Playbook Strategy picker as sub-pages, and email Templates), and
+\emph{Knowledge} (the Knowledge Base for RAG-grounded content
+generation and Files for uploaded assets). The \emph{Settings}
+group holds the connected email agents and the organisation
+settings: company information, team members, sales reps and
+outreach timing. Personal API keys are reached from the user menu.
+A small set of UI elements is role-gated: only administrators can
+delete team members, see the ``Added By'' column on All Prospects,
+view the ``Assigned to AI'' and ``Sent'' inbox tabs, assign or
+delete conversations, and open the team view of the dashboard.
+A few routes need no login: the public lead form
+(\texttt{/public/forms/[slug]}) for prospect submissions, and the
+terms of service, privacy policy and data-processing pages.
 
 The screens themselves, including the dashboard and the daily actions
 briefing, are shown in Appendix~\ref{appendix:ui-screens}.
@@ -2354,8 +2520,12 @@ drafting, the system embeds the inbound email, retrieves the top-5 most
 similar chunks, and injects them into a delimited knowledge block, falling
 back to stored document summaries when vector search returns nothing.
 For metrics, the system tracks total emails sent, total replies received,
-overall reply rate, and number of meetings booked, displayed in real time
-on the dashboard. More detailed breakdowns by campaign or template are
+overall reply rate, and number of meetings booked over the last 7 or 30 days.
+These four figures are computed by a nightly rollup rather than per request;
+pipeline stages, tasks, campaigns and meetings on the same dashboard are read
+live. The reply rate is the share of email threads written to in the period
+that received an answer, so follow-ups in the same thread do not dilute it,
+and it is shown as unavailable rather than 0\% when nothing was sent. More detailed breakdowns by campaign or template are
 planned but not yet complete.
 
 \subsection{Role-Based Dashboard and Inbox Filtering}
@@ -2450,23 +2620,18 @@ capability.
 \subsection{Configurable Automatic Replies}
 \label{sec:auto-reply}
 
-Every reply COSMO writes is held as a draft for a person to read. That is the
-right default, and it remains the default, but it is the wrong answer for the
-part of an inbox that consists of replies needing an acknowledgement and
-nothing more. An administrator can therefore hand specific categories of reply
-to the system, from the same settings page that holds the follow-up cadence.
-
-The design question is not whether automation is possible --- the draft is
-already written --- but how to bound it. The failure mode is not a wrong pixel:
-it is a wrong email in a prospect's inbox, which cannot be recalled. Four
-constraints follow from that, and they are what the feature actually consists
-of.
+Every reply COSMO writes is held as a draft for a person to read, and that
+remains the default. It is the wrong answer, however, for replies that need an
+acknowledgement and nothing more, so an administrator can hand specific
+categories of reply to the system, from the settings page that holds the
+follow-up cadence. The draft is already written; the design question is how to
+bound its sending, because a wrong email in a prospect's inbox cannot be
+recalled. Four constraints follow.
 
 \textbf{Nothing is enabled by default, and there is no ``all replies''
 option.} An organisation that never opens the setting behaves exactly as
-before. Enabling the feature without also naming a reply category still sends
-nothing, because an incomplete configuration is read in the safe direction
-rather than the permissive one.
+before. Enabling the feature without naming a reply category still sends
+nothing: an incomplete configuration is read in the safe direction.
 
 \textbf{Three categories can never be automated, whatever the setting says.}
 A request not to be contacted is the one message an automatic reply would
@@ -2488,17 +2653,13 @@ derived from the sent replies themselves rather than from a separate counter,
 so there is nothing that can fall out of step with reality.
 
 Two implementation choices are worth recording. The decision is made after the
-intent handler has already persisted its draft, not inside the handler: the
-draft therefore exists as a record even when the send fails, and the policy
-lives in one place rather than being repeated across the six handlers. And an
-automatic send is queued onto the same task a human ``approve and send'' uses,
-so retries, rate limiting, threading, and logging behave identically whoever
---- or whatever --- pressed the button.
-
-Every decision is recorded on the conversation with its reason, in both
-directions. A draft left for review carries the reason it was not sent, which
-is what allows ``why did this go out'' and ``why did this not'' to be answered
-after the fact rather than re-derived from the settings in force at the time.
+intent handler has persisted its draft, not inside it, so the draft exists as a
+record even when the send fails and the policy lives in one place rather than
+in six handlers. And an automatic send is queued onto the same task a human
+``approve and send'' uses, so retries, rate limiting, threading and logging
+behave identically whoever pressed the button. Every decision is recorded on
+the conversation with its reason, in both directions, so ``why did this go
+out'' and ``why did this not'' can be answered after the fact.
 
 \newpage
 \section{Testing}
@@ -4131,7 +4292,7 @@ beyond email, including LinkedIn and, for the Vietnamese market, Zalo.
 \clearpage
 
 \bibliographystyle{IEEEtran}
-\bibliography{references}
+\bibliography{references,references_nextstep}
 \label{LastPage}
 \clearpage   
 \pagestyle{empty}
@@ -5167,21 +5328,31 @@ The activity diagram illustrates the workflow for creating and
 executing an email campaign across five swimlanes: BD, COSMO System,
 LLM Service, Gmail Service, and Prospect. The process begins when BD
 selects target contacts, chooses a playbook strategy, and configures
-campaign settings. The system then delegates email sequence
-generation to the LLM Service, which returns structured templates.
-BD may iteratively edit templates
-manually or enhance them through the LLM Service (OpenAI) until
-satisfied. Upon activation, the system executes two parallel
-activities via a fork node: the worker applies merge tags from the contact's profile (name, job title, company), then sends via Gmail API and the system updates the
-contact's outreach state from COLD to NO\_REPLY with
-\texttt{next\_step = WAIT}. After synchronization, the system
-applies remaining merge tags and dispatches the email request to
-the Gmail Service, which delivers the email to the Prospect's
-inbox. The Prospect receives the campaign email, and the flow
-terminates at the activity final node. BD does not receive any
-real-time notification at this stage --- the system only pushes
-SSE notifications when a prospect replies (handled separately by
-the automatic pipeline), not when outbound emails are sent.
+the campaign name and settings. The system builds a prompt from the
+playbook and the selected contacts, and the LLM Service generates a
+multi-step email sequence from which the system creates the email
+templates. BD reviews the templates; a decision node lets BD edit a
+template manually and, optionally, enhance the draft with the AI
+writing assistant (also backed by the LLM Service), after which the
+templates are reviewed again. Once BD is satisfied, a merge node leads
+to campaign activation.
+
+On activation, the system schedules one send task per contact and
+sequence step. For each task it retrieves knowledge context from the
+company knowledge base (RAG), and the LLM Service rewrites the template
+for that contact. The system then fills the remaining merge tags and
+the sender name, removes any placeholder the model left unfilled, and
+sends the email request to the Gmail API. A fork node then splits the
+flow into two parallel activities: the Gmail Service delivers the email
+to the Prospect's inbox, while the system saves the email record, logs
+the interaction, and moves the contact's outreach state from COLD to
+NO\_REPLY with \texttt{next\_step = WAIT}. The state changes only after
+Gmail has accepted the message, so a failed send leaves the contact in
+COLD. Both branches synchronise at a join node, and the flow ends at
+the activity final node. BD receives no real-time notification at this
+stage: the system pushes SSE notifications only when a prospect
+replies (handled by the automatic pipeline), not when outbound emails
+are sent.
 
 
 \newpage
@@ -8579,6 +8750,126 @@ independent LLM pipeline, with the Gmail API used solely for message
 delivery and inbound notification (Section~\ref{sec:ai_native_validation}).
 
 
+
+\newpage
+\section{Next-Step Decision Reference}
+\label{app:nextstep}
+
+This appendix supports Section~\ref{sec:nextstep-engine}. It lists the
+eligibility rules in the order they are evaluated, the situations the
+engine distinguishes with the action each calls for, and how the reviewed
+platforms choose a next step.
+
+\subsection{Eligibility Rules}
+
+\begin{table}[H]
+\centering
+\caption{Eligibility rules, in evaluation order}
+\label{tab:nextstep-rules}
+\small
+\begin{tblr}{
+  colspec = {Q[c,m,0.6cm] X[l,m] X[l,m]},
+  row{1} = {bg=blue!12, font=\bfseries},
+  rowsep = 2pt,
+  hline{1,2,Z} = {0.8pt},
+}
+\# & Condition & Effect on the eligible set \\
+1 & Contact has asked to stop, or is marked do-not-contact & Only \texttt{SUPPRESS} \\
+2 & Address bounced & Only \texttt{FIX\_DATA}, \texttt{CONTACT\_STAKEHOLDER} \\
+3 & Contact is enrolled in an active campaign sequence & No sending action; the campaign owns the next message \\
+4 & Reply states a return date in the future & Only \texttt{WAIT} until the day after that date \\
+5 & Last message sent less than the no-reply window ago & Only \texttt{WAIT} until the window ends \\
+6 & A meeting is scheduled & Only \texttt{MEETING\_FOLLOW\_UP}, \texttt{WAIT} \\
+7 & Follow-ups sent have reached the configured cap & Remove \texttt{SEND\_FOLLOW\_UP} \\
+8 & No reply has been received & Remove \texttt{ANSWER\_REPLY} \\
+9 & No referred person or second stakeholder is known & Remove \texttt{CONTACT\_STAKEHOLDER} \\
+10 & Reply is classified \texttt{OTHER}, or is a complaint & Only \texttt{ESCALATE} \\
+\end{tblr}
+\end{table}
+
+\subsection{Situations and Actions}
+
+Table~\ref{tab:nextstep-situations} sets the current release beside the
+engine. The last column states what each row rests on. \emph{Legal} is a
+statutory duty; \emph{platform} is behaviour documented by at least one
+reviewed sales engagement tool; \emph{practice} is sales-practice guidance
+without controlled evidence; \emph{design} is a choice made for COSMO.
+No row rests on a peer-reviewed measurement of outbound email.
+
+\begin{table}[H]
+\centering
+\caption{Lead situations: the current release and the decision engine}
+\label{tab:nextstep-situations}
+\footnotesize
+\begin{tblr}{
+  colspec = {X[1.25,l,m] Q[l,m,2.5cm] X[1.6,l,m] Q[l,m,1.5cm]},
+  row{1} = {bg=blue!12, font=\bfseries},
+  rowsep = 1.5pt,
+  hline{1,2,Z} = {0.8pt},
+}
+Situation & Current release & Decision engine & Basis \\
+Sent, inside the no-reply window & Wait & \texttt{WAIT} until a stated time & Platform \\
+No reply, follow-ups remaining & Follow-up 1, then 2 & \texttt{SEND\_FOLLOW\_UP} from a new angle, or \texttt{SWITCH\_CHANNEL} & Practice \\
+No reply, cadence exhausted & Drop & \texttt{CONTACT\_STAKEHOLDER} if one is known, else \texttt{NURTURE} (no response) & Practice \\
+Out of office, return date given & Recorded; follow-ups stop & \texttt{WAIT} until the day after the return date & Platform \\
+Out of office, no date & Recorded; follow-ups stop & \texttt{WAIT} for the default window & Platform \\
+Referral to a named colleague & Lead created; assign to owner & \texttt{CONTACT\_STAKEHOLDER}, naming the referrer & Practice \\
+``Not now'' or ``next quarter'' & Assign to owner & \texttt{NURTURE} (timing) with the stated date & Practice \\
+Question, or request for pricing or information & Draft a grounded reply & \texttt{ANSWER\_REPLY} (answer), grounded in the knowledge base & Practice \\
+Price or competitor objection & Assign to owner & \texttt{ANSWER\_REPLY} (objection) & Practice \\
+Interested, asks to talk & Draft a grounded reply & \texttt{PROPOSE\_MEETING} & Practice \\
+Not interested & Assign to owner & \texttt{ANSWER\_REPLY} (clarify) once, then \texttt{DISQUALIFY} & Practice \\
+Asks to stop & Mark do-not-contact & \texttt{SUPPRESS}, immediately & Legal \\
+Address bounced & Not handled & \texttt{FIX\_DATA} & Platform \\
+Meeting scheduled & Confirm, prepare & \texttt{MEETING\_FOLLOW\_UP} (confirm, prepare) & Design \\
+Meeting held & Follow up & \texttt{MEETING\_FOLLOW\_UP} (after), then hand-off & Design \\
+Reply cannot be classified & Assign to owner & \texttt{ESCALATE} & Design \\
+Nurtured lead reaches its date, or shows a new signal & Re-engage after 60 days & \texttt{SEND\_INTRO} with the trigger as the angle & Practice \\
+\end{tblr}
+\end{table}
+
+\subsection{How Reviewed Platforms Choose a Next Step}
+
+Table~\ref{tab:nextstep-platforms} summarises the vendor documentation
+behind Section~\ref{sec:lit-nextstep}. It describes documented behaviour, not
+measured effectiveness; no vendor publishes how its ranking is computed. The
+Salesforce entry is taken from the indexed summary of its documentation, the
+others from the documentation pages themselves.
+
+\begin{table}[H]
+\centering
+\caption{Next-step mechanisms in reviewed platforms}
+\label{tab:nextstep-platforms}
+\footnotesize
+\begin{tblr}{
+  colspec = {Q[l,m,2.6cm] X[l,m] X[l,m]},
+  row{1} = {bg=blue!12, font=\bfseries},
+  rowsep = 2pt,
+  hline{1,2,Z} = {0.8pt},
+}
+Platform & How the next step is chosen & What is handled without a person \\
+Salesforce Next Best Action~\cite{salesforce_nba_about} & A catalogue of recommendations, each bound to an automated flow; a strategy filters and orders them per record; the user accepts or rejects & Nothing until the user accepts \\
+Outreach~\cite{outreach_rulesets, outreach_ooo_faq} & The next step of the sequence; rulesets set safety limits and can raise a call task after repeated opens or clicks & Out-of-office: pause and resume at the extracted return date; opt-out: finish the sequence or skip its email steps \\
+HubSpot Sequences~\cite{hubspot_sequence_unenroll} & The next step of the sequence & Unenrolment on reply, booked meeting, unsubscribe and bounce; a reply from one contact can unenrol others at the same company \\
+Gong Engage~\cite{gong_flows} & The next step of the flow, plus recommended to-dos & A reply pauses the flow; out-of-office: delay to the return date; bounce: mark the address invalid, pause and raise a to-do \\
+COSMO (this design) & One action from a typed catalogue, after eligibility rules; the model chooses only among eligible actions & Waiting, nurture, data repair and suppression on request; every outbound message is approved by a person \\
+\end{tblr}
+\end{table}
+
+\subsection{Evaluation Plan and Learned Policy}
+\label{app:nextstep-eval}
+
+The engine is evaluated offline first: a set of
+scenarios covering the situations of Appendix~\ref{app:nextstep}, each
+labelled independently by two reviewers with the actions they would accept,
+their agreement reported as the ceiling; the engine scored against those
+labels, with each scenario run several times so that consistency is reported
+beside accuracy; and violations of an eligibility rule counted separately,
+with zero expected by construction. A learned policy --- a contextual bandit
+over the eligible actions --- is left for later: it needs logged decisions
+with their outcomes, which the decision record is designed to accumulate,
+and the literature offers no B2B outbound precedent to start from
+(Section~\ref{sec:lit-nextstep}).
 
 
 \end{document}

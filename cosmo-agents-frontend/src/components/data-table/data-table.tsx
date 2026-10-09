@@ -240,7 +240,7 @@ const DataTable = ({
             <Table>
               <TableHeader
                 ref={headerTableRef}
-                className="sticky top-0 bg-gray-100 z-50"
+                className="sticky top-0 z-50 bg-gray-100"
               >
                 <TableRow>
                   {renderExpandedRow && <TableHead className="w-12 py-4" />}
@@ -351,7 +351,9 @@ const DataTable = ({
                     )}
                     {sortedData.map((pData: any, index) => {
                       const isExpanded = expandedRows.has(String(pData.id));
-                      const isExpandable = getExpandableIndicator ? getExpandableIndicator(pData) : true;
+                      const isExpandable = getExpandableIndicator
+                        ? getExpandableIndicator(pData)
+                        : true;
 
                       return (
                         <React.Fragment key={index}>
@@ -363,7 +365,9 @@ const DataTable = ({
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 w-8 p-0"
-                                    onClick={() => toggleRowExpansion(String(pData.id))}
+                                    onClick={() =>
+                                      toggleRowExpansion(String(pData.id))
+                                    }
                                   >
                                     {isExpanded ? (
                                       <ChevronUp className="h-4 w-4" />
@@ -396,14 +400,17 @@ const DataTable = ({
                               >
                                 {column.cell
                                   ? column.cell({ row: pData })
-                                  : cleanValue(pData[column.accessorKey]) || '-'}
+                                  : cleanValue(pData[column.accessorKey]) ||
+                                    '-'}
                               </TableCell>
                             ))}
                           </TableRow>
                           {renderExpandedRow && isExpanded && (
                             <TableRow>
                               <TableCell
-                                colSpan={columns.length + (showSelection ? 2 : 1)}
+                                colSpan={
+                                  columns.length + (showSelection ? 2 : 1)
+                                }
                                 className="p-0"
                               >
                                 {renderExpandedRow(pData)}

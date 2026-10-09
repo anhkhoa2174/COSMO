@@ -128,6 +128,8 @@ func TestCreateCustomField(t *testing.T) {
 			},
 		}, nil).Once()
 
+		mockCustomFieldRepo.On("FindAll", mock.Anything, mock.Anything, mock.Anything).Return(&baseRepo.PaginatedResult[domain.CustomField]{}, nil).Once()
+
 		// Mock create
 		mockCustomFieldRepo.On("Create", mock.Anything, mock.MatchedBy(func(cf *domain.CustomField) bool {
 			return cf.Name == "Company Size" && cf.OrganizationID != nil && *cf.OrganizationID == orgID
@@ -178,6 +180,8 @@ func TestCreateCustomField(t *testing.T) {
 
 		// Mock role returns no roles
 		mockRoleRepo.On("FindByUserID", mock.Anything, userID).Return([]domain.Role{}, nil).Once()
+
+		mockCustomFieldRepo.On("FindAll", mock.Anything, mock.Anything, mock.Anything).Return(&baseRepo.PaginatedResult[domain.CustomField]{}, nil).Once()
 
 		// Mock create
 		mockCustomFieldRepo.On("Create", mock.Anything, mock.MatchedBy(func(cf *domain.CustomField) bool {
@@ -297,6 +301,7 @@ func TestCreateCustomField(t *testing.T) {
 		app := setupTestApp()
 
 		mockRoleRepo.On("FindByUserID", mock.Anything, userID).Return([]domain.Role{}, nil).Once()
+		mockCustomFieldRepo.On("FindAll", mock.Anything, mock.Anything, mock.Anything).Return(&baseRepo.PaginatedResult[domain.CustomField]{}, nil).Once()
 		mockCustomFieldRepo.On("Create", mock.Anything, mock.Anything).Return(nil, errors.New("database error")).Once()
 
 		app.Post("/custom-fields", func(c fiber.Ctx) error {

@@ -87,6 +87,13 @@ func (h *Handler) Create(c fiber.Ctx) error {
 		}
 	}
 
+	// The create form sends its single contact field as contact_information
+	// (see below), with no email or linkedin_url; without this fallback the
+	// duplicate check never ran for it and every resubmit made a new row.
+	if contactInfoForCheck == "" {
+		contactInfoForCheck = extraContactInformation(req)
+	}
+
 	// Check for duplicate by contact_information
 	var existingContact *domain.Contact
 	if contactInfoForCheck != "" {
@@ -174,6 +181,16 @@ func (h *Handler) Create(c fiber.Ctx) error {
 		contactInformation = req.Email
 	}
 
+	// The create form posts a single "Contact Info (LinkedIn URL or Email)"
+	// field, which arrives as an extra field because the request struct has no
+	// contact_information member. Without this the column stays empty whenever
+	// the value does not match the shape the source implies — a LinkedIn
+	// contact reached by email, say — and the send worker then has no
+	// recipient. Update already does this sync; create did not.
+	if contactInformation == "" {
+		contactInformation = extraContactInformation(req)
+	}
+
 	contact := &domain.Contact{
 		UserID:             user.ID,
 		OrganizationID:     &organizationID,
@@ -192,7 +209,6 @@ func (h *Handler) Create(c fiber.Ctx) error {
 		// Outreach context fields
 		Industry:         req.Industry,
 		ContactChannel:   req.ContactChannel,
-		LifecycleStage:   req.LifecycleStage,
 		ContextLevel:     req.ContextLevel,
 		OutreachDecision: req.OutreachDecision,
 		Scenario:         req.Scenario,
@@ -270,6 +286,17 @@ func (h *Handler) Create(c fiber.Ctx) error {
 	return h.responseHelper.Success(c, response)
 }
 
+// extraContactInformation returns the usable contact_information the request
+// carries as an extra field, or "" for a blank or placeholder value.
+func extraContactInformation(req v1schema.CreateContactRequest) string {
+	ciVal, _ := req.ExtraFields["contact_information"].(string)
+	trimmed := strings.TrimSpace(ciVal)
+	if trimmed == "" || trimmed == "N/A" || strings.HasPrefix(trimmed, "unknown-") {
+		return ""
+	}
+	return trimmed
+}
+
 // convertRequestToProfile converts the request to a domain.JSONB type
 func convertRequestToProfile(req v1schema.CreateContactRequest) (domain.JSONB, error) {
 	// Create a map to hold the profile data
@@ -301,6 +328,9 @@ func convertRequestToProfile(req v1schema.CreateContactRequest) (domain.JSONB, e
 		}
 		profile["custom_fields"] = customFields
 	}
+
+	// Keep what the caller sent under profile before the key itself is dropped.
+	mergeProfileRequest(profile, req.Profile)
 
 	// Remove fields that are not in req body
 	delete(profile, "tags")
@@ -348,9 +378,6 @@ func (h *Handler) mergeAndUpdateContact(c fiber.Ctx, existing *domain.Contact, r
 	if req.Name != "" && req.Name != "N/A" {
 		updateAttrs["name"] = req.Name
 	}
-	if req.Phone != "" {
-		updateAttrs["phone"] = req.Phone
-	}
 	if req.Company != "" {
 		updateAttrs["company"] = req.Company
 	}
@@ -372,6 +399,9 @@ func (h *Handler) mergeAndUpdateContact(c fiber.Ctx, existing *domain.Contact, r
 	if req.Zip != "" {
 		updateAttrs["zip"] = req.Zip
 	}
+	if req.Industry != "" {
+		updateAttrs["industry"] = req.Industry
+	}
 
 	// Merge profile data
 	existingProfile := make(map[string]interface{})
@@ -382,6 +412,16 @@ func (h *Handler) mergeAndUpdateContact(c fiber.Ctx, existing *domain.Contact, r
 				for k, v := range req.Profile {
 					existingProfile[k] = v
 				}
+			}
+			// Phone has no column; like Create, keep it in the profile.
+			if req.Phone != "" {
+				existingProfile["phone"] = req.Phone
+			}
+			// Create copies these columns into the profile too, and the list
+			// spreads the profile over the columns, so a column updated here
+			// alone kept showing its old value.
+			for k, v := range updateAttrs {
+				existingProfile[k] = v
 			}
 			// Merge extra fields into custom_fields
 			if len(req.ExtraFields) > 0 {

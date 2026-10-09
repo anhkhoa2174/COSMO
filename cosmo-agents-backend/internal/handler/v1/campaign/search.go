@@ -1,6 +1,8 @@
 package campaign
 
 import (
+	"errors"
+
 	"github.com/gofiber/fiber/v3"
 	baseRepo "github.com/rockship/cosmo-agents-go/internal/repository/base"
 	"github.com/rockship/cosmo-agents-go/internal/schema"
@@ -37,6 +39,13 @@ func (h *Handler) SearchCampaigns(c fiber.Ctx) error {
 		}
 	}
 
+	// "$raw" is spliced into the WHERE clause verbatim by the filter builder.
+	// From a request body that is SQL injection, and "1=1) OR (1=1" escapes the
+	// caller's user_id scope entirely.
+	if containsRawFilter(req.Filter) {
+		return badRequest(c, "Invalid filter", errors.New("raw filter expressions are not allowed"))
+	}
+
 	filter := baseRepo.Filter{}
 	for key, value := range req.Filter {
 		filter[key] = value
@@ -60,4 +69,24 @@ func (h *Handler) SearchCampaigns(c fiber.Ctx) error {
 	}
 
 	return c.JSON(schema.SuccessResponse(response))
+}
+
+// containsRawFilter reports whether a filter, at any depth of $and/$or
+// nesting, carries a raw SQL expression.
+func containsRawFilter(v any) bool {
+	switch t := v.(type) {
+	case map[string]any:
+		for k, sub := range t {
+			if k == string(baseRepo.OpRaw) || containsRawFilter(sub) {
+				return true
+			}
+		}
+	case []any:
+		for _, sub := range t {
+			if containsRawFilter(sub) {
+				return true
+			}
+		}
+	}
+	return false
 }

@@ -1,7 +1,10 @@
 package outreach
 
 import (
+	"context"
+	"errors"
 	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -51,12 +54,12 @@ func (h *Handler) SuggestOutreach(c fiber.Ctx) error {
 	// Admin sees all contacts in organization, member sees only their own
 	isAdmin := h.authHelper.IsAdminInOrganization(ctx, user.ID, organizationID)
 
-	suggestions, err := h.outreachService.SuggestContacts(ctx, user.ID, organizationID, isAdmin, outreachType, limit)
+	result, err := h.outreachService.SuggestContacts(ctx, user.ID, organizationID, isAdmin, outreachType, limit)
 	if err != nil {
 		return h.responseHelper.InternalServerError(c, "Failed to suggest contacts", err)
 	}
 
-	return h.responseHelper.Success(c, suggestions)
+	return h.responseHelper.Success(c, result)
 }
 
 // GenerateDraftRequest represents the request body for generating a draft
@@ -84,14 +87,9 @@ func (h *Handler) GenerateDraft(c fiber.Ctx) error {
 	var req GenerateDraftRequest
 	_ = c.Bind().JSON(&req) // Ignore error - body is optional
 
-	// Default to Vietnamese if not specified
-	if req.Language == "" {
-		req.Language = "vi"
-	}
-
-	// Validate language
-	if req.Language != "vi" && req.Language != "en" {
-		return h.responseHelper.BadRequest(c, "Invalid language. Must be 'vi' or 'en'", nil)
+	// Validate language (allow empty or "auto" for auto-detection)
+	if req.Language != "" && req.Language != "vi" && req.Language != "en" && req.Language != "ja" && req.Language != "auto" {
+		return h.responseHelper.BadRequest(c, "Invalid language. Must be 'vi', 'en', 'ja', or 'auto'", nil)
 	}
 
 	// Get user's display name for personalization
@@ -100,7 +98,13 @@ func (h *Handler) GenerateDraft(c fiber.Ctx) error {
 		userName = user.Email // Fallback to email if name not set
 	}
 
-	result, err := h.outreachService.GenerateDraftForHandlerWithLanguage(ctx, user.ID, contactID, req.Language, userName)
+	// Pass language to service - empty/"auto" means auto-detect from contact name
+	language := req.Language
+	if language == "auto" {
+		language = "" // Let service auto-detect
+	}
+
+	result, err := h.outreachService.GenerateDraftForHandlerWithLanguage(ctx, user.ID, contactID, language, userName)
 	if err != nil {
 		return h.responseHelper.InternalServerError(c, "Failed to generate draft", err)
 	}
@@ -141,11 +145,276 @@ func (h *Handler) UpdateOutreach(c fiber.Ctx) error {
 	}
 
 	result, err := h.outreachService.UpdateOutreachForHandler(ctx, userID, contactID, req.Event, req.Content, req.Channel, req.Sentiment)
+	if errors.Is(err, outreachService.ErrUnknownEvent) {
+		return h.responseHelper.BadRequest(c, "Unknown event", err)
+	}
 	if err != nil {
 		return h.responseHelper.InternalServerError(c, "Failed to update outreach", err)
 	}
 
 	return h.responseHelper.Success(c, result)
+}
+
+// BatchUpdateOutreachItem represents a single item in a batch update request
+type BatchUpdateOutreachItem struct {
+	ContactID string `json:"contact_id"`
+	Event     string `json:"event"`
+	Content   string `json:"content"`
+	Channel   string `json:"channel"`
+	Sentiment string `json:"sentiment"`
+}
+
+// BatchUpdateOutreachRequest represents the request body for batch updating outreach
+type BatchUpdateOutreachRequest struct {
+	Updates []BatchUpdateOutreachItem `json:"updates"`
+}
+
+// BatchUpdateOutreachResultItem represents the result of a single batch update
+type BatchUpdateOutreachResultItem struct {
+	ContactID string      `json:"contact_id"`
+	Success   bool        `json:"success"`
+	Error     string      `json:"error,omitempty"`
+	Result    interface{} `json:"result,omitempty"`
+}
+
+// BatchUpdateOutreach updates outreach state for multiple contacts at once
+// POST /v1/outreach/batch-update
+func (h *Handler) BatchUpdateOutreach(c fiber.Ctx) error {
+	ctx := c.Context()
+	userID, err := h.authHelper.GetUserID(c)
+	if err != nil {
+		return h.responseHelper.HandleAuthError(c, err)
+	}
+
+	var req BatchUpdateOutreachRequest
+	if err := c.Bind().JSON(&req); err != nil {
+		return h.responseHelper.BadRequest(c, "Invalid request body", err)
+	}
+
+	if len(req.Updates) == 0 {
+		return h.responseHelper.BadRequest(c, "Updates array is required and cannot be empty", nil)
+	}
+
+	if len(req.Updates) > 50 {
+		return h.responseHelper.BadRequest(c, "Maximum 50 updates per batch", nil)
+	}
+
+	results := make([]BatchUpdateOutreachResultItem, 0, len(req.Updates))
+	for _, item := range req.Updates {
+		contactID, err := uuid.Parse(item.ContactID)
+		if err != nil {
+			results = append(results, BatchUpdateOutreachResultItem{
+				ContactID: item.ContactID,
+				Success:   false,
+				Error:     "Invalid contact ID",
+			})
+			continue
+		}
+
+		if item.Event == "" {
+			results = append(results, BatchUpdateOutreachResultItem{
+				ContactID: item.ContactID,
+				Success:   false,
+				Error:     "Event is required",
+			})
+			continue
+		}
+
+		result, err := h.outreachService.UpdateOutreachForHandler(ctx, userID, contactID, item.Event, item.Content, item.Channel, item.Sentiment)
+		if err != nil {
+			results = append(results, BatchUpdateOutreachResultItem{
+				ContactID: item.ContactID,
+				Success:   false,
+				Error:     err.Error(),
+			})
+			continue
+		}
+
+		results = append(results, BatchUpdateOutreachResultItem{
+			ContactID: item.ContactID,
+			Success:   true,
+			Result:    result,
+		})
+	}
+
+	return h.responseHelper.Success(c, results)
+}
+
+// BatchGenerateDraftRequest represents the request body for batch draft generation
+type BatchGenerateDraftRequest struct {
+	ContactIDs []string `json:"contact_ids"`
+	Language   string   `json:"language"`  // "vi", "en", or "auto" (default)
+	AutoSend   bool     `json:"auto_send"` // If true, also log as sent + update outreach stage
+}
+
+// BatchGenerateDraftResultItem represents the result of a single draft generation in a batch
+type BatchGenerateDraftResultItem struct {
+	ContactID          string      `json:"contact_id"`
+	Success            bool        `json:"success"`
+	Draft              string      `json:"draft,omitempty"`
+	State              interface{} `json:"state,omitempty"`
+	Scenario           string      `json:"scenario,omitempty"`
+	ContactName        string      `json:"contact_name,omitempty"`
+	ContactCompany     string      `json:"contact_company,omitempty"`
+	ContactJobTitle    string      `json:"contact_job_title,omitempty"`
+	ContactInformation string      `json:"contact_information,omitempty"`
+	ContactChannel     string      `json:"contact_channel,omitempty"`
+	Sent               bool        `json:"sent,omitempty"`
+	Error              string      `json:"error,omitempty"`
+}
+
+// BatchGenerateDraftResponse represents the response for batch draft generation
+type BatchGenerateDraftResponse struct {
+	Total     int                            `json:"total"`
+	Succeeded int                            `json:"succeeded"`
+	Failed    int                            `json:"failed"`
+	Results   []BatchGenerateDraftResultItem `json:"results"`
+}
+
+// BatchGenerateDraft generates outreach drafts for multiple contacts at once
+// POST /v1/outreach/batch-draft
+func (h *Handler) BatchGenerateDraft(c fiber.Ctx) error {
+	ctx := c.Context()
+	user, _, err := h.authHelper.GetUserAndOrganization(c)
+	if err != nil {
+		return h.responseHelper.HandleAuthError(c, err)
+	}
+
+	var req BatchGenerateDraftRequest
+	if err := c.Bind().JSON(&req); err != nil {
+		return h.responseHelper.BadRequest(c, "Invalid request body", err)
+	}
+
+	if len(req.ContactIDs) == 0 {
+		return h.responseHelper.BadRequest(c, "contact_ids array is required and cannot be empty", nil)
+	}
+
+	if len(req.ContactIDs) > 50 {
+		return h.responseHelper.BadRequest(c, "Maximum 50 contacts per batch", nil)
+	}
+
+	// Validate language
+	language := req.Language
+	if language == "" || language == "auto" {
+		language = "" // Let service auto-detect
+	} else if language != "vi" && language != "en" && language != "ja" {
+		return h.responseHelper.BadRequest(c, "Invalid language. Must be 'vi', 'en', or 'auto'", nil)
+	}
+
+	// Get user's display name for personalization
+	userName := user.Name
+	if userName == "" {
+		userName = user.Email
+	}
+
+	// Parse all contact IDs first
+	type contactIDPair struct {
+		raw    string
+		parsed uuid.UUID
+	}
+	var validContacts []contactIDPair
+	results := make([]BatchGenerateDraftResultItem, len(req.ContactIDs))
+
+	for i, idStr := range req.ContactIDs {
+		contactID, err := uuid.Parse(idStr)
+		if err != nil {
+			results[i] = BatchGenerateDraftResultItem{
+				ContactID: idStr,
+				Success:   false,
+				Error:     "Invalid contact ID",
+			}
+		} else {
+			validContacts = append(validContacts, contactIDPair{raw: idStr, parsed: contactID})
+		}
+	}
+
+	// Generate drafts in parallel using goroutines
+	type draftResult struct {
+		index  int
+		result BatchGenerateDraftResultItem
+	}
+
+	ch := make(chan draftResult, len(validContacts))
+	for _, vc := range validContacts {
+		// Find original index
+		idx := -1
+		for i, id := range req.ContactIDs {
+			if id == vc.raw {
+				idx = i
+				break
+			}
+		}
+
+		go func(index int, contactID uuid.UUID, contactIDStr string, autoSend bool) {
+			draft, err := h.outreachService.GenerateDraftForHandlerWithLanguage(ctx, user.ID, contactID, language, userName)
+			if err != nil {
+				ch <- draftResult{
+					index: index,
+					result: BatchGenerateDraftResultItem{
+						ContactID: contactIDStr,
+						Success:   false,
+						Error:     err.Error(),
+					},
+				}
+				return
+			}
+
+			item := BatchGenerateDraftResultItem{
+				ContactID:          contactIDStr,
+				Success:            true,
+				Draft:              draft.Draft,
+				State:              draft.State,
+				Scenario:           string(draft.Scenario),
+				ContactName:        draft.ContactName,
+				ContactCompany:     draft.ContactCompany,
+				ContactJobTitle:    draft.ContactJobTitle,
+				ContactInformation: draft.ContactInformation,
+				ContactChannel:     draft.ContactChannel,
+			}
+
+			// Auto-send: log as sent + update outreach stage
+			if autoSend && draft.Draft != "" {
+				channel := draft.ContactChannel
+				if channel == "" {
+					channel = "LinkedIn"
+				}
+				_, sendErr := h.outreachService.UpdateOutreachForHandler(ctx, user.ID, contactID, "sent", draft.Draft, channel, "")
+				if sendErr != nil {
+					item.Error = "Draft generated but failed to send: " + sendErr.Error()
+				} else {
+					item.Sent = true
+				}
+			}
+
+			ch <- draftResult{
+				index:  index,
+				result: item,
+			}
+		}(idx, vc.parsed, vc.raw, req.AutoSend)
+	}
+
+	// Collect results
+	for range validContacts {
+		dr := <-ch
+		results[dr.index] = dr.result
+	}
+
+	succeeded := 0
+	failed := 0
+	for _, r := range results {
+		if r.Success {
+			succeeded++
+		} else {
+			failed++
+		}
+	}
+
+	return h.responseHelper.Success(c, BatchGenerateDraftResponse{
+		Total:     len(results),
+		Succeeded: succeeded,
+		Failed:    failed,
+		Results:   results,
+	})
 }
 
 // GetOutreachState gets the current outreach state for a contact
@@ -345,10 +614,16 @@ func (h *Handler) UpdateMeeting(c fiber.Ctx) error {
 	return h.responseHelper.Success(c, meeting)
 }
 
+// GenerateMeetingPrepRequest represents the request body for generating meeting prep
+type GenerateMeetingPrepRequest struct {
+	Language string `json:"language"` // "vi" (Vietnamese) or "en" (English), default "vi"
+}
+
 // GenerateMeetingPrep generates meeting preparation document (talking points, discovery questions)
 // POST /v1/outreach/meetings/:meeting_id/generate-prep
 func (h *Handler) GenerateMeetingPrep(c fiber.Ctx) error {
-	ctx := c.Context()
+	ctx, cancel := context.WithTimeout(c.Context(), 120*time.Second)
+	defer cancel()
 	userID, err := h.authHelper.GetUserID(c)
 	if err != nil {
 		return h.responseHelper.HandleAuthError(c, err)
@@ -360,7 +635,19 @@ func (h *Handler) GenerateMeetingPrep(c fiber.Ctx) error {
 		return h.responseHelper.BadRequest(c, "Invalid meeting ID", err)
 	}
 
-	meeting, err := h.outreachService.GenerateMeetingPrep(ctx, userID, meetingID)
+	// Parse request body for language preference
+	var req GenerateMeetingPrepRequest
+	if err := c.Bind().JSON(&req); err != nil {
+		// If no body provided, default to Vietnamese
+		req.Language = "vi"
+	}
+
+	// Default to Vietnamese if not specified
+	if req.Language == "" {
+		req.Language = "vi"
+	}
+
+	meeting, err := h.outreachService.GenerateMeetingPrep(ctx, userID, meetingID, req.Language)
 	if err != nil {
 		return h.responseHelper.InternalServerError(c, "Failed to generate meeting prep", err)
 	}
@@ -407,6 +694,23 @@ func (h *Handler) GetMeetings(c fiber.Ctx) error {
 	}
 
 	meetings, err := h.outreachService.GetMeetingsForHandler(ctx, userID, contactID)
+	if err != nil {
+		return h.responseHelper.InternalServerError(c, "Failed to get meetings", err)
+	}
+
+	return h.responseHelper.Success(c, meetings)
+}
+
+// GetAllMeetings gets all upcoming scheduled meetings for the authenticated user
+// GET /v1/outreach/meetings
+func (h *Handler) GetAllMeetings(c fiber.Ctx) error {
+	ctx := c.Context()
+	userID, err := h.authHelper.GetUserID(c)
+	if err != nil {
+		return h.responseHelper.HandleAuthError(c, err)
+	}
+
+	meetings, err := h.outreachService.GetUpcomingMeetingsForHandler(ctx, userID)
 	if err != nil {
 		return h.responseHelper.InternalServerError(c, "Failed to get meetings", err)
 	}

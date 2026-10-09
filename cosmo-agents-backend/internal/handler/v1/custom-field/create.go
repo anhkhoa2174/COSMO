@@ -1,10 +1,14 @@
 package customfield
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/rockship/cosmo-agents-go/internal/domain"
+	cfdomain "github.com/rockship/cosmo-agents-go/internal/domain/custom_field"
 	v1validation "github.com/rockship/cosmo-agents-go/internal/handler/v1/validation"
 	"github.com/rockship/cosmo-agents-go/internal/schema"
 	v1schema "github.com/rockship/cosmo-agents-go/internal/schema/v1"
@@ -20,6 +24,7 @@ import (
 // @Success 201 {object} schema.APIResponse[v1schema.CustomFieldResponse] "Custom field created successfully"
 // @Failure 400 {object} schema.APIResponse[any] "Invalid request body or validation failed"
 // @Failure 401 {object} schema.APIResponse[any] "User not authenticated"
+// @Failure 409 {object} schema.APIResponse[any] "A custom field with this name already exists"
 // @Failure 500 {object} schema.APIResponse[any] "Failed to create custom field"
 // @Router /v1/custom-fields [post]
 // @Security BearerAuth
@@ -65,6 +70,20 @@ func (h *Handler) Create(c fiber.Ctx) error {
 
 	if req.Options != nil {
 		customField.Options = pq.StringArray(req.Options)
+	}
+
+	customField.Name = strings.TrimSpace(customField.Name)
+	if err := validateNewKey(customField.EntityType, cfdomain.NormalizeName(customField.Name)); err != nil {
+		return badRequest(c, err.Error(), nil)
+	}
+	if err := validateDefinition(customField); err != nil {
+		return badRequest(c, err.Error(), nil)
+	}
+	if err := h.checkDuplicate(c.Context(), userID, organizationID, customField.EntityType, customField.Name, uuid.Nil); err != nil {
+		if errors.Is(err, errDuplicateName) {
+			return conflict(c, err.Error())
+		}
+		return internalError(c, "Failed to check existing custom fields", err)
 	}
 
 	if _, err := h.customFieldRepo.Create(c.Context(), customField); err != nil {

@@ -10,6 +10,7 @@ import (
 	"github.com/rockship/cosmo-agents-go/internal/schema"
 	v1schema "github.com/rockship/cosmo-agents-go/internal/schema/v1"
 	inboundLeadFormService "github.com/rockship/cosmo-agents-go/internal/service/inbound_lead_form"
+	"github.com/rockship/cosmo-agents-go/pkg/logger"
 )
 
 type InboundLeadFormHandler struct {
@@ -180,31 +181,66 @@ func (h *InboundLeadFormHandler) Delete(c fiber.Ctx) error {
 	return c.JSON(schema.SuccessResponse(fiber.Map{"message": "Form deleted"}))
 }
 
-// SubmitInboundLeadForm handles POST /v1/inbound-lead-forms/:id/submit
+// maxSubmitBodyBytes caps a public submission. A form of a few dozen fields
+// fits many times over; the app-wide 50 MB limit is for file uploads.
+const maxSubmitBodyBytes = 32 * 1024
+
+// GetPublic handles GET /v1/public/inbound-lead-forms/:identifier
+// @Summary Get a lead form to render it
+// @Description Public: returns only what a visitor needs to render the form.
+// @Tags inbound-lead-form
+// @Param identifier path string true "Form slug or ID"
+// @Produce json
+// @Success 200 {object} schema.APIResponse[v1schema.InboundLeadFormResponse]
+// @Failure 404 {object} schema.APIResponse[any]
+// @Router /v1/public/inbound-lead-forms/{identifier} [get]
+func (h *InboundLeadFormHandler) GetPublic(c fiber.Ctx) error {
+	resp, err := h.service.GetPublic(c.Context(), c.Params("identifier"))
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).
+			JSON(schema.ErrorResponse(http.StatusInternalServerError, "Failed to fetch form", ""))
+	}
+	if resp == nil {
+		return c.Status(http.StatusNotFound).JSON(schema.ErrorResponse(http.StatusNotFound, "Form not found", nil))
+	}
+	return c.JSON(schema.SuccessResponse(resp))
+}
+
+// SubmitInboundLeadForm handles POST /v1/public/inbound-lead-forms/:identifier/submit
+// (and the older authenticated /v1/inbound-lead-forms/:identifier/submit).
 // @Summary Submit inbound lead form
-// @Description Submit the inbound lead form for final processing or lead creation.
+// @Description Public: creates or updates the lead in the form owner's contacts. Only the form's own fields are stored.
 // @Tags inbound-lead-form
 // @Accept json
 // @Produce json
-// @Param id path string true "Inbound Lead Form ID"
+// @Param identifier path string true "Form slug or ID"
 // @Param body body map[string]any true "Submitted Lead Form Data"
 // @Success 200 {object} schema.APIResponse[v1schema.LeadFormSubmitResponse]
 // @Failure 400 {object} schema.APIResponse[any]
-// @Failure 401 {object} schema.APIResponse[any]
 // @Failure 404 {object} schema.APIResponse[any]
-// @Failure 500 {object} schema.APIResponse[any]
-// @Security BearerAuth
-// @Router /v1/inbound-lead-forms/{id}/submit [post]
+// @Failure 413 {object} schema.APIResponse[any]
+// @Failure 429 {object} schema.APIResponse[any]
+// @Router /v1/public/inbound-lead-forms/{identifier}/submit [post]
 func (h *InboundLeadFormHandler) Submit(c fiber.Ctx) error {
+	if len(c.Body()) > maxSubmitBodyBytes {
+		return c.Status(http.StatusRequestEntityTooLarge).
+			JSON(schema.ErrorResponse(http.StatusRequestEntityTooLarge, "Submission is too large", ""))
+	}
 	identifier := c.Params("identifier")
 	var payload map[string]any
 	if err := c.Bind().JSON(&payload); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(schema.ErrorResponse(http.StatusBadRequest, "Invalid request body", err.Error()))
+		return c.Status(http.StatusBadRequest).JSON(schema.ErrorResponse(http.StatusBadRequest, "Invalid request body", ""))
 	}
 
 	resp, err := h.service.Submit(c.Context(), identifier, payload)
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(schema.ErrorResponse(http.StatusBadRequest, err.Error(), ""))
+		if errors.Is(err, inboundLeadFormService.ErrInvalidSubmission) {
+			return c.Status(http.StatusBadRequest).JSON(schema.ErrorResponse(http.StatusBadRequest, err.Error(), ""))
+		}
+		// Anything else is ours to fix, and its detail is not for a visitor.
+		logger.Logger.Error().Err(err).Str("form", identifier).Msg("Lead form submission failed")
+		return c.Status(http.StatusInternalServerError).
+			JSON(schema.ErrorResponse(http.StatusInternalServerError, "Could not submit the form", ""))
 	}
 	if resp == nil {
 		return c.Status(http.StatusNotFound).JSON(schema.ErrorResponse(http.StatusNotFound, "Form not found", ""))

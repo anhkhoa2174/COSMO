@@ -85,6 +85,16 @@ func (h *Handler) Update(c fiber.Ctx) error {
 		finalListContactID = req.ListContactID
 	}
 
+	if req.AgentID != nil {
+		ok, err := h.agentUsableBy(c.Context(), *req.AgentID, userID)
+		if err != nil {
+			return internalError(c, "Failed to verify agent", err)
+		}
+		if !ok {
+			return forbidden(c, "You cannot send from this agent")
+		}
+	}
+
 	finalAgentID := campaign.AgentID
 	if req.AgentID != nil {
 		finalAgentID = req.AgentID
@@ -95,6 +105,13 @@ func (h *Handler) Update(c fiber.Ctx) error {
 	}
 
 	previousStatus := campaign.Status
+	activating := req.Status != nil && finalStatus == domain.CampaignStatusActive && previousStatus != finalStatus
+	// Checked before anything is written: a campaign saved as active whose
+	// execution was never queued is stuck, since re-sending "active" is no
+	// longer a transition and never enqueues.
+	if activating && h.workerClient == nil {
+		return internalError(c, "Worker client not configured", errors.New("worker client is nil"))
+	}
 	updateAttrs := map[string]interface{}{}
 
 	if req.Name != nil {
@@ -138,10 +155,7 @@ func (h *Handler) Update(c fiber.Ctx) error {
 	}
 
 	// When moving to active, enqueue campaign execution.
-	if req.Status != nil && finalStatus == domain.CampaignStatusActive && previousStatus != finalStatus {
-		if h.workerClient == nil {
-			return internalError(c, "Worker client not configured", errors.New("worker client is nil"))
-		}
+	if activating {
 		if finalAgentID == nil {
 			return internalError(c, "Agent is required to execute campaign", errors.New("agent_id is nil"))
 		}
@@ -153,6 +167,9 @@ func (h *Handler) Update(c fiber.Ctx) error {
 		}
 
 		if _, err := h.workerClient.EnqueueCriticalTask(c.Context(), worker.TypeExecuteCampaign, payload); err != nil {
+			// The status has to be saved first (the worker refuses a campaign
+			// that is not active), so undo it; see the note on activating.
+			_ = h.campaignRepo.UpdateAttributes(c.Context(), campaign.ID, map[string]interface{}{"status": previousStatus})
 			return internalError(c, "Failed to enqueue campaign execution", err)
 		}
 	}

@@ -2,13 +2,14 @@ package inbound_lead_form
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
@@ -22,8 +23,7 @@ import (
 
 func newInboundLeadFormService(t *testing.T) (*InboundLeadFormService, uuid.UUID) {
 	t.Helper()
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(
 		&domain.InboundLeadForm{},
@@ -31,59 +31,9 @@ func newInboundLeadFormService(t *testing.T) (*InboundLeadFormService, uuid.UUID
 		&domain.CustomField{},
 		&organization.Organization{},
 	))
-	if err := db.Exec(`ALTER TABLE inbound_lead_forms ADD COLUMN is_deleted BOOLEAN DEFAULT false`).Error; err != nil {
-		if !strings.Contains(err.Error(), "duplicate column name") {
-			require.NoError(t, err)
-		}
-	}
+	require.NoError(t, db.Exec(`ALTER TABLE inbound_lead_forms ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT false`).Error)
 
-	// Minimal contacts table for SQLite (avoids Postgres-specific GIN index)
-	createContactSQL := `
-	CREATE TABLE contacts (
-		id TEXT PRIMARY KEY,
-		user_id TEXT NOT NULL,
-		source_id TEXT,
-		hubspot_id TEXT,
-		source TEXT,
-		name TEXT,
-		first_name TEXT,
-		last_name TEXT,
-		email TEXT,
-		phone TEXT,
-		company TEXT,
-		job_title TEXT,
-		address TEXT,
-		city TEXT,
-		country TEXT,
-		state TEXT,
-		zip TEXT,
-		profile TEXT,
-		confirmed_facts TEXT,
-		ai_insights TEXT,
-		insight_validation TEXT,
-		scores TEXT,
-		do_not_contact BOOLEAN,
-		organization_id TEXT,
-		tags TEXT,
-		status TEXT,
-		missing_fields TEXT,
-		contact_information TEXT,
-		industry TEXT,
-		contact_channel TEXT,
-		lifecycle_stage TEXT,
-		context_level TEXT,
-		outreach_decision TEXT,
-		scenario TEXT,
-		message_draft TEXT,
-		last_outcome TEXT,
-		next_step TEXT,
-		meeting TEXT,
-		business_stage TEXT,
-		is_deleted BOOLEAN DEFAULT false,
-		created_at DATETIME,
-		updated_at DATETIME
-	);`
-	require.NoError(t, db.Exec(createContactSQL).Error)
+	require.NoError(t, db.AutoMigrate(&domain.Contact{}))
 
 	userID := uuid.New()
 	org := organization.Organization{
@@ -287,3 +237,137 @@ func TestInboundLeadFormService_EdgeCases(t *testing.T) {
 }
 
 func boolPtr(v bool) *bool { return &v }
+
+// A lead who fills the form in again must not lose what was learned about
+// them since, and must be reachable: contact_information carries the email.
+func TestInboundLeadFormService_Resubmit_KeepsEnrichment(t *testing.T) {
+	service, userID := newInboundLeadFormService(t)
+	ctx := context.Background()
+
+	_, err := service.Create(ctx, userID, &v1schema.InboundLeadFormCreateRequest{
+		Name: "Lead Form", Slug: "resubmit-form",
+		Fields: []v1schema.InboundLeadFormFieldRequest{{Name: "email"}, {Name: "first_name"}, {Name: "company"}},
+	})
+	require.NoError(t, err)
+
+	first, err := service.Submit(ctx, "resubmit-form", map[string]any{"email": "lead@example.com", "first_name": "Lead", "company": "Acme"})
+	require.NoError(t, err)
+	stored, err := service.contactRepo.GetByID(ctx, first.ContactID)
+	require.NoError(t, err)
+	assert.Equal(t, "lead@example.com", stored.ContactInformation)
+
+	// Enrichment after the first submission.
+	_, err = service.contactRepo.UpdateFields(ctx, first.ContactID, map[string]interface{}{
+		"profile": domain.JSONB(`{"email":"lead@example.com","research_findings":[{"fact":"raised series A"}]}`),
+	}, userID, *stored.OrganizationID)
+	require.NoError(t, err)
+
+	second, err := service.Submit(ctx, "resubmit-form", map[string]any{"email": "lead@example.com", "first_name": "Lead"})
+	require.NoError(t, err)
+	assert.Equal(t, first.ContactID, second.ContactID)
+
+	after, err := service.contactRepo.GetByID(ctx, first.ContactID)
+	require.NoError(t, err)
+	assert.Equal(t, "Acme", after.Company, "a field left out of the resubmission is kept")
+	assert.Contains(t, string(after.Profile), "raised series A", "profile keys added since are kept")
+}
+
+// The submit endpoint is public, so a visitor controls the whole payload.
+func TestInboundLeadFormService_Submit_OnlyStoresTheFormsFields(t *testing.T) {
+	service, userID := newInboundLeadFormService(t)
+	ctx := context.Background()
+	_, err := service.Create(ctx, userID, &v1schema.InboundLeadFormCreateRequest{
+		Name: "Lead Form", Slug: "public-form",
+		Fields: []v1schema.InboundLeadFormFieldRequest{{Name: "email"}, {Name: "first_name"}, {Name: "notes"}, {Name: "custom_field"}},
+	})
+	require.NoError(t, err)
+
+	resp, err := service.Submit(ctx, "public-form", map[string]any{
+		"email": " lead@example.com ", "first_name": "Lead", "Notes": "call me", "custom_field": "blue",
+		// Not on the form: dropped, not written into the owner's contact.
+		"do_not_contact": true, "research_findings": []any{"fake"}, "status": "hot",
+	})
+	require.NoError(t, err)
+	assert.NotContains(t, resp.Data, "status")
+
+	stored, err := service.contactRepo.GetByID(ctx, resp.ContactID)
+	require.NoError(t, err)
+	assert.Equal(t, "lead@example.com", stored.ContactInformation)
+	var profile map[string]any
+	require.NoError(t, json.Unmarshal(stored.Profile, &profile))
+	assert.Equal(t, "call me", profile["notes"])
+	assert.Equal(t, "blue", profile["custom_field"])
+	for _, key := range []string{"do_not_contact", "research_findings", "status"} {
+		assert.NotContains(t, profile, key)
+	}
+	assert.False(t, stored.DoNotContact)
+}
+
+func TestInboundLeadFormService_Submit_RejectsBadValues(t *testing.T) {
+	service, userID := newInboundLeadFormService(t)
+	ctx := context.Background()
+	_, err := service.Create(ctx, userID, &v1schema.InboundLeadFormCreateRequest{
+		Name: "Lead Form", Slug: "strict-form",
+		Fields: []v1schema.InboundLeadFormFieldRequest{{Name: "email"}, {Name: "first_name"}, {Name: "notes"}},
+	})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name    string
+		payload map[string]any
+	}{
+		{"not an email", map[string]any{"email": "nope", "first_name": "A"}},
+		{"email with a display name", map[string]any{"email": "Eve <eve@x.test>", "first_name": "A"}},
+		{"required field left blank", map[string]any{"email": "a@x.test", "first_name": "   "}},
+		{"value too long", map[string]any{"email": "a@x.test", "first_name": "A", "notes": strings.Repeat("x", maxSubmitValueLen+1)}},
+		{"nested object", map[string]any{"email": "a@x.test", "first_name": "A", "notes": map[string]any{"a": 1}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := service.Submit(ctx, "strict-form", tt.payload)
+			assert.ErrorIs(t, err, ErrInvalidSubmission)
+		})
+	}
+}
+
+type fixedOrg struct{ id uuid.UUID }
+
+func (f fixedOrg) FindPrimaryOrganization(context.Context, uuid.UUID) (*uuid.UUID, error) {
+	return &f.id, nil
+}
+
+// A member who did not create their organisation still owns forms; their
+// leads go to the organisation they work in.
+func TestInboundLeadFormService_Submit_UsesTheOwnersOrganisation(t *testing.T) {
+	service, userID := newInboundLeadFormService(t)
+	ctx := context.Background()
+	memberOf := uuid.New()
+	service.WithOrgResolver(fixedOrg{memberOf})
+	_, err := service.Create(ctx, userID, &v1schema.InboundLeadFormCreateRequest{
+		Name: "Lead Form", Slug: "member-form", Fields: []v1schema.InboundLeadFormFieldRequest{{Name: "email"}},
+	})
+	require.NoError(t, err)
+
+	resp, err := service.Submit(ctx, "member-form", map[string]any{"email": "a@x.test"})
+	require.NoError(t, err)
+	stored, err := service.contactRepo.GetByID(ctx, resp.ContactID)
+	require.NoError(t, err)
+	require.NotNil(t, stored.OrganizationID)
+	assert.Equal(t, memberOf, *stored.OrganizationID)
+}
+
+// A field the form does not ask for must not surface as "N/A".
+func TestInboundLeadFormService_Submit_MissingPartsAreNotNA(t *testing.T) {
+	service, userID := newInboundLeadFormService(t)
+	ctx := context.Background()
+	_, err := service.Create(ctx, userID, &v1schema.InboundLeadFormCreateRequest{
+		Name: "Lead Form", Slug: "short-form", Fields: []v1schema.InboundLeadFormFieldRequest{{Name: "email"}, {Name: "first_name"}},
+	})
+	require.NoError(t, err)
+	resp, err := service.Submit(ctx, "short-form", map[string]any{"email": "a@x.test", "first_name": "Ann"})
+	require.NoError(t, err)
+	stored, err := service.contactRepo.GetByID(ctx, resp.ContactID)
+	require.NoError(t, err)
+	assert.Equal(t, "Ann", stored.Name)
+	assert.NotContains(t, string(stored.Profile), "phone")
+}

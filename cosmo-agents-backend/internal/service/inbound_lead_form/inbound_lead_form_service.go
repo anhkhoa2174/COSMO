@@ -2,7 +2,9 @@ package inbound_lead_form
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/mail"
 	"strings"
 
 	"github.com/google/uuid"
@@ -23,6 +25,36 @@ type InboundLeadFormService struct {
 	contactRepo      *contactRepo.ContactRepository
 	listContactRepo  *contactRepo.ListContactRepository
 	organizationRepo *organization.OrganizationRepository
+
+	// orgResolver finds the organisation a form owner works in. Optional:
+	// without it only an organisation the owner created is found.
+	orgResolver primaryOrgFinder
+}
+
+// primaryOrgFinder is the slice of the role repository Submit needs.
+type primaryOrgFinder interface {
+	FindPrimaryOrganization(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error)
+}
+
+// WithOrgResolver lets Submit file leads under the organisation the owner is
+// a member of, not only one they created.
+func (s *InboundLeadFormService) WithOrgResolver(r primaryOrgFinder) *InboundLeadFormService {
+	s.orgResolver = r
+	return s
+}
+
+// Limits on what an anonymous visitor can store through a public form.
+const (
+	maxSubmitValueLen = 2000
+	maxSubmitListLen  = 50
+)
+
+// ErrInvalidSubmission marks a submission rejected for its content, as
+// opposed to a server failure.
+var ErrInvalidSubmission = errors.New("invalid submission")
+
+func invalidSubmission(format string, args ...any) error {
+	return fmt.Errorf("%w: %s", ErrInvalidSubmission, fmt.Sprintf(format, args...))
 }
 
 func NewInboundLeadFormService(
@@ -127,6 +159,17 @@ func (s *InboundLeadFormService) Get(ctx context.Context, userID uuid.UUID, iden
 	return s.buildResponse(form, form.Fields), nil
 }
 
+// GetPublic returns what a visitor needs to render a form: its name, slug,
+// fields and layout. It carries nothing about the owner, so it is safe to
+// serve without authentication.
+func (s *InboundLeadFormService) GetPublic(ctx context.Context, identifier string) (*v1schema.InboundLeadFormResponse, error) {
+	form, err := s.formsRepo.GetByIdentifier(ctx, identifier)
+	if err != nil || form == nil {
+		return nil, err
+	}
+	return s.buildResponse(form, form.Fields), nil
+}
+
 func (s *InboundLeadFormService) List(ctx context.Context, userID uuid.UUID) ([]v1schema.InboundLeadFormListItem, error) {
 	forms, err := s.formsRepo.ListByUser(ctx, userID)
 	if err != nil {
@@ -157,6 +200,13 @@ func (s *InboundLeadFormService) Update(ctx context.Context, userID uuid.UUID, i
 		return nil, fmt.Errorf("unauthorized: cannot update form owned by another user")
 	}
 
+	// Validate the new fields before touching the stored ones: they used to be
+	// deleted first, so an invalid edit left the form with no fields at all.
+	fields, err := s.prepareFormFields(ctx, userID, req.Fields)
+	if err != nil {
+		return nil, err
+	}
+
 	attrs := map[string]interface{}{
 		"name": req.Name,
 	}
@@ -173,11 +223,6 @@ func (s *InboundLeadFormService) Update(ctx context.Context, userID uuid.UUID, i
 	}
 
 	if err := s.formsRepo.DeleteFormFields(ctx, form.ID); err != nil {
-		return nil, err
-	}
-
-	fields, err := s.prepareFormFields(ctx, userID, req.Fields)
-	if err != nil {
 		return nil, err
 	}
 
@@ -221,6 +266,20 @@ func (s *InboundLeadFormService) Delete(ctx context.Context, userID uuid.UUID, i
 }
 
 func (s *InboundLeadFormService) prepareFormFields(ctx context.Context, userID uuid.UUID, requests []v1schema.InboundLeadFormFieldRequest) ([]domain.FormField, error) {
+	// Submit keeps only the form's own fields and requires an email (it is
+	// the lead's identity and outreach address), so a form saved without an
+	// email field could never be submitted.
+	hasEmail := false
+	for _, field := range requests {
+		if strings.EqualFold(strings.TrimSpace(field.Name), "email") {
+			hasEmail = true
+			break
+		}
+	}
+	if !hasEmail {
+		return nil, fmt.Errorf("form must include an email field")
+	}
+
 	fields := make([]domain.FormField, 0, len(requests))
 
 	// Collect custom field names
@@ -350,52 +409,66 @@ func (s *InboundLeadFormService) Submit(ctx context.Context, identifier string, 
 		return nil, fmt.Errorf("form owner not defined")
 	}
 
+	// Only the form's own fields are kept. The endpoint is public, so any
+	// other key a visitor sends would otherwise be written into the owner's
+	// contact profile.
 	requiredFields := map[string]bool{}
 	systemFields := map[string]bool{}
-
+	customFields := map[string]bool{}
 	for _, field := range form.Fields {
+		var name string
 		if field.IsSystemField && field.SystemFieldName != nil {
-			systemFields[*field.SystemFieldName] = true
-			if field.IsRequired {
-				requiredFields[*field.SystemFieldName] = true
-			}
+			name = *field.SystemFieldName
+			systemFields[name] = true
 		} else if field.CustomFieldID != nil && field.CustomField != nil {
-			name := field.CustomField.NormalizedName
-			if field.IsRequired {
-				requiredFields[name] = true
-			}
+			name = field.CustomField.NormalizedName
+			customFields[name] = true
+		} else {
+			continue
+		}
+		if field.IsRequired {
+			requiredFields[name] = true
 		}
 	}
 
 	data := make(map[string]any)
 	for key, value := range payload {
-		data[strings.ToLower(key)] = value
+		key = strings.ToLower(strings.TrimSpace(key))
+		if !systemFields[key] && !customFields[key] {
+			continue
+		}
+		clean, err := cleanSubmitValue(key, value)
+		if err != nil {
+			return nil, err
+		}
+		if clean != nil {
+			data[key] = clean
+		}
 	}
 
 	for field := range requiredFields {
 		if _, ok := data[field]; !ok {
-			return nil, fmt.Errorf("missing required field '%s'", field)
+			return nil, invalidSubmission("missing required field '%s'", field)
 		}
 	}
 
-	emailVal, ok := data["email"].(string)
-	if !ok || strings.TrimSpace(emailVal) == "" {
-		return nil, fmt.Errorf("form submission must include email")
+	emailVal, _ := data["email"].(string)
+	if emailVal == "" {
+		return nil, invalidSubmission("form submission must include email")
+	}
+	if addr, err := mail.ParseAddress(emailVal); err != nil || addr.Address != emailVal {
+		return nil, invalidSubmission("'%s' is not a valid email address", emailVal)
 	}
 
-	orgs, err := s.organizationRepo.FindByUserID(ctx, *form.UserID)
+	orgID, err := s.ownerOrganization(ctx, *form.UserID)
 	if err != nil {
 		return nil, err
 	}
-	if len(orgs) == 0 {
-		return nil, fmt.Errorf("owner has no organization configured")
-	}
-
-	orgID := orgs[0].ID
 
 	// Combine first_name and last_name into name
-	firstName := stringFromMap(data, "first_name")
-	lastName := stringFromMap(data, "last_name")
+	// Read raw: stringFromMap's "N/A" for a missing part made "Ann N/A".
+	firstName, _ := data["first_name"].(string)
+	lastName, _ := data["last_name"].(string)
 	name := strings.TrimSpace(firstName + " " + lastName)
 	if name == "" {
 		name = stringFromMap(data, "name")
@@ -403,9 +476,9 @@ func (s *InboundLeadFormService) Submit(ctx context.Context, identifier string, 
 
 	contact := &domain.Contact{
 		UserID:         *form.UserID,
-		OrganizationID: &orgID,
+		OrganizationID: orgID,
 		Source:         string(domain.ContactSourceCosmoAgents),
-		SourceID:       fmt.Sprintf("inbound:%s:%s", form.Slug, emailVal),
+		SourceID:       fmt.Sprintf("inbound:%s:%s", form.Slug, strings.ToLower(emailVal)),
 		Name:           name,
 		Company:        stringFromMap(data, "company"),
 		JobTitle:       stringFromMap(data, "job_title"),
@@ -423,15 +496,19 @@ func (s *InboundLeadFormService) Submit(ctx context.Context, identifier string, 
 	if email != "" {
 		profile["email"] = email
 	}
-	phone := stringFromMap(data, "phone")
-	if phone != "" {
+	if phone, _ := data["phone"].(string); phone != "" {
 		profile["phone"] = phone
 	}
-	for key, value := range data {
-		if _, isSystem := systemFields[key]; isSystem {
-			continue
+	// System fields without a contact column of their own live in profile.
+	for _, key := range []string{"website", "notes"} {
+		if v, ok := data[key]; ok {
+			profile[key] = v
 		}
-		profile[key] = value
+	}
+	for key, value := range data {
+		if customFields[key] {
+			profile[key] = value
+		}
 	}
 	if len(profile) > 0 {
 		var profileJSON domain.JSONB
@@ -439,6 +516,11 @@ func (s *InboundLeadFormService) Submit(ctx context.Context, identifier string, 
 			contact.Profile = profileJSON
 		}
 	}
+
+	// As Create does: contact_information is the duplicate key and outreach
+	// recipient; without it every form lead sat "pending" with nowhere to send.
+	contact.ContactInformation = email
+	contact.CalculateStatus()
 
 	stored, err := s.contactRepo.UpsertBySource(ctx, contact)
 	if err != nil {
@@ -464,6 +546,80 @@ func (s *InboundLeadFormService) Submit(ctx context.Context, identifier string, 
 	}
 
 	return resp, nil
+}
+
+// ownerOrganization is the organisation a form's leads belong to: the one the
+// owner works in, else one they created. Picking the first of an unordered
+// list filed leads under an arbitrary organisation, and a member who had not
+// created one could not receive leads at all.
+func (s *InboundLeadFormService) ownerOrganization(ctx context.Context, ownerID uuid.UUID) (*uuid.UUID, error) {
+	if s.orgResolver != nil {
+		orgID, err := s.orgResolver.FindPrimaryOrganization(ctx, ownerID)
+		if err != nil {
+			return nil, err
+		}
+		if orgID != nil {
+			return orgID, nil
+		}
+	}
+	orgs, err := s.organizationRepo.FindByUserID(ctx, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	if len(orgs) == 0 {
+		return nil, fmt.Errorf("owner has no organization configured")
+	}
+	oldest := orgs[0]
+	for _, o := range orgs[1:] {
+		if o.CreatedAt.Before(oldest.CreatedAt) {
+			oldest = o
+		}
+	}
+	return &oldest.ID, nil
+}
+
+// cleanSubmitValue accepts the shapes a form input produces (text, number,
+// checkbox, multi-select) and trims and bounds them. It returns nil for an
+// empty value, so a blank optional field is simply absent.
+func cleanSubmitValue(key string, value any) (any, error) {
+	switch v := value.(type) {
+	case nil:
+		return nil, nil
+	case string:
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return nil, nil
+		}
+		if len([]rune(v)) > maxSubmitValueLen {
+			return nil, invalidSubmission("'%s' is longer than %d characters", key, maxSubmitValueLen)
+		}
+		return v, nil
+	case float64, bool:
+		return v, nil
+	case []any:
+		if len(v) > maxSubmitListLen {
+			return nil, invalidSubmission("'%s' has more than %d values", key, maxSubmitListLen)
+		}
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			str, ok := item.(string)
+			if !ok {
+				return nil, invalidSubmission("'%s' must be a list of text values", key)
+			}
+			if str = strings.TrimSpace(str); str != "" {
+				if len([]rune(str)) > maxSubmitValueLen {
+					return nil, invalidSubmission("'%s' has a value longer than %d characters", key, maxSubmitValueLen)
+				}
+				out = append(out, str)
+			}
+		}
+		if len(out) == 0 {
+			return nil, nil
+		}
+		return out, nil
+	default:
+		return nil, invalidSubmission("'%s' has an unsupported value", key)
+	}
 }
 
 func stringFromMap(data map[string]any, key string) string {

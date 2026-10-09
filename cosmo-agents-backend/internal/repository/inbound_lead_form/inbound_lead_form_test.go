@@ -8,15 +8,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/rockship/cosmo-agents-go/internal/domain"
 	"github.com/rockship/cosmo-agents-go/internal/domain/base"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupTestDB creates a test database
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 
 	// Auto-migrate the required schemas
@@ -29,6 +29,22 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 
 	return db
+}
+
+// seedCustomField inserts the custom field a form field refers to. form_fields
+// carries a foreign key to custom_fields (migration 000010) that SQLite never
+// enforced, so the old tests referenced fields that did not exist.
+func seedCustomField(t *testing.T, db *gorm.DB) uuid.UUID {
+	t.Helper()
+	cf := domain.CustomField{
+		UserID:         uuid.New(),
+		Name:           "Field " + uuid.NewString()[:8],
+		NormalizedName: "field_" + uuid.NewString()[:8],
+		DataType:       "text",
+		EntityType:     "contact",
+	}
+	require.NoError(t, db.Create(&cf).Error)
+	return cf.ID
 }
 
 // TestInboundLeadFormRepository_NewInboundLeadFormRepository tests creating a new repository
@@ -76,7 +92,7 @@ func TestInboundLeadFormRepository_CreateWithFields(t *testing.T) {
 		Slug:   "registration-form",
 	}
 
-	customFieldID := uuid.New()
+	customFieldID := seedCustomField(t, db)
 	fields := []domain.FormField{
 		{
 			DisplayName:   "First Name",
@@ -189,7 +205,7 @@ func TestInboundLeadFormRepository_GetByIdentifier(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create some fields
-	customFieldID := uuid.New()
+	customFieldID := seedCustomField(t, db)
 	fields := []domain.FormField{
 		{
 			FormID:        form.ID, // Set FormID before creation
@@ -236,7 +252,7 @@ func TestInboundLeadFormRepository_CreateFormFields(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test data
-	customFieldID := uuid.New()
+	customFieldID := seedCustomField(t, db)
 	fields := []domain.FormField{
 		{
 			FormID:        created.ID,
@@ -390,8 +406,8 @@ func TestInboundLeadFormRepository_ComplexForm(t *testing.T) {
 	}
 
 	// Create custom fields
-	customFieldID1 := uuid.New()
-	customFieldID2 := uuid.New()
+	customFieldID1 := seedCustomField(t, db)
+	customFieldID2 := seedCustomField(t, db)
 
 	fields := []domain.FormField{
 		{

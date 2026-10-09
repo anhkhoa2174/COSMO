@@ -2,7 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { kyClient } from '@/lib/ky';
 import type { Agent } from '@/models/agent';
 import type { EmailInbox, EmailStatistics } from '@/models/email';
-import type { ApiResponse, BaseQuery, PaginateResponse } from '@/models/response';
+import type {
+  ApiResponse,
+  BaseQuery,
+  PaginateResponse,
+} from '@/models/response';
 
 interface AgentInList {
   email_statistics?: EmailStatistics;
@@ -42,7 +46,9 @@ const AgentApi = {
     return data.json<PaginateResponse<AgentInList>>();
   },
   update: async (agent_id: string, payload: any) => {
-    const data = await kyClient.patch(`v1/agents/${agent_id}`, { json: payload });
+    const data = await kyClient.patch(`v1/agents/${agent_id}`, {
+      json: payload,
+    });
     return data.json<ApiResponse<AgentInList>>();
   },
   delete: async (agent_id: string) => {

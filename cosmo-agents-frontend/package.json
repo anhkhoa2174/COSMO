@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3100",
+    "dev": "next dev",
     "build": "next build",
     "analyze": "ANALYZE=true next build",
     "start": "next start",
@@ -14,6 +14,8 @@
     "test": "yarn prettier:check && yarn lint && yarn typecheck"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^1.2.12",
+    "@ai-sdk/google": "1.2.22",
     "@ai-sdk/openai": "^1.3.24",
     "@ariakit/react": "^0.4.20",
     "@dnd-kit/core": "^6.3.1",
@@ -83,6 +85,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "cosmo-agents-sdk": "file:../cosmo-agents-sdk",
     "date-fns": "^4.1.0",
     "driver.js": "^1.4.0",
     "jose": "^6.1.2",
@@ -108,10 +111,12 @@
     "recharts": "^2.15.4",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
+    "sharp": "^0.35.4",
     "sonner": "^2.0.7",
     "tailwind-merge": "^2.6.0",
     "tailwind-scrollbar-hide": "^2.0.0",
     "uuid": "^11.1.0",
+    "xlsx": "0.18.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {

@@ -1,9 +1,12 @@
 package contact
 
 import (
+	"errors"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	v1schema "github.com/rockship/cosmo-agents-go/internal/schema/v1"
+	"gorm.io/gorm"
 )
 
 // Get godoc
@@ -31,6 +34,9 @@ func (h *Handler) Get(c fiber.Ctx) error {
 	}
 
 	contact, err := h.repo.FindByIDAndUserID(c.Context(), user.ID, id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return h.responseHelper.NotFound(c, "Contact not found", nil)
+	}
 	if err != nil {
 		return h.responseHelper.InternalServerError(c, "Failed to fetch contact", err)
 	}

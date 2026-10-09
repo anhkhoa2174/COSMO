@@ -38,6 +38,12 @@ func forbidden(c fiber.Ctx, message string) error {
 	))
 }
 
+func conflict(c fiber.Ctx, message string) error {
+	return c.Status(fiber.StatusConflict).JSON(schema.ErrorResponse(
+		fiber.StatusConflict, message, "",
+	))
+}
+
 func internalError(c fiber.Ctx, message string, err error) error {
 	detail := ""
 	if err != nil {

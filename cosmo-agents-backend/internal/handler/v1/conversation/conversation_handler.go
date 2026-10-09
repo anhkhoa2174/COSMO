@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -10,8 +11,10 @@ import (
 	"github.com/rockship/cosmo-agents-go/internal/domain"
 	v1filter "github.com/rockship/cosmo-agents-go/internal/handler/v1/filter"
 	v1pagination "github.com/rockship/cosmo-agents-go/internal/handler/v1/pagination"
+	contactRepo "github.com/rockship/cosmo-agents-go/internal/repository/contact"
 	conversationRepo "github.com/rockship/cosmo-agents-go/internal/repository/conversation"
 	emailRepo "github.com/rockship/cosmo-agents-go/internal/repository/email"
+	feedbackRepo "github.com/rockship/cosmo-agents-go/internal/repository/feedback"
 	user "github.com/rockship/cosmo-agents-go/internal/repository/user"
 	"github.com/rockship/cosmo-agents-go/internal/schema"
 	v1schema "github.com/rockship/cosmo-agents-go/internal/schema/v1"
@@ -46,14 +49,27 @@ type ConversationHandler struct {
 	conversationRepo *conversationRepo.ConversationRepository
 	emailRepo        *emailRepo.Repository
 	userRepo         *user.UserRepository
+	// contactRepo and feedbackRepo are only needed when a human overrides a
+	// classified intent: one to reverse the suppression the wrong label caused,
+	// the other to record that the classifier was wrong.
+	contactRepo  *contactRepo.ContactRepository
+	feedbackRepo *feedbackRepo.Repository
 }
 
 // NewConversationHandler creates a new ConversationHandler
-func NewConversationHandler(conversationRepo *conversationRepo.ConversationRepository, emailRepo *emailRepo.Repository, userRepo *user.UserRepository) *ConversationHandler {
+func NewConversationHandler(
+	conversationRepo *conversationRepo.ConversationRepository,
+	emailRepo *emailRepo.Repository,
+	userRepo *user.UserRepository,
+	contacts *contactRepo.ContactRepository,
+	feedbacks *feedbackRepo.Repository,
+) *ConversationHandler {
 	return &ConversationHandler{
 		conversationRepo: conversationRepo,
 		emailRepo:        emailRepo,
 		userRepo:         userRepo,
+		contactRepo:      contacts,
+		feedbackRepo:     feedbacks,
 	}
 }
 
@@ -494,6 +510,139 @@ func (h *ConversationHandler) DeleteConversation(c fiber.Ctx) error {
 	}
 
 	return c.JSON(schema.SuccessResponse("Successfully deleted"))
+}
+
+// resolveOwnedConversation validates the id, loads the conversation and checks
+// that it belongs to the caller. Shared by restore and permanent delete.
+func (h *ConversationHandler) resolveOwnedConversation(
+	c fiber.Ctx,
+	action string,
+) (*domain.Conversation, error) {
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return nil, c.Status(fiber.StatusUnauthorized).JSON(schema.ErrorResponse(
+			fiber.StatusUnauthorized, "User not authenticated", "",
+		))
+	}
+
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return nil, c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(
+			fiber.StatusBadRequest, "Invalid conversation ID format", err.Error(),
+		))
+	}
+
+	conversation, err := h.conversationRepo.FindByID(c.Context(), id)
+	if err != nil {
+		return nil, c.Status(fiber.StatusNotFound).JSON(schema.ErrorResponse(
+			fiber.StatusNotFound, "Conversation not found", err.Error(),
+		))
+	}
+
+	if conversation.UserID != userID {
+		return nil, c.Status(fiber.StatusForbidden).JSON(schema.ErrorResponse(
+			fiber.StatusForbidden,
+			"You don't have permission to "+action+" this conversation", "",
+		))
+	}
+
+	return conversation, nil
+}
+
+// RestoreConversation handles POST /v1/conversations/:id/restore
+// @Summary Restore conversation
+// @Description Moves a trashed conversation back into the inbox
+// @Tags Conversations
+// @Produce json
+// @Param id path string true "Conversation ID (UUID)"
+// @Success 200 {object} schema.APIResponse[string] "Successfully restored"
+// @Failure 400 {object} schema.APIResponse[any] "Invalid request"
+// @Failure 401 {object} schema.APIResponse[any] "User not authenticated"
+// @Failure 403 {object} schema.APIResponse[any] "Not the owner"
+// @Failure 404 {object} schema.APIResponse[any] "Conversation not found"
+// @Router /v1/conversations/{id}/restore [post]
+func (h *ConversationHandler) RestoreConversation(c fiber.Ctx) error {
+	conversation, errResponse := h.resolveOwnedConversation(c, "restore")
+	if conversation == nil {
+		return errResponse
+	}
+
+	if !conversation.IsDeleted {
+		return c.JSON(schema.SuccessResponse("Conversation is already in the inbox"))
+	}
+
+	if err := h.conversationRepo.Restore(c.Context(), conversation.ID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(
+			fiber.StatusInternalServerError, "Failed to restore conversation", err.Error(),
+		))
+	}
+
+	return c.JSON(schema.SuccessResponse("Successfully restored"))
+}
+
+// PurgeConversation handles DELETE /v1/conversations/:id/permanent
+// @Summary Permanently delete conversation
+// @Description Removes a trashed conversation for good. The conversation must
+// @Description already be in the trash — this is deliberately a two-step
+// @Description destructive action.
+// @Tags Conversations
+// @Produce json
+// @Param id path string true "Conversation ID (UUID)"
+// @Success 200 {object} schema.APIResponse[string] "Successfully deleted"
+// @Failure 400 {object} schema.APIResponse[any] "Conversation is not in the trash"
+// @Failure 401 {object} schema.APIResponse[any] "User not authenticated"
+// @Failure 403 {object} schema.APIResponse[any] "Not the owner"
+// @Failure 404 {object} schema.APIResponse[any] "Conversation not found"
+// @Router /v1/conversations/{id}/permanent [delete]
+func (h *ConversationHandler) PurgeConversation(c fiber.Ctx) error {
+	conversation, errResponse := h.resolveOwnedConversation(c, "delete")
+	if conversation == nil {
+		return errResponse
+	}
+
+	// Refuse to hard-delete something the user can still see in their inbox.
+	if !conversation.IsDeleted {
+		return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(
+			fiber.StatusBadRequest,
+			"Move the conversation to the trash before deleting it permanently", "",
+		))
+	}
+
+	if err := h.conversationRepo.HardDelete(c.Context(), conversation.ID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(
+			fiber.StatusInternalServerError, "Failed to delete conversation", err.Error(),
+		))
+	}
+
+	return c.JSON(schema.SuccessResponse("Permanently deleted"))
+}
+
+// EmptyTrash handles DELETE /v1/conversations/trash
+// @Summary Empty trash
+// @Description Permanently removes every trashed conversation for the caller
+// @Tags Conversations
+// @Produce json
+// @Success 200 {object} schema.APIResponse[string] "Trash emptied"
+// @Failure 401 {object} schema.APIResponse[any] "User not authenticated"
+// @Router /v1/conversations/trash [delete]
+func (h *ConversationHandler) EmptyTrash(c fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(schema.ErrorResponse(
+			fiber.StatusUnauthorized, "User not authenticated", "",
+		))
+	}
+
+	removed, err := h.conversationRepo.PurgeTrashed(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(
+			fiber.StatusInternalServerError, "Failed to empty trash", err.Error(),
+		))
+	}
+
+	return c.JSON(schema.SuccessResponse(
+		fmt.Sprintf("Removed %d conversation(s) from the trash", removed),
+	))
 }
 
 // AssignConversation handles POST /v1/conversations/:id/assign

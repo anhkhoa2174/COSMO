@@ -1,9 +1,12 @@
 package file
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -112,6 +115,13 @@ func (h *FileHandler) List(c fiber.Ctx) error {
 // @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /v1/files/search [post]
 func (h *FileHandler) Search(c fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(schema.ErrorResponse(
+			fiber.StatusUnauthorized, "Unauthorized", "User ID not found in context",
+		))
+	}
+
 	var body map[string]interface{}
 	if err := c.Bind().JSON(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(
@@ -119,16 +129,31 @@ func (h *FileHandler) Search(c fiber.Ctx) error {
 		))
 	}
 
-	// Convert body to filter
+	// FilterBuilder splices "$raw" into the WHERE clause verbatim, so taking
+	// it from a client is SQL injection.
+	if raw, _ := json.Marshal(body); strings.Contains(string(raw), `"$raw"`) {
+		return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(
+			fiber.StatusBadRequest, "Unsupported filter operator", "",
+		))
+	}
+
 	filter := baseRepo.Filter{}
 	for key, value := range body {
 		filter[key] = value
 	}
+	// Always the caller's own files, whatever the body says; this searched
+	// every user's files before.
+	filter["user_id"] = userID.String()
 
 	result, err := h.fileRepo.FindAll(c.Context(), filter, nil)
+	if errors.Is(err, fileRepo.ErrUnknownFilter) {
+		return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(
+			fiber.StatusBadRequest, "Unsupported filter field", "",
+		))
+	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(
-			fiber.StatusInternalServerError, "Failed to search files", err.Error(),
+			fiber.StatusInternalServerError, "Failed to search files", "",
 		))
 	}
 
@@ -180,10 +205,11 @@ func (h *FileHandler) UploadToS3(c fiber.Ctx) error {
 	}
 	defer file.Close()
 
-	// Generate S3 key with timestamp
-	folderName := "examples/"
-	timestamp := time.Now().Format("15:04:05_02_01_2006")
-	s3Key := fmt.Sprintf("%s%s_%s", folderName, timestamp, fileHeader.Filename)
+	// One folder per user plus a random part: a key built from the time and
+	// file name alone let two users uploading the same name in the same second
+	// overwrite each other's object.
+	s3Key := fmt.Sprintf("files/%s/%s_%s_%s", userID, time.Now().UTC().Format("20060102T150405"),
+		uuid.NewString()[:8], filepath.Base(fileHeader.Filename))
 
 	// Upload to S3
 	contentType := fileHeader.Header.Get("Content-Type")
@@ -238,11 +264,9 @@ func (h *FileHandler) UploadToS3(c fiber.Ctx) error {
 // @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /v1/files/s3 [get]
 func (h *FileHandler) GetFromS3(c fiber.Ctx) error {
-	key := c.Query("key")
+	key, err := h.ownedKey(c)
 	if key == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(
-			fiber.StatusBadRequest, "Missing key parameter", "",
-		))
+		return err
 	}
 
 	data, err := h.s3Service.GetObject(c.Context(), h.bucketName, key)
@@ -283,26 +307,103 @@ func (h *FileHandler) GetFromS3(c fiber.Ctx) error {
 // @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /v1/files/s3/list [get]
 func (h *FileHandler) ListFromS3(c fiber.Ctx) error {
-	prefix := c.Query("prefix", "")
-
-	objects, err := h.s3Service.ListObjects(c.Context(), h.bucketName, prefix)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(
-			fiber.StatusInternalServerError, "Failed to list files from S3", err.Error(),
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(schema.ErrorResponse(
+			fiber.StatusUnauthorized, "Unauthorized", "User ID not found in context",
 		))
 	}
 
-	// Convert to simple response
-	objectList := make([]map[string]interface{}, len(objects))
-	for i, obj := range objects {
+	// The bucket is shared by every user and holds other systems' objects
+	// too; listing it showed each user everything anyone had ever stored.
+	// Only the caller's own uploads, as recorded in files, are listed.
+	result, err := h.fileRepo.FindByUserID(c.Context(), userID, &baseRepo.PaginationParams{Offset: 0, Limit: 500})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(
+			fiber.StatusInternalServerError, "Failed to list files", "",
+		))
+	}
+
+	objectList := make([]map[string]interface{}, len(result.List))
+	for i, f := range result.List {
 		objectList[i] = map[string]interface{}{
-			"key":           *obj.Key,
-			"size":          *obj.Size,
-			"last_modified": obj.LastModified,
+			"key":           f.S3Key,
+			"file_name":     f.Filename,
+			"size":          f.Size,
+			"content_type":  f.MimeType,
+			"last_modified": f.UpdatedAt,
 		}
 	}
 
 	return c.JSON(schema.SuccessResponse(objectList))
+}
+
+// ownedKey returns the key from the query when it names a file the caller
+// uploaded. Any other key (another user's file, or an object with no files
+// row at all) is reported as not found, so keys cannot be probed.
+func (h *FileHandler) ownedKey(c fiber.Ctx) (string, error) {
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return "", c.Status(fiber.StatusUnauthorized).JSON(schema.ErrorResponse(
+			fiber.StatusUnauthorized, "Unauthorized", "User ID not found in context",
+		))
+	}
+	key := c.Query("key")
+	if key == "" {
+		return "", c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(
+			fiber.StatusBadRequest, "Missing key parameter", "",
+		))
+	}
+	if f, err := h.fileRepo.FindByS3Key(c.Context(), key); err == nil && f != nil && f.UserID != nil && *f.UserID == userID {
+		return key, nil
+	}
+	// Knowledge-base documents are previewed through this endpoint too; they
+	// are rows in knowledges, not files.
+	owns, err := h.fileRepo.OwnsKnowledgeKey(c.Context(), userID, key)
+	if err == nil && owns {
+		return key, nil
+	}
+	logger.Logger.Warn().Err(err).Bool("owns", owns).Str("key", key).Str("user_id", userID.String()).Msg("File key not owned by caller")
+	return "", c.Status(fiber.StatusNotFound).JSON(schema.ErrorResponse(
+		fiber.StatusNotFound, "File not found", "",
+	))
+}
+
+// DeleteFromS3 handles DELETE /v1/files/s3
+// @Summary Delete file from S3
+// @Description Delete a file from S3 by key and remove its database record
+// @Tags Files
+// @Accept json
+// @Produce json
+// @Param key query string true "S3 object key"
+// @Success 200 {object} map[string]interface{} "File deleted"
+// @Failure 400 {object} map[string]interface{} "Bad request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security BearerAuth
+// @Router /v1/files/s3 [delete]
+func (h *FileHandler) DeleteFromS3(c fiber.Ctx) error {
+	key, err := h.ownedKey(c)
+	if key == "" {
+		return err
+	}
+
+	// Delete from S3
+	if err := h.s3Service.DeleteObject(c.Context(), h.bucketName, key); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(
+			fiber.StatusInternalServerError, "Failed to delete file from S3", err.Error(),
+		))
+	}
+
+	// Delete database record by S3 key
+	if err := h.fileRepo.DeleteByS3Key(c.Context(), key); err != nil {
+		logger.Logger.Warn().Err(err).Str("s3_key", key).Msg("Failed to delete file DB record (S3 object already deleted)")
+	}
+
+	return c.JSON(schema.SuccessResponse(map[string]string{
+		"message": "File deleted successfully",
+		"key":     key,
+	}))
 }
 
 // GetPresignedURL handles GET /v1/files/s3/presigned-url
@@ -318,11 +419,9 @@ func (h *FileHandler) ListFromS3(c fiber.Ctx) error {
 // @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /v1/files/s3/presigned-url [get]
 func (h *FileHandler) GetPresignedURL(c fiber.Ctx) error {
-	key := c.Query("key")
+	key, err := h.ownedKey(c)
 	if key == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(
-			fiber.StatusBadRequest, "Missing key parameter", "",
-		))
+		return err
 	}
 
 	expiration := 3600 // default 1 hour

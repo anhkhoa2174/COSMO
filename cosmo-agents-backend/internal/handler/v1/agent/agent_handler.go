@@ -78,6 +78,16 @@ type AgentHandler struct {
 	workerClient     workerClient
 	mapper           *AgentMapper
 	statsCalculator  *AgentStatsCalculator
+	// groupRepo resolves the caller's personal conversation groups. Optional:
+	// without it the inbox still lists conversations, just without groups.
+	groupRepo *conversationRepo.GroupRepository
+}
+
+// WithGroupRepo lets the conversation list filter by and report the caller's
+// personal groups.
+func (h *AgentHandler) WithGroupRepo(repo *conversationRepo.GroupRepository) *AgentHandler {
+	h.groupRepo = repo
+	return h
 }
 
 type workerClient interface {
@@ -870,6 +880,30 @@ func (h *AgentHandler) GetConversations(c fiber.Ctx) error {
 		if isDeleted, ok := req.Filter["is_deleted"].(bool); ok {
 			filter.IsDeleted = &isDeleted
 		}
+
+		// The inbox's search box and filter menu.
+		if q, ok := req.Filter["q"].(string); ok {
+			filter.Q = q
+		}
+		if intent, ok := req.Filter["intent"].(string); ok {
+			filter.Intent = intent
+		}
+		if hasDraft, ok := req.Filter["has_draft"].(bool); ok {
+			filter.HasDraft = &hasDraft
+		}
+		if days, ok := req.Filter["since_days"].(float64); ok && days > 0 {
+			filter.SinceDays = int(days)
+		}
+		if raw, ok := req.Filter["group_id"].(string); ok && raw != "" {
+			groupID, err := uuid.Parse(raw)
+			if err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(
+					fiber.StatusBadRequest, "Invalid group_id", err.Error(),
+				))
+			}
+			filter.GroupID = &groupID
+			filter.GroupUserID = userID
+		}
 	}
 
 	// Convert conversation type
@@ -911,6 +945,16 @@ func (h *AgentHandler) GetConversations(c fiber.Ctx) error {
 		latestEmails = make(map[uuid.UUID]*domain.Email)
 	}
 
+	// The caller's own groups for each conversation on the page.
+	groupIDs := map[uuid.UUID][]uuid.UUID{}
+	if h.groupRepo != nil {
+		if ids, err := h.groupRepo.GroupIDsByConversation(c.Context(), userID, conversationIDs); err != nil {
+			logger.Logger.Warn().Err(err).Msg("Failed to load conversation groups")
+		} else {
+			groupIDs = ids
+		}
+	}
+
 	// Convert to response format matching Python structure with entity and latest_email
 	responseItems := make([]v1schema.AgentGetConversationsResponse, len(conversations))
 	for i, conv := range conversations {
@@ -942,9 +986,11 @@ func (h *AgentHandler) GetConversations(c fiber.Ctx) error {
 				CampaignID: conv.CampaignID,
 				AssigneeID: conv.AssigneeID,
 				Intents:    intents,
+				CMetadata:  json.RawMessage(conv.CMetadata),
 				IsDeleted:  conv.IsDeleted,
 				CreatedAt:  conv.CreatedAt,
 				UpdatedAt:  conv.UpdatedAt,
+				GroupIDs:   groupIDsOrEmpty(groupIDs[conv.ID]),
 			},
 			LatestEmail: emailEntity,
 		}
@@ -958,4 +1004,13 @@ func (h *AgentHandler) GetConversations(c fiber.Ctx) error {
 	}
 
 	return c.JSON(schema.SuccessResponse(response))
+}
+
+// groupIDsOrEmpty keeps group_ids an array in the JSON even when a
+// conversation is in no group, so the client never has to handle null.
+func groupIDsOrEmpty(ids []uuid.UUID) []uuid.UUID {
+	if ids == nil {
+		return []uuid.UUID{}
+	}
+	return ids
 }

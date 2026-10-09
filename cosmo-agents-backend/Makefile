@@ -4,6 +4,13 @@
 -include .env
 export
 
+# Tests run against PostgreSQL (internal/testutil/pgtest), each in its own
+# throwaway schema. The URL is derived from the development database by swapping
+# in a dedicated test database, so a test run never touches development data.
+# Create it once with: createdb cosmo_agents_test
+TEST_DATABASE_URL ?= $(subst /cosmo_agents?,/cosmo_agents_test?,$(SQLALCHEMY_POSTGRES_URI))
+export TEST_DATABASE_URL
+
 help: ## Show this help message
 	@echo "Available commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'

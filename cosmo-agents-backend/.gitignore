@@ -13,6 +13,8 @@
 # Go binaries (built executables)
 /server
 /worker
+/cosmo-server
+/cosmo-agents-backend
 v1.test
 *.exe
 *.test.exe
@@ -20,6 +22,7 @@ v1.test
 # Go workspace stuff (nếu có)
 /go.work.sum
 .claude/*.md
+code-memory.json
 .gocache
 .gomodcache/
 # --- OS junk ---
@@ -61,3 +64,4 @@ temp/
 test_data.sql
 test_jwt.py
 coverage.out
+.env.remote.bak

@@ -1,6 +1,6 @@
 module github.com/rockship/cosmo-agents-go
 
-go 1.25.6
+go 1.25.7
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.39.2
@@ -41,17 +41,6 @@ require (
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.0
-)
-
-require (
-	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/mock v1.6.0 // indirect
-	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.2 // indirect
-	github.com/nexus-rpc/sdk-go v0.5.1 // indirect
-	github.com/robfig/cron v1.2.0 // indirect
-	go.temporal.io/api v1.59.0 // indirect
-	go.temporal.io/sdk v1.39.0
 )
 
 require (

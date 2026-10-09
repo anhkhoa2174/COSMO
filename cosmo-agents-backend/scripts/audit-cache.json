@@ -1,0 +1,962 @@
+{
+  "metadata": {
+    "project_name": "cosmo-agents-go",
+    "project_type": "single-package",
+    "language": "go",
+    "framework": "fiber-v3",
+    "analyzed_at": "2026-02-27T00:00:00Z",
+    "total_loc": 144970,
+    "file_count": 592
+  },
+
+  "global_context": {
+    "architecture_style": "Clean Architecture with layered separation: domain -> repository -> service -> usecase -> handler -> cmd. Manual dependency injection in cmd/server/dependencies.go.",
+    "primary_language": "Go 1.25.7",
+    "state_management": "N/A (backend)",
+    "api_pattern": "REST with versioned API (v1/v2/v3). Fiber v3 framework. Standardized JSON responses with status/data/error wrapper.",
+    "auth_pattern": "JWT (HS256/RS256) with dual-secret support (access/refresh tokens). Personal API Keys (cosmo_pk_* prefix). Google OAuth2 for agent email accounts. Microsoft Azure AD for Outlook.",
+    "database": "PostgreSQL via GORM ORM. Redis for caching, task queues (Asynq), and vector store (RediSearch). SQLite for testing.",
+    "testing_approach": "Go test with testify assertions. Integration tests via build tags. Test token generation utility in cmd/generate_test_token/.",
+    "common_patterns": [
+      "Soft delete via is_deleted boolean flag on all domain models",
+      "Multi-tenant isolation via UserID on all entities",
+      "JSONB fields for flexible metadata (CMetadata pattern)",
+      "Generic repository pattern with BaseRepository[T] interface and GormRepository[T] implementation",
+      "Filter-based querying with operators ($eq, $like, $in, $between, etc.)",
+      "Paginated results via PaginationParams and PaginatedResult[T]",
+      "Background job processing via Asynq with Redis backend",
+      "Temporal workflows for complex long-running operations",
+      "Structured logging with zerolog and request ID tracking",
+      "Standardized error responses via ResponseHelper"
+    ],
+    "tech_stack": {
+      "languages": ["Go 1.25.7"],
+      "frameworks": ["Fiber v3 (HTTP)", "GORM (ORM)", "Asynq (task queue)", "Temporal SDK (workflows)"],
+      "databases": ["PostgreSQL", "Redis (cache + vector store + task queue)"],
+      "tools": ["golang-migrate (migrations)", "swag (Swagger docs)", "golangci-lint", "goimports", "Docker Compose"]
+    }
+  },
+
+  "modules": [
+    {
+      "id": "agent-management",
+      "name": "Agent Management",
+      "description": "Manages AI email agents with OAuth credentials, daily limits, and email provider configuration (Gmail/Outlook). Handles agent lifecycle, token refresh, and status tracking.",
+      "type": "core-domain",
+      "paths": ["internal/domain/agent/", "internal/repository/agent/", "internal/service/agent/", "internal/handler/v1/agent/", "internal/worker/agent/"],
+      "entry_point": "internal/service/agent/agent_service.go:AgentService",
+      "loc": 3500,
+      "file_count": 15,
+      "key_functions": [
+        {
+          "name": "CreateAgent",
+          "signature": "func (s *AgentService) CreateAgent(ctx context.Context, req CreateAgentRequest) (*domain.Agent, error)",
+          "file": "internal/service/agent/agent_service.go",
+          "line": 0,
+          "purpose": "Creates a new email agent with validation of daily limits and email uniqueness"
+        },
+        {
+          "name": "AtomicRefreshToken",
+          "signature": "func (r *AgentRepository) AtomicRefreshToken(ctx context.Context, agentID uuid.UUID, refreshFn func(*domain.Agent) error) error",
+          "file": "internal/repository/agent/agent_repository.go",
+          "line": 0,
+          "purpose": "Atomically refreshes OAuth tokens with pessimistic locking to prevent race conditions"
+        },
+        {
+          "name": "CheckTokenStatus",
+          "signature": "func (a *Agent) CheckTokenStatus() AgentStatus",
+          "file": "internal/domain/agent/agent.go",
+          "line": 0,
+          "purpose": "Validates OAuth token expiry and returns appropriate agent status"
+        }
+      ],
+      "data_models": [
+        {
+          "name": "Agent",
+          "type": "struct",
+          "file": "internal/domain/agent/agent.go",
+          "fields": ["ID uuid.UUID", "UserID uuid.UUID", "OrganizationID *uuid.UUID", "Name string", "Email string", "Status AgentStatus", "EmailProvider AgentEmailProvider", "Signature string", "Credentials base.JSON", "DailyLimit *int", "EmailsSentToday *int", "ValidCred *bool", "LastHistoryID string"],
+          "purpose": "Represents an email-sending agent with OAuth credentials and rate limiting"
+        }
+      ],
+      "dependencies": {
+        "internal": ["internal/domain/base", "internal/repository/gorm"],
+        "external": ["github.com/google/uuid", "gorm.io/gorm", "github.com/lib/pq"],
+        "calls_to": ["gmail-integration", "outlook-integration"],
+        "called_by": ["campaign-management", "email-processing", "worker-orchestration"]
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "GET/POST/PUT/DELETE /v1/agents/*",
+          "handler": "internal/handler/v1/agent/",
+          "request": "CreateAgentRequest, UpdateAgentRequest",
+          "response": "AgentResponse"
+        }
+      ],
+      "integration_points": ["Gmail OAuth2", "Microsoft Azure AD OAuth2", "Redis (token caching)"],
+      "complexity": "high",
+      "priority": 1,
+      "notes": ["Foundation module - agents are required for all email operations", "Atomic token refresh prevents OAuth race conditions", "Supports both Gmail and Outlook providers"]
+    },
+    {
+      "id": "contact-management",
+      "name": "Contact Management",
+      "description": "CRM contact lifecycle with multi-source ingestion (CSV, HubSpot, Apollo, LinkedIn, Google Ads, Facebook Ads), AI enrichment, outreach state tracking, and field validation.",
+      "type": "core-domain",
+      "paths": ["internal/domain/contact/", "internal/repository/contact/", "internal/service/contact/", "internal/handler/v1/contact/", "internal/handler/v2/contact/", "internal/handler/v3/contact/"],
+      "entry_point": "internal/service/contact/contact_service.go:ContactService",
+      "loc": 8000,
+      "file_count": 40,
+      "key_functions": [
+        {
+          "name": "CreateContact",
+          "signature": "func (s *ContactService) CreateContact(ctx context.Context, contact *domain.Contact, orgID uuid.UUID) error",
+          "file": "internal/service/contact/contact_service.go",
+          "line": 0,
+          "purpose": "Creates contact with field validation and organization ownership check"
+        },
+        {
+          "name": "ImportContactsFromCSV",
+          "signature": "func (s *ContactService) ImportContactsFromCSV(ctx context.Context, ...) error",
+          "file": "internal/service/contact/contact_service.go",
+          "line": 0,
+          "purpose": "Batch imports contacts from CSV with field mapping"
+        },
+        {
+          "name": "CalculateStatus",
+          "signature": "func (c *Contact) CalculateStatus() ContactStatus",
+          "file": "internal/domain/contact/contact.go",
+          "line": 0,
+          "purpose": "Evaluates required fields to determine if contact is ready or pending"
+        }
+      ],
+      "data_models": [
+        {
+          "name": "Contact",
+          "type": "struct",
+          "file": "internal/domain/contact/contact.go",
+          "fields": ["ID uuid.UUID", "UserID uuid.UUID", "SourceID string", "Source string", "Name string", "Company string", "JobTitle string", "Profile base.JSONB", "AIInsights base.JSONB", "Scores base.JSONB", "Status string", "ContactChannel string", "OutreachDecision string", "NextStep string", "OutreachStage string", "BusinessStage string", "MessageDraft string", "FollowupCount int"],
+          "purpose": "Core CRM entity with AI enrichment fields and outreach state"
+        },
+        {
+          "name": "ListContact",
+          "type": "struct",
+          "file": "internal/domain/contact/contact.go",
+          "fields": ["ID uuid.UUID", "UserID uuid.UUID", "Name string", "Source string", "Contacts []Contact"],
+          "purpose": "Contact list/segment for grouping contacts"
+        }
+      ],
+      "dependencies": {
+        "internal": ["internal/domain/base", "internal/repository/gorm"],
+        "external": ["github.com/google/uuid", "gorm.io/gorm"],
+        "calls_to": ["custom-fields", "hubspot-integration"],
+        "called_by": ["campaign-management", "outreach-management", "intelligence-agents", "worker-orchestration"]
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "GET/POST/PUT/DELETE /v1/contacts/*, /v2/contacts/*, /v3/contacts/import",
+          "handler": "internal/handler/v1/contact/, v2/contact/, v3/contact/",
+          "request": "ContactCreateRequest, ContactUpdateRequest, ContactImportRequest",
+          "response": "ContactResponse, PaginatedResult"
+        }
+      ],
+      "integration_points": ["HubSpot API (import)", "CSV file parsing", "Vector store (embeddings)"],
+      "complexity": "high",
+      "priority": 1,
+      "notes": ["Largest handler surface area (22+ files in v1)", "Multiple import sources with different schemas", "AI enrichment pipeline via orchestrator"]
+    },
+    {
+      "id": "campaign-management",
+      "name": "Campaign Management",
+      "description": "Email outreach campaign orchestration with template sequencing, intent-based routing (AI reply, human assignment, draft), scheduling, and execution via background workers.",
+      "type": "core-domain",
+      "paths": ["internal/domain/campaign/", "internal/repository/campaign/", "internal/service/campaign/", "internal/handler/v1/campaign/", "internal/handler/v2/campaign/", "internal/handler/v3/campaign/", "internal/worker/campaign/"],
+      "entry_point": "internal/service/campaign/campaign_service.go:CampaignService",
+      "loc": 6000,
+      "file_count": 30,
+      "key_functions": [
+        {
+          "name": "TriggerEmailSequenceNode",
+          "signature": "func (s *CampaignService) TriggerEmailSequenceNode(ctx context.Context, contacts []domain.Contact, campaign domain.Campaign) error",
+          "file": "internal/service/campaign/campaign_service.go",
+          "line": 0,
+          "purpose": "Creates Task records for each contact-template combination and immediately enqueues email sending"
+        },
+        {
+          "name": "HandleExecuteCampaign",
+          "signature": "func (w *CampaignWorker) HandleExecuteCampaign(ctx context.Context, task *asynq.Task) error",
+          "file": "internal/worker/campaign/campaign_worker.go",
+          "line": 0,
+          "purpose": "Background worker that creates campaign tasks and schedules email sending"
+        },
+        {
+          "name": "GetIntentAssignee",
+          "signature": "func (c *Campaign) GetIntentAssignee(intent IntentType) *CampaignMember",
+          "file": "internal/domain/campaign/campaign.go",
+          "line": 0,
+          "purpose": "Retrieves the handler (AI/human/draft) for a specific email intent"
+        }
+      ],
+      "data_models": [
+        {
+          "name": "Campaign",
+          "type": "struct",
+          "file": "internal/domain/campaign/campaign.go",
+          "fields": ["ID uuid.UUID", "Name string", "UserID uuid.UUID", "OrganizationID *uuid.UUID", "ListContactID *uuid.UUID", "Schedule *time.Time", "Status CampaignStatus", "AgentID *uuid.UUID", "CMetadata CampaignMetadata", "Playbook string"],
+          "purpose": "Outreach campaign with intent routing configuration and template sequencing"
+        },
+        {
+          "name": "CampaignMetadata",
+          "type": "struct",
+          "file": "internal/domain/campaign/campaign.go",
+          "fields": ["Config []CampaignMember", "Sequence []EmailSequenceItem", "Client map[string]interface{}"],
+          "purpose": "Campaign configuration with intent handlers and email sequence"
+        }
+      ],
+      "dependencies": {
+        "internal": ["internal/domain/contact", "internal/domain/agent", "internal/domain/task"],
+        "external": ["github.com/hibiken/asynq"],
+        "calls_to": ["agent-management", "email-processing", "ai-services", "template-management"],
+        "called_by": ["worker-orchestration"]
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "GET/POST/PUT/DELETE /v1/campaigns/*, /v2/campaigns/*, /v3/campaigns/*",
+          "handler": "internal/handler/v1/campaign/, v2/campaign/, v3/campaign/",
+          "request": "CampaignCreateRequest, CampaignUpdateRequest",
+          "response": "CampaignResponse, CampaignWithStats"
+        }
+      ],
+      "integration_points": ["Asynq task queue", "Email sending agents", "AI email generation"],
+      "complexity": "high",
+      "priority": 2,
+      "notes": ["Central orchestration module", "Deprecated ScheduleOutreachToContacts in favor of TriggerEmailSequenceNode", "Intent routing: Interested/Not Interested/Referral/Pricing/Info/Nurture/DNC/OOO"]
+    },
+    {
+      "id": "ai-services",
+      "name": "AI & LLM Services",
+      "description": "OpenAI-powered email generation, intent classification, company intelligence extraction, and contact enrichment. Uses GPT-4o-mini with various temperature settings for different tasks.",
+      "type": "core-domain",
+      "paths": ["internal/service/ai/", "internal/service/mail/", "internal/service/intelligence/", "internal/service/intent/", "internal/worker/ai/", "internal/worker/mailwriter/", "internal/agents/", "pkg/ai/"],
+      "entry_point": "internal/service/ai/ai_email_service.go:AIEmailService",
+      "loc": 10000,
+      "file_count": 35,
+      "key_functions": [
+        {
+          "name": "ClassifyIntent",
+          "signature": "func (s *AIEmailService) ClassifyIntent(ctx context.Context, content string) (string, error)",
+          "file": "internal/service/ai/ai_email_service.go",
+          "line": 0,
+          "purpose": "Classifies email intent using OpenAI (Interested, Not Interested, Request Pricing, etc.)"
+        },
+        {
+          "name": "GenerateReply",
+          "signature": "func (s *AIEmailService) GenerateReply(ctx context.Context, userID uuid.UUID, ...) (*ReplyResponse, error)",
+          "file": "internal/service/ai/ai_email_service.go",
+          "line": 0,
+          "purpose": "Generates AI-powered email replies with knowledge base context (RAG)"
+        },
+        {
+          "name": "GenerateSingleOutreach",
+          "signature": "func (mw *MailWriter) GenerateSingleOutreach(ctx context.Context, previousEmails []Email) (*EmailTemplate, error)",
+          "file": "internal/service/mail/mail_writer.go",
+          "line": 0,
+          "purpose": "Generates outreach emails with type detection (First/Follow-up) and merge tag support"
+        },
+        {
+          "name": "ExtractCompanyInfo",
+          "signature": "func (s *AICompanyService) ExtractCompanyInfo(ctx context.Context, companyURL string) (*CompanyInfo, error)",
+          "file": "internal/service/ai/ai_company_service.go",
+          "line": 0,
+          "purpose": "Extracts company description, targeting personas, and value offering via AI with 24h caching"
+        }
+      ],
+      "data_models": [
+        {
+          "name": "CompanyInfo",
+          "type": "struct",
+          "file": "internal/domain/ai/ai.go",
+          "fields": ["CompanyDescription string", "CompanyTargetingPersona []string", "ValueOffering string"],
+          "purpose": "AI-extracted company intelligence"
+        }
+      ],
+      "dependencies": {
+        "internal": ["internal/domain/conversation", "internal/domain/knowledge", "pkg/ai"],
+        "external": ["github.com/sashabaranov/go-openai", "github.com/openai/openai-go"],
+        "calls_to": ["knowledge-management", "vector-store"],
+        "called_by": ["campaign-management", "contact-management", "outreach-management"]
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "POST /v1/ai/*, /v2/campaigns/:id/generate-templates",
+          "handler": "internal/handler/v1/ai/, v2/campaign/",
+          "request": "GenerateReplyRequest, GenerateTemplateRequest",
+          "response": "ReplyResponse, EmailTemplate"
+        }
+      ],
+      "integration_points": ["OpenAI API (GPT-4o-mini)", "Vector store (knowledge retrieval)", "Cache (company info 24h TTL)"],
+      "complexity": "high",
+      "priority": 2,
+      "notes": ["Temperature 0.4 for replies, 0.7 for outreach, 0.0 for extraction", "Few-shot prompting for company extraction", "Intent classification drives campaign routing"]
+    },
+    {
+      "id": "email-processing",
+      "name": "Email Processing & Conversations",
+      "description": "Email sending/receiving via Gmail and Outlook APIs, conversation threading, email status tracking, and push notification handling.",
+      "type": "core-domain",
+      "paths": ["internal/domain/email/", "internal/domain/conversation/", "internal/repository/email/", "internal/repository/conversation/", "internal/worker/email/", "internal/worker/gmailnotification/", "internal/worker/reply/"],
+      "entry_point": "internal/worker/email/email_worker.go",
+      "loc": 5000,
+      "file_count": 20,
+      "key_functions": [
+        {
+          "name": "HandleSendEmail",
+          "signature": "func (w *EmailWorker) HandleSendEmail(ctx context.Context, task *asynq.Task) error",
+          "file": "internal/worker/email/email_worker.go",
+          "line": 0,
+          "purpose": "Sends email via Gmail/Outlook API and creates Email/Conversation records"
+        },
+        {
+          "name": "HandleNotification",
+          "signature": "func (s *GmailService) HandleNotification(ctx context.Context, payload NotificationPayload) error",
+          "file": "internal/service/gmail/gmail_service.go",
+          "line": 0,
+          "purpose": "Processes Gmail push notifications and enqueues email sync tasks"
+        }
+      ],
+      "data_models": [
+        {
+          "name": "Email",
+          "type": "struct",
+          "file": "internal/domain/email/email.go",
+          "fields": ["ID uuid.UUID", "UserID uuid.UUID", "ConversationID *uuid.UUID", "GmailMessageID string", "FromEmail string", "ToEmail string", "Subject string", "Content string", "Status EmailStatus", "CampaignID *uuid.UUID", "Intents pq.StringArray"],
+          "purpose": "Email message with delivery status and intent classification"
+        },
+        {
+          "name": "Conversation",
+          "type": "struct",
+          "file": "internal/domain/conversation/conversation.go",
+          "fields": ["ID uuid.UUID", "UserID uuid.UUID", "GmailThreadID string", "Labels pq.StringArray", "Replied bool", "Status ConversationStatus", "CampaignID *uuid.UUID", "AgentID *uuid.UUID", "Intents pq.StringArray"],
+          "purpose": "Email thread with routing and intent tracking"
+        }
+      ],
+      "dependencies": {
+        "internal": ["internal/domain/agent", "pkg/gmail", "pkg/outlook"],
+        "external": ["github.com/hibiken/asynq"],
+        "calls_to": ["agent-management", "gmail-integration", "outlook-integration"],
+        "called_by": ["campaign-management", "ai-services"]
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "GET /v1/emails/*, /v2/emails/*, /v2/conversations/*",
+          "handler": "internal/handler/v1/, v2/",
+          "request": "EmailSearchRequest",
+          "response": "EmailResponse, ConversationResponse"
+        }
+      ],
+      "integration_points": ["Gmail API (send/receive/watch)", "Outlook Graph API (send/receive)", "Google Cloud Pub/Sub (notifications)"],
+      "complexity": "high",
+      "priority": 2,
+      "notes": ["Gmail push notifications via Google Cloud Pub/Sub", "Conversation threading via GmailThreadID", "Email status: sending -> sent -> inbox"]
+    },
+    {
+      "id": "outreach-management",
+      "name": "Outreach State Machine",
+      "description": "Comprehensive outreach lifecycle management with conversation state tracking (COLD->NO_REPLY->REPLIED->POST_MEETING->DROPPED), interaction logging, meeting orchestration, and AI-generated feedback analytics.",
+      "type": "core-domain",
+      "paths": ["internal/domain/outreach/", "internal/repository/outreach/", "internal/service/outreach/", "internal/worker/outreach/"],
+      "entry_point": "internal/service/outreach/outreach_service.go",
+      "loc": 4000,
+      "file_count": 15,
+      "key_functions": [
+        {
+          "name": "ShouldDrop",
+          "signature": "func (s *OutreachState) ShouldDrop() bool",
+          "file": "internal/domain/outreach/outreach.go",
+          "line": 0,
+          "purpose": "Determines if contact should be dropped based on follow-up count vs max"
+        },
+        {
+          "name": "CalculateDaysSinceLastInteraction",
+          "signature": "func (s *OutreachState) CalculateDaysSinceLastInteraction() int",
+          "file": "internal/domain/outreach/outreach.go",
+          "line": 0,
+          "purpose": "Calculates days since last interaction for follow-up timing"
+        }
+      ],
+      "data_models": [
+        {
+          "name": "OutreachState",
+          "type": "struct",
+          "file": "internal/domain/outreach/outreach.go",
+          "fields": ["ID uuid.UUID", "UserID uuid.UUID", "ContactID uuid.UUID", "ConversationState string", "ContextLevel string", "OutreachIntent string", "Scenario string", "MessageDraft *string", "LastOutcome string", "NextStep string", "FollowupCount int", "MaxFollowups int"],
+          "purpose": "State machine for outreach lifecycle per contact"
+        },
+        {
+          "name": "InteractionLog",
+          "type": "struct",
+          "file": "internal/domain/outreach/outreach.go",
+          "fields": ["ID uuid.UUID", "UserID uuid.UUID", "ContactID uuid.UUID", "Channel string", "Direction string", "Content string", "Sentiment *string", "Timestamp time.Time"],
+          "purpose": "Multi-channel interaction history (Email, LinkedIn, Call, Meeting, Note)"
+        },
+        {
+          "name": "Meeting",
+          "type": "struct",
+          "file": "internal/domain/outreach/outreach.go",
+          "fields": ["ID uuid.UUID", "UserID uuid.UUID", "ContactID uuid.UUID", "Title *string", "Time time.Time", "Channel string", "Status string", "MeetingPrep *string"],
+          "purpose": "Meeting scheduling with AI-generated preparation notes"
+        },
+        {
+          "name": "OutreachFeedback",
+          "type": "struct",
+          "file": "internal/domain/outreach/outreach.go",
+          "fields": ["ID uuid.UUID", "UserID uuid.UUID", "ContactID uuid.UUID", "SuggestedScenario string", "SuggestedDraft *string", "ActualAction *string", "Outcome *string"],
+          "purpose": "Feedback loop tracking AI suggestion accuracy vs actual user actions"
+        }
+      ],
+      "dependencies": {
+        "internal": ["internal/domain/contact", "internal/domain/base"],
+        "external": ["github.com/google/uuid"],
+        "calls_to": ["ai-services"],
+        "called_by": ["contact-management", "worker-orchestration"]
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "GET/POST /v1/outreach/*",
+          "handler": "internal/handler/v1/",
+          "request": "InteractionLogRequest, MeetingRequest, FeedbackRequest",
+          "response": "OutreachStateResponse, InteractionLogResponse, MeetingResponse"
+        }
+      ],
+      "integration_points": ["AI services (message draft generation)", "Vector store (interaction embeddings)"],
+      "complexity": "high",
+      "priority": 3,
+      "notes": ["Rich state machine: COLD->NO_REPLY->REPLIED->POST_MEETING->DROPPED", "Feedback analytics: tracks draft usage rate, reply rate, meeting rate", "Supports multiple scenarios: role_based, industry_based, no_reply_followup, etc."]
+    },
+    {
+      "id": "knowledge-management",
+      "name": "Knowledge Base",
+      "description": "Document ingestion, text extraction (PDF/text/CSV/Markdown), S3 storage, vector embedding generation, and RAG-based retrieval for AI context.",
+      "type": "core-domain",
+      "paths": ["internal/domain/knowledge/", "internal/repository/knowledge/", "internal/service/knowledge/", "internal/handler/v1/knowledge/", "internal/handler/v2/knowledge/", "internal/worker/knowledge/"],
+      "entry_point": "internal/service/knowledge/knowledge_service.go:KnowledgeService",
+      "loc": 3000,
+      "file_count": 18,
+      "key_functions": [
+        {
+          "name": "Upload",
+          "signature": "func (s *KnowledgeService) Upload(ctx context.Context, userID uuid.UUID, files []multipart.FileHeader) error",
+          "file": "internal/service/knowledge/knowledge_service.go",
+          "line": 0,
+          "purpose": "Processes file uploads: validates MIME type, extracts text, uploads to S3, creates records, enqueues indexing"
+        }
+      ],
+      "data_models": [
+        {
+          "name": "Knowledge",
+          "type": "struct",
+          "file": "internal/domain/knowledge/knowledge.go",
+          "fields": ["ID uuid.UUID", "UserID uuid.UUID", "SourceType KnowledgeSourceType", "SummaryPair pq.StringArray", "EmbeddingGID *string", "CMetadata base.JSONB"],
+          "purpose": "Knowledge document with embedding reference and Q&A summary pairs"
+        }
+      ],
+      "dependencies": {
+        "internal": ["pkg/ai/embedder", "pkg/ai/splitter", "pkg/vectorstore"],
+        "external": ["github.com/ledongthuc/pdf", "github.com/aws/aws-sdk-go-v2"],
+        "calls_to": ["vector-store", "s3-storage"],
+        "called_by": ["ai-services"]
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "GET/POST/DELETE /v1/knowledge/*, /v2/knowledge/*",
+          "handler": "internal/handler/v1/knowledge/, v2/knowledge/",
+          "request": "KnowledgeUploadRequest",
+          "response": "KnowledgeResponse"
+        }
+      ],
+      "integration_points": ["AWS S3 (file storage)", "OpenAI (embeddings, summarization)", "Redis Vector Store (RediSearch)"],
+      "complexity": "medium",
+      "priority": 3,
+      "notes": ["Supports: PDF, text, CSV, Markdown, JSON, HTML, XML", "SHA256 hash-based deduplication via EmbeddingGID", "Async pipeline: Upload -> Index -> Summarize"]
+    },
+    {
+      "id": "intelligence-agents",
+      "name": "Intelligence Agents & Orchestration",
+      "description": "Intelligent agent framework for contact enrichment, segment scoring, relationship scoring, and campaign analytics. Orchestrator chains agents for contact lifecycle events.",
+      "type": "core-domain",
+      "paths": ["internal/agents/", "internal/service/intelligence/", "internal/worker/orchestrator/", "internal/worker/segmentation/", "internal/worker/relationship/", "internal/worker/summarizer/"],
+      "entry_point": "internal/worker/orchestrator/contact_orchestrator.go:ContactOrchestrator",
+      "loc": 5000,
+      "file_count": 20,
+      "key_functions": [
+        {
+          "name": "HandleContactOrchestration",
+          "signature": "func (o *ContactOrchestrator) HandleContactOrchestration(ctx context.Context, task *asynq.Task) error",
+          "file": "internal/worker/orchestrator/contact_orchestrator.go",
+          "line": 0,
+          "purpose": "Chains enrichment -> segment scoring -> relationship scoring -> playbook evaluation for contact events"
+        },
+        {
+          "name": "ContactEnrichmentAgent.Run",
+          "signature": "func (a *ContactEnrichmentAgent) Run(ctx context.Context, userID, orgID, contactID uuid.UUID, forceRefresh bool) (*EnrichmentResponse, error)",
+          "file": "internal/agents/contact_enrichment_agent.go",
+          "line": 0,
+          "purpose": "Generates AI insights and embeddings for a contact"
+        },
+        {
+          "name": "SegmentCalculatorAgent.Run",
+          "signature": "func (a *SegmentCalculatorAgent) Run(ctx context.Context, userID, orgID, contactID uuid.UUID, segmentIDs []uuid.UUID) (*CalculateScoresResponse, error)",
+          "file": "internal/agents/segment_calculator_agent.go",
+          "line": 0,
+          "purpose": "Evaluates contact fit against segments and returns scores"
+        }
+      ],
+      "data_models": [],
+      "dependencies": {
+        "internal": ["internal/domain/contact", "internal/service/intelligence", "pkg/vectorstore"],
+        "external": ["github.com/hibiken/asynq"],
+        "calls_to": ["ai-services", "contact-management", "vector-store"],
+        "called_by": ["email-processing", "playbook-automation"]
+      },
+      "api_contracts": [],
+      "integration_points": ["OpenAI (enrichment)", "Vector store (embeddings)", "Asynq (task chaining)"],
+      "complexity": "high",
+      "priority": 3,
+      "notes": ["Chain pattern: Enrichment -> Segment -> Relationship -> Playbook", "Batch processing: 200 contacts per batch with 50ms sleep", "Temporal workflows for long-running analysis (FullContactAnalysis, BatchEnrichment)"]
+    },
+    {
+      "id": "playbook-automation",
+      "name": "Playbook & Automation Rules",
+      "description": "Rule-based automation engine with playbooks, enrollment tracking, and scheduled evaluation. Supports segment-based scoring and relationship scoring on configurable intervals.",
+      "type": "core-domain",
+      "paths": ["internal/domain/playbook/", "internal/repository/playbook/", "internal/service/playbook/", "internal/worker/playbook/"],
+      "entry_point": "internal/service/playbook/playbook_service.go",
+      "loc": 3000,
+      "file_count": 12,
+      "key_functions": [],
+      "data_models": [],
+      "dependencies": {
+        "internal": ["internal/domain/contact", "internal/domain/segmentation"],
+        "external": ["github.com/hibiken/asynq"],
+        "calls_to": ["contact-management", "intelligence-agents"],
+        "called_by": ["worker-orchestration"]
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "GET/POST/PUT/DELETE /v1/playbooks/*",
+          "handler": "internal/handler/v1/",
+          "request": "PlaybookRequest",
+          "response": "PlaybookResponse"
+        }
+      ],
+      "integration_points": ["Asynq scheduled tasks (5min rule evaluation, 1min enrollment processing)"],
+      "complexity": "medium",
+      "priority": 4,
+      "notes": ["Scheduled workers: rules (5min), enrollments (1min), segment scores (2h), relationship scores (24h)", "Integrates with segment calculator and relationship scorer agents"]
+    },
+    {
+      "id": "template-management",
+      "name": "Email Templates & Draft Templates",
+      "description": "Email template CRUD with merge tag support, draft template management, and AI-powered template generation for campaigns.",
+      "type": "core-domain",
+      "paths": ["internal/domain/template/", "internal/domain/draft_template/", "internal/repository/template/", "internal/repository/draft_template/", "internal/service/template/", "internal/handler/v1/template/"],
+      "entry_point": "internal/service/template/template_service.go",
+      "loc": 2000,
+      "file_count": 12,
+      "key_functions": [],
+      "data_models": [],
+      "dependencies": {
+        "internal": ["internal/domain/base"],
+        "external": [],
+        "calls_to": ["knowledge-management"],
+        "called_by": ["campaign-management", "ai-services"]
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "GET/POST/PUT/DELETE /v1/templates/*, /v2/templates/*, /v2/draft-templates/*",
+          "handler": "internal/handler/v1/template/, v2/",
+          "request": "TemplateCreateRequest, TemplateUpdateRequest",
+          "response": "TemplateResponse"
+        }
+      ],
+      "integration_points": ["AI services (template generation)"],
+      "complexity": "low",
+      "priority": 4,
+      "notes": ["Merge tags: {first_name}, {company}, {agent_signature}, etc.", "Template reordering support", "Knowledge-integrated template generation in v2"]
+    },
+    {
+      "id": "gmail-integration",
+      "name": "Gmail Integration",
+      "description": "Gmail OAuth2 flow, push notification handling (Google Pub/Sub), email watch setup, history sync, and token management.",
+      "type": "integration",
+      "paths": ["pkg/gmail/", "pkg/oauth2/google/", "internal/service/gmail/", "internal/repository/gmail/", "internal/domain/google_token_store/"],
+      "entry_point": "internal/service/gmail/gmail_service.go:GmailService",
+      "loc": 3000,
+      "file_count": 10,
+      "key_functions": [
+        {
+          "name": "HandleOAuth2Callback",
+          "signature": "func (s *GmailService) HandleOAuth2Callback(ctx context.Context, code, state, redirectURI string) (*domain.GmailAccount, error)",
+          "file": "internal/service/gmail/gmail_service.go",
+          "line": 0,
+          "purpose": "Processes Gmail OAuth callback, creates/updates agent with credentials"
+        },
+        {
+          "name": "StartWatch",
+          "signature": "func (s *GmailService) StartWatch(ctx context.Context, gmailAccountID uuid.UUID) error",
+          "file": "internal/service/gmail/gmail_service.go",
+          "line": 0,
+          "purpose": "Enables Gmail push notifications via Google Pub/Sub"
+        }
+      ],
+      "data_models": [],
+      "dependencies": {
+        "internal": ["pkg/oauth2/google", "internal/domain/agent"],
+        "external": ["golang.org/x/oauth2", "google.golang.org/api"],
+        "calls_to": ["agent-management"],
+        "called_by": ["email-processing"]
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "GET /v1/gmail/*, /v2/google/gmail/*",
+          "handler": "internal/handler/v1/, v2/",
+          "request": "OAuth2CallbackRequest",
+          "response": "GmailAccountResponse"
+        }
+      ],
+      "integration_points": ["Google OAuth2", "Gmail API", "Google Cloud Pub/Sub"],
+      "complexity": "medium",
+      "priority": 2,
+      "notes": ["HMAC-SHA256 signed state tokens for OAuth", "Watch API for INBOX + SENT labels", "History-based incremental sync"]
+    },
+    {
+      "id": "outlook-integration",
+      "name": "Outlook/Microsoft Integration",
+      "description": "Microsoft Azure AD OAuth2 flow and Microsoft Graph API integration for Outlook email operations (send, reply, forward, contacts).",
+      "type": "integration",
+      "paths": ["pkg/outlook/", "pkg/oauth2/microsoft/", "internal/service/outlook/"],
+      "entry_point": "internal/service/outlook/outlook_service.go:OutlookService",
+      "loc": 1500,
+      "file_count": 6,
+      "key_functions": [
+        {
+          "name": "SendMail",
+          "signature": "func (s *OutlookService) SendMail(ctx context.Context, accessToken string, payload SendMailPayload) error",
+          "file": "internal/service/outlook/outlook_service.go",
+          "line": 0,
+          "purpose": "Sends email via Microsoft Graph /me/sendMail endpoint"
+        }
+      ],
+      "data_models": [],
+      "dependencies": {
+        "internal": ["pkg/oauth2/microsoft"],
+        "external": ["golang.org/x/oauth2"],
+        "calls_to": [],
+        "called_by": ["email-processing", "agent-management"]
+      },
+      "api_contracts": [],
+      "integration_points": ["Microsoft Azure AD", "Microsoft Graph API v1.0"],
+      "complexity": "medium",
+      "priority": 3,
+      "notes": ["Supports send, reply, reply-all, forward", "Attachment support with base64 encoding", "Read/unread marking"]
+    },
+    {
+      "id": "hubspot-integration",
+      "name": "HubSpot Integration",
+      "description": "HubSpot OAuth2 flow, contact sync, list management, and CRM data import.",
+      "type": "integration",
+      "paths": ["pkg/hubspot/", "internal/service/hubspot/", "internal/worker/contact/"],
+      "entry_point": "internal/service/hubspot/hubspot_service.go",
+      "loc": 1500,
+      "file_count": 6,
+      "key_functions": [],
+      "data_models": [],
+      "dependencies": {
+        "internal": ["internal/domain/contact"],
+        "external": ["golang.org/x/oauth2"],
+        "calls_to": ["contact-management"],
+        "called_by": []
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "GET/POST /v1/hubspot/*, /v2/hubspot/*",
+          "handler": "internal/handler/v1/, v2/",
+          "request": "HubSpotOAuthRequest",
+          "response": "HubSpotAccountResponse"
+        }
+      ],
+      "integration_points": ["HubSpot OAuth2", "HubSpot CRM API (contacts, lists)"],
+      "complexity": "medium",
+      "priority": 4,
+      "notes": ["Batch contact retrieval with property selection", "Paginated responses"]
+    },
+    {
+      "id": "facebook-integration",
+      "name": "Facebook Lead Ads Integration",
+      "description": "Facebook Lead Ads webhook handling, lead form management, and OAuth token exchange for lead generation.",
+      "type": "integration",
+      "paths": ["pkg/facebook/", "internal/domain/facebook_token/", "internal/repository/facebook_token/", "internal/domain/inbound_lead_form/", "internal/service/inbound_lead_form/", "internal/domain/lead_form_integration/"],
+      "entry_point": "internal/service/inbound_lead_form/inbound_lead_form_service.go",
+      "loc": 2000,
+      "file_count": 10,
+      "key_functions": [],
+      "data_models": [],
+      "dependencies": {
+        "internal": ["internal/domain/contact"],
+        "external": [],
+        "calls_to": ["contact-management"],
+        "called_by": []
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "GET/POST /v1/inbound-lead-forms/*, /v1/integrations/meta/*",
+          "handler": "internal/handler/v1/",
+          "request": "LeadFormRequest",
+          "response": "LeadFormResponse"
+        }
+      ],
+      "integration_points": ["Facebook Graph API", "Facebook Webhook"],
+      "complexity": "medium",
+      "priority": 4,
+      "notes": ["Short-lived to long-lived token exchange", "Webhook verification", "Organic + paid lead support"]
+    },
+    {
+      "id": "workflow-engine",
+      "name": "Workflow Engine",
+      "description": "DAG-based workflow engine with topological sorting, event propagation, and node state tracking for campaign orchestration.",
+      "type": "infrastructure",
+      "paths": ["internal/domain/workflow/", "internal/repository/workflow/", "pkg/workflow/"],
+      "entry_point": "pkg/workflow/dag.go",
+      "loc": 2000,
+      "file_count": 10,
+      "key_functions": [],
+      "data_models": [
+        {
+          "name": "Workflow",
+          "type": "struct",
+          "file": "internal/domain/workflow/workflow.go",
+          "fields": ["ID uuid.UUID", "UserID uuid.UUID", "Nodes pq.StringArray", "Edges base.JSONB", "State base.JSONB", "CMetadata base.JSONB"],
+          "purpose": "DAG workflow with nodes, edges, and execution state"
+        }
+      ],
+      "dependencies": {
+        "internal": ["internal/domain/base"],
+        "external": [],
+        "calls_to": [],
+        "called_by": ["campaign-management"]
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "GET/POST/PUT/DELETE /v1/workflows/*",
+          "handler": "internal/handler/v1/",
+          "request": "WorkflowRequest",
+          "response": "WorkflowResponse"
+        }
+      ],
+      "integration_points": [],
+      "complexity": "medium",
+      "priority": 4,
+      "notes": ["Kahn's algorithm for topological sorting", "Cycle detection", "Event-driven node execution"]
+    },
+    {
+      "id": "vector-store",
+      "name": "Vector Store (Redis)",
+      "description": "Redis-based vector storage with HNSW indexing for semantic search across contacts, interactions, knowledge, and segments.",
+      "type": "infrastructure",
+      "paths": ["pkg/vectorstore/"],
+      "entry_point": "pkg/vectorstore/redis_vector_store.go",
+      "loc": 800,
+      "file_count": 3,
+      "key_functions": [],
+      "data_models": [],
+      "dependencies": {
+        "internal": [],
+        "external": ["github.com/redis/go-redis/v9"],
+        "calls_to": [],
+        "called_by": ["knowledge-management", "intelligence-agents"]
+      },
+      "api_contracts": [],
+      "integration_points": ["Redis Stack (RediSearch module)"],
+      "complexity": "medium",
+      "priority": 3,
+      "notes": ["4 indexes: contacts, interactions, knowledge, segments", "HNSW algorithm, cosine similarity", "1536 dimensions (OpenAI ada-002)", "Tenant-scoped queries via user_id filtering"]
+    },
+    {
+      "id": "auth-system",
+      "name": "Authentication & Authorization",
+      "description": "JWT-based authentication with dual-secret support, personal API keys, role-based access control, and organization membership.",
+      "type": "infrastructure",
+      "paths": ["pkg/auth/", "internal/middleware/", "internal/domain/user/", "internal/domain/role/", "internal/domain/organization/", "internal/domain/personal_api_key/", "internal/repository/user/", "internal/repository/role/", "internal/repository/organization/", "internal/repository/personal_api_key/", "internal/handler/common/"],
+      "entry_point": "pkg/auth/jwt.go",
+      "loc": 4000,
+      "file_count": 25,
+      "key_functions": [],
+      "data_models": [],
+      "dependencies": {
+        "internal": [],
+        "external": ["github.com/golang-jwt/jwt/v5"],
+        "calls_to": [],
+        "called_by": ["all modules via middleware"]
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "POST /v1/auth/*, /v2/auth/*",
+          "handler": "internal/handler/v1/, v2/",
+          "request": "LoginRequest, RefreshRequest",
+          "response": "AuthResponse with access/refresh tokens"
+        }
+      ],
+      "integration_points": ["Google OAuth2 (user login)", "JWT token management"],
+      "complexity": "medium",
+      "priority": 1,
+      "notes": ["Compatible with Python JWT implementation", "Personal API Keys: cosmo_pk_* prefix", "Role-based: owner, admin, member"]
+    },
+    {
+      "id": "pubsub-system",
+      "name": "Real-time PubSub",
+      "description": "WebSocket-based real-time event system for publishing and subscribing to domain events.",
+      "type": "infrastructure",
+      "paths": ["internal/domain/pubsub/", "internal/repository/pubsub/", "internal/usecase/pubsub/", "internal/handler/v1/pubsub/"],
+      "entry_point": "internal/handler/v1/pubsub/",
+      "loc": 1500,
+      "file_count": 8,
+      "key_functions": [],
+      "data_models": [],
+      "dependencies": {
+        "internal": [],
+        "external": ["github.com/fasthttp/websocket"],
+        "calls_to": [],
+        "called_by": ["email-processing", "campaign-management"]
+      },
+      "api_contracts": [
+        {
+          "type": "WebSocket",
+          "endpoint": "/v1/pubsub/*",
+          "handler": "internal/handler/v1/pubsub/",
+          "request": "Subscribe/Publish messages",
+          "response": "Event payloads"
+        }
+      ],
+      "integration_points": ["WebSocket (FastHTTP)"],
+      "complexity": "medium",
+      "priority": 4,
+      "notes": ["Real-time event delivery", "Used for live UI updates"]
+    },
+    {
+      "id": "temporal-workflows",
+      "name": "Temporal Workflow Orchestration",
+      "description": "Long-running workflow orchestration using Temporal for complex multi-step processes like batch enrichment, segment analysis, and daily analytics.",
+      "type": "infrastructure",
+      "paths": ["internal/temporal/", "cmd/temporal-worker/"],
+      "entry_point": "cmd/temporal-worker/main.go",
+      "loc": 2000,
+      "file_count": 8,
+      "key_functions": [],
+      "data_models": [],
+      "dependencies": {
+        "internal": ["internal/agents", "internal/service/intelligence"],
+        "external": ["go.temporal.io/sdk"],
+        "calls_to": ["intelligence-agents", "contact-management"],
+        "called_by": []
+      },
+      "api_contracts": [],
+      "integration_points": ["Temporal Server"],
+      "complexity": "high",
+      "priority": 3,
+      "notes": ["4 workflows: FullContactAnalysis, BatchEnrichment, SegmentAnalysis, DailyAnalytics", "Retry: 3 attempts, exponential backoff", "Activity timeout: 2 minutes"]
+    },
+    {
+      "id": "observability",
+      "name": "Observability Stack",
+      "description": "Comprehensive observability with Prometheus metrics, OpenTelemetry tracing (Jaeger/Tempo), and structured logging (zerolog).",
+      "type": "infrastructure",
+      "paths": ["pkg/metrics/", "pkg/telemetry/", "pkg/logger/"],
+      "entry_point": "pkg/logger/logger.go",
+      "loc": 1500,
+      "file_count": 6,
+      "key_functions": [],
+      "data_models": [],
+      "dependencies": {
+        "internal": [],
+        "external": ["github.com/rs/zerolog", "github.com/prometheus/client_golang", "go.opentelemetry.io/otel"],
+        "calls_to": [],
+        "called_by": ["all modules"]
+      },
+      "api_contracts": [
+        {
+          "type": "REST",
+          "endpoint": "GET /metrics",
+          "handler": "Prometheus handler",
+          "request": "",
+          "response": "Prometheus metrics format"
+        }
+      ],
+      "integration_points": ["Prometheus", "Jaeger/Tempo (OpenTelemetry)", "Grafana (dashboards in docker/)"],
+      "complexity": "low",
+      "priority": 5,
+      "notes": ["HTTP, DB, cache, worker, business, AI, Go runtime metrics", "10% trace sampling rate", "Request ID tracking across logs"]
+    }
+  ],
+
+  "dependency_graph": {
+    "auth-system": [],
+    "agent-management": ["auth-system", "gmail-integration", "outlook-integration"],
+    "contact-management": ["auth-system"],
+    "campaign-management": ["agent-management", "contact-management", "template-management", "email-processing", "ai-services"],
+    "ai-services": ["knowledge-management", "vector-store"],
+    "email-processing": ["agent-management", "gmail-integration", "outlook-integration"],
+    "outreach-management": ["contact-management", "ai-services"],
+    "knowledge-management": ["vector-store"],
+    "intelligence-agents": ["ai-services", "contact-management", "vector-store"],
+    "playbook-automation": ["contact-management", "intelligence-agents"],
+    "template-management": ["knowledge-management"],
+    "gmail-integration": [],
+    "outlook-integration": [],
+    "hubspot-integration": ["contact-management"],
+    "facebook-integration": ["contact-management"],
+    "workflow-engine": [],
+    "vector-store": [],
+    "pubsub-system": [],
+    "temporal-workflows": ["intelligence-agents", "contact-management"],
+    "observability": []
+  },
+
+  "recommendations": {
+    "suggested_adoption_order": [
+      "1. auth-system (foundation - all modules depend on auth)",
+      "2. agent-management (required for email operations)",
+      "3. contact-management (core CRM entity)",
+      "4. email-processing (email sending/receiving)",
+      "5. ai-services (AI-powered features)",
+      "6. campaign-management (orchestrates agents, contacts, emails)",
+      "7. outreach-management (outreach state machine)",
+      "8. knowledge-management (RAG knowledge base)",
+      "9. intelligence-agents (enrichment pipeline)",
+      "10. playbook-automation (automation rules)"
+    ],
+    "high_priority_modules": ["agent-management", "contact-management", "campaign-management", "ai-services"],
+    "warnings": [
+      "knowledge-management: Search method is stubbed (TODO: Implement vector search)",
+      "ai-worker: HandleGenerateEmbedding stores embeddings to TODO (vector DB not integrated)",
+      "mailwriter-worker: processGenerateCampaignEmail and processGenerateReplyEmail have TODO for DB persistence",
+      "email-indexing: handleEmailIndexing has TODO for vector store integration",
+      "campaign-management: ScheduleOutreachToContacts is deprecated in favor of TriggerEmailSequenceNode",
+      "agent-worker: HandleAgentSyncEmails and HandleAgentRefreshToken have TODO implementations",
+      "Multiple OpenAI client packages used (sashabaranov/go-openai AND openai/openai-go) - potential consolidation needed"
+    ]
+  }
+}

@@ -235,7 +235,7 @@ func (b *EmbeddingBackfiller) Run(ctx context.Context, userID string, maxContact
 				"job_title":       contact.JobTitle,
 				"industry":        contact.Industry,
 				"contact_channel": contact.ContactChannel,
-				"lifecycle_stage": contact.LifecycleStage,
+				"outreach_stage":  contact.OutreachStage,
 				"city":            contact.City,
 				"country":         contact.Country,
 				"backfilled":      true,
@@ -338,9 +338,9 @@ func buildEmbeddingText(contact *domain.Contact) string {
 		parts = append(parts, fmt.Sprintf("Contact Channel: %s", contact.ContactChannel))
 	}
 
-	// Lifecycle stage
-	if contact.LifecycleStage != "" && contact.LifecycleStage != "new" {
-		parts = append(parts, fmt.Sprintf("Lifecycle Stage: %s", contact.LifecycleStage))
+	// Outreach stage
+	if contact.OutreachStage != "" && contact.OutreachStage != "COLD" {
+		parts = append(parts, fmt.Sprintf("Outreach Stage: %s", contact.OutreachStage))
 	}
 
 	// Outreach context

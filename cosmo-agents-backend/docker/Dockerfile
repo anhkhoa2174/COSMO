@@ -1,5 +1,5 @@
 FROM 471112636744.dkr.ecr.ap-southeast-1.amazonaws.com/rockship/env:v0.0.1 as certificates
-FROM golang:1.25.6-alpine AS builder
+FROM golang:1.25.7-alpine AS builder
 
 WORKDIR /app
 

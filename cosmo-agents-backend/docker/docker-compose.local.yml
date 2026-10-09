@@ -1,4 +1,4 @@
-name: ${COMPOSE_PROJECT_NAME:-cosmo}
+name: ${COMPOSE_PROJECT_NAME:-cosmo-backend-dev}
 
 services:
   postgres:
@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: cosmo_agents
     ports:
-      - "15434:5432" # Changed to avoid conflicts with other stacks
+      - "5434:5432" # Changed from 5433 to avoid any potential conflict
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
     command: redis-stack-server --appendonly yes
     ports:
-      - "16381:6379" # Changed to avoid conflicts with other stacks
+      - "6381:6379" # Changed from 6380 to be more distinct
     volumes:
       - redis_data:/data
     environment:
@@ -42,7 +42,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
-      - "15052:80" # Changed to avoid conflicts with other stacks
+      - "5052:80" # Changed from 5051
     depends_on:
       - postgres
 

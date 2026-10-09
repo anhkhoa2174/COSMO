@@ -1,0 +1,99 @@
+# Everything in containers, on one machine, with one command.
+#
+# docker/docker-compose.yml cannot do this: it pulls a published image from a
+# private ECR registry, so it needs credentials for an AWS account a developer
+# may not have. This file builds from source instead.
+#
+# The project name matches the one docker-compose.local.yml uses, so the same
+# Postgres and Redis volumes are picked up — the schema, the applied
+# migrations and the vector indexes are all still there.
+name: ${COMPOSE_PROJECT_NAME:-cosmo-backend-dev}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cosmo_agents
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis/redis-stack-server:latest
+    restart: unless-stopped
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_data:/data
+    # redis-stack-server loads RediSearch and ReJSON itself, and the vector
+    # indexes the application queries live in Redis rather than Postgres, so
+    # plain redis:7-alpine would start cleanly and then fail every semantic
+    # search. Naming the modules again in REDIS_ARGS makes the server abort on
+    # a duplicate load, which is why that is deliberately absent here.
+    command: redis-stack-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.local
+    image: cosmo-agents:local
+    command: ["./server"]
+    # 8080 on the host, because that is where the front end looks. The deploy
+    # file publishes 8086, which is correct there and wrong here.
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../.env
+    environment:
+      # .env addresses the databases as localhost, which inside a container
+      # means the container itself. These two lines are the whole difference
+      # between running on the host and running in Compose.
+      SQLALCHEMY_POSTGRES_URI: postgres://postgres:postgres@postgres:5432/cosmo_agents?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      APP_HOST: 0.0.0.0
+    volumes:
+      - ../coze_oauth_private_key.pem:/app/coze_oauth_private_key.pem:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.local
+    image: cosmo-agents:local
+    command: ["./worker"]
+    env_file:
+      - ../.env
+    environment:
+      SQLALCHEMY_POSTGRES_URI: postgres://postgres:postgres@postgres:5432/cosmo_agents?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ../coze_oauth_private_key.pem:/app/coze_oauth_private_key.pem:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -82,22 +82,33 @@ func (h *AuthHelper) getUserOrganization(ctx context.Context, userID uuid.UUID) 
 	// Step 1: Try FindUserMainOrganization (admin org or created org)
 	org, err := h.userRepo.FindUserMainOrganization(ctx, userID)
 	if err == nil {
-		return org.ID, nil
-	}
-
-	// Step 2: Fallback to ANY organization where user has a role
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		roles, roleErr := h.roleRepo.FindByUserID(ctx, userID)
+		// The admin lookup joins roles without checking is_deleted, so a
+		// removed admin would still resolve here. Keep the org only if the
+		// membership is live or the user created it.
+		role, roleErr := h.roleRepo.FindByUserAndOrganization(ctx, userID, org.ID)
 		if roleErr != nil {
 			return uuid.Nil, roleErr
 		}
-
-		if len(roles) == 0 {
-			return uuid.Nil, errors.New("user has no organization")
+		if role != nil || (org.UserID != nil && *org.UserID == userID) {
+			return org.ID, nil
 		}
+		err = gorm.ErrRecordNotFound
+	}
 
-		// Return first organization ID from roles
-		return roles[0].OrganizationID, nil
+	// Step 2: Fallback to ANY organization where user has a live role.
+	// Removed members keep a soft-deleted role row, which must not count.
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// Admin roles first, then the oldest membership: taking the first row
+		// of an unordered list could pick an org where the user is only a
+		// member over one they administer.
+		orgID, roleErr := h.roleRepo.FindPrimaryOrganization(ctx, userID)
+		if roleErr != nil {
+			return uuid.Nil, roleErr
+		}
+		if orgID == nil {
+			return uuid.Nil, ErrNoRolesFound
+		}
+		return *orgID, nil
 	}
 
 	return uuid.Nil, err

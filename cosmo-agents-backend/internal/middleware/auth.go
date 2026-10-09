@@ -28,6 +28,8 @@ func AuthMiddleware(jwtManager *auth.JWTManager, apiKeyRepo *personalapikey.Pers
 			"/v1/auth/oauth2callback",
 			"/v1/pubsub/",                    // All pubsub endpoints are public
 			"/v2/google/gmail/notifications", // Pub/Sub push endpoint (validated upstream)
+			"/v1/sse-test",                   // SSE test (temporary)
+			"/v1/public/",                    // Unauthenticated pages, e.g. lead forms; each route limits itself
 		}
 
 		// Exact match for specific paths, or prefix match for wildcards
@@ -52,6 +54,12 @@ func AuthMiddleware(jwtManager *auth.JWTManager, apiKeyRepo *personalapikey.Pers
 
 		// Get Authorization header
 		authHeader := c.Get("Authorization")
+		// SSE EventSource API cannot set custom headers — accept token from query param
+		if authHeader == "" {
+			if queryToken := c.Query("token"); queryToken != "" {
+				authHeader = "Bearer " + queryToken
+			}
+		}
 		if authHeader == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(schema.ErrorResponse(
 				fiber.StatusUnauthorized,

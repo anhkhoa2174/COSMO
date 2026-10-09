@@ -2,6 +2,11 @@
 
 import { IconRobot } from '@/assets/icons';
 import { AIWriterV2 } from '@/components/ai-writer-v2';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@/components/ui/resizable';
 import { MainButton } from '@/components/buttons/main-button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +15,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
-import { buildEmailContext, fakeStream, getContent, getErrorMessage } from '@/helpers';
+import {
+  buildEmailContext,
+  fakeStream,
+  getContent,
+  getErrorMessage,
+} from '@/helpers';
 import { promptAIReply } from '@/helpers/prompt';
 import useOrgByCampaign from '@/hooks/use-org-by-campain';
 import type { CampaignConfig } from '@/models/campaign';
@@ -58,7 +68,6 @@ function Conversation({
 
   const configFound = config.find((item) => item.intent_type === data.intent);
 
-
   return (
     <Card>
       <CardContent className="space-y-4 pt-4">
@@ -95,7 +104,13 @@ function Conversation({
         </div>
         <div className="text-base leading-loose">
           <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-            {getContent(data.content, previewContact, currentUser, agent, salesReps)}
+            {getContent(
+              data.content,
+              previewContact,
+              currentUser,
+              agent,
+              salesReps
+            )}
           </Markdown>
         </div>
         {data.intent && !configFound && (
@@ -211,7 +226,7 @@ function AIReplyWithAgent({ intent, closeSheet, onSuccess }: AIReplyProps) {
     setTimeout(() => {
       const contentSample =
         sampleTemplatesHumanReply[intent][
-        Math.floor(Math.random() * sampleTemplatesHumanReply[intent].length)
+          Math.floor(Math.random() * sampleTemplatesHumanReply[intent].length)
         ];
       const initialEmail: PreviewEmailWithIntent = {
         from_email: previewContact?.email || '',
@@ -225,10 +240,13 @@ function AIReplyWithAgent({ intent, closeSheet, onSuccess }: AIReplyProps) {
         callback: (data) => {
           setCampaignSupport((prev) => ({
             ...prev,
-            preview: { ...prev.preview, [intent]: [{ ...initialEmail, content: data }] },
+            preview: {
+              ...prev.preview,
+              [intent]: [{ ...initialEmail, content: data }],
+            },
           }));
         },
-      })
+      });
       setLoadingSample(false);
     }, 300);
   }, [intent, previewContact, agent, getGeneratedTemplate, setCampaignSupport]);
@@ -280,11 +298,14 @@ function AIReplyWithAgent({ intent, closeSheet, onSuccess }: AIReplyProps) {
           ...prev,
           preview: {
             ...prev.preview,
-            [intent]: [prev.preview[intent][0], { ...replyEmail, content: data }],
+            [intent]: [
+              prev.preview[intent]?.[0] ?? null,
+              { ...replyEmail, content: data },
+            ],
           },
         }));
       },
-    })
+    });
     setLoadingReply(false);
   }, [intent, previewContact, agent, getGeneratedTemplate, setCampaignSupport]);
 
@@ -296,9 +317,7 @@ function AIReplyWithAgent({ intent, closeSheet, onSuccess }: AIReplyProps) {
       content: conversation[1]?.content || '',
       words: 60,
     });
-    return [
-      { content: context, content_type: 'text', role: 'user' },
-    ];
+    return [{ content: context, content_type: 'text', role: 'user' }];
   }, [conversation]);
 
   useEffect(() => {
@@ -407,7 +426,6 @@ function AIReplyWithAgent({ intent, closeSheet, onSuccess }: AIReplyProps) {
     }
   };
 
-
   useEffect(() => {
     async function fetchSalesReps() {
       setLoadingSalesReps(true);
@@ -481,109 +499,138 @@ function AIReplyWithAgent({ intent, closeSheet, onSuccess }: AIReplyProps) {
           <TriangleAlert /> {getErrorMessage(commonError)}
         </p>
       ) : (
-        <div className="flex h-96 flex-grow">
+        <ResizablePanelGroup
+          direction="horizontal"
+          autoSaveId="cosmo-ai-reply-v2"
+          className="h-96 flex-grow"
+        >
           <Spinner
             show={isAssignCampaignIntentPending}
             withOverlay
             label="Saving..."
           />
+
+          <ResizablePanel
+            id="conversation"
+            order={1}
+            defaultSize={70}
+            minSize={30}
+          >
+            <ScrollArea
+              className="h-full w-full bg-[#F7F7F7] p-4"
+              type="always"
+            >
+              {loadingSample ? (
+                <div className="flex flex-col space-y-4">
+                  <Skeleton className="h-[300px] rounded-lg" />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {!!conversation[0] && (
+                    <div className="space-y-4">
+                      <p className="text-sm">Sample response from lead</p>
+                      <Conversation
+                        data={conversation[0]}
+                        previewContact={previewContact}
+                        currentUser={currentUser}
+                        agent={agent}
+                        salesReps={salesReps}
+                      />
+                    </div>
+                  )}
+                  {loadingReply ? (
+                    <div className="flex flex-col space-y-4">
+                      <Skeleton className="h-[300px] rounded-lg" />
+                    </div>
+                  ) : (
+                    <>
+                      {!!conversation[1] && (
+                        <div className="space-y-4">
+                          <p className="text-sm">AI generates a reply</p>
+                          <Conversation
+                            data={conversation[1]}
+                            previewContact={previewContact}
+                            currentUser={currentUser}
+                            agent={agent}
+                            salesReps={salesReps}
+                          />
+                          {!assistantOpen && (
+                            <div className="flex justify-end">
+                              <MainButton
+                                size="sm"
+                                icon={RefreshCw}
+                                onClick={() => generateEmailReply()}
+                                text="Re-generate"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <div ref={scrollRef} />
+                </div>
+              )}
+            </ScrollArea>
+          </ResizablePanel>
           {assistantOpen && (
-            <div className="w-80 flex-shrink-0">
-              <AIWriterV2
-                template={{
-                  content: conversation[1]?.content || '',
-                  type: 'email',
-                  subject: '',
-                  send_after: 0,
-                  knowledges: [],
-                  id: '',
-                }}
-                onUpdateTemplate={handleChange}
-                onClearConversation={handleOnClearConversation}
-                conversationId={conversationId || ''}
-                campaignType={campaign?.playbook || ''}
-                isAIReply
-                setLoadingReply={setLoadingReply}
-                knowledgeReply={aiReplyData}
-                onChangeKnowledge={handleOnChangeKnowledge}
-                onFinished={(subject: string, content: string) => {
-                  handleChange('subject', subject);
-                  handleChange('content', content);
-                  const replyEmail: PreviewEmailWithIntent = {
-                    from_email: agent?.data.entity.email || '',
-                    to_email: previewContact?.email || '',
-                    subject: subject || '',
-                    content: content || '',
-                    status: 'reply',
-                  };
-                  setCampaignSupport((prev) => {
-                    return {
-                      ...prev,
-                      preview: {
-                        ...prev.preview,
-                        [intent]: [prev.preview[intent][0], replyEmail],
-                      },
-                    }
-                  });
-                  setLoadingReply(false);
-                }}
-              />
-            </div>
+            <>
+              <ResizableHandle withHandle />
+              <ResizablePanel
+                id="assistant"
+                order={2}
+                defaultSize={30}
+                minSize={18}
+                collapsible
+                collapsedSize={0}
+                onCollapse={() => setAssistantOpen(false)}
+              >
+                <AIWriterV2
+                  template={{
+                    content: conversation[1]?.content || '',
+                    type: 'email',
+                    subject: '',
+                    send_after: 0,
+                    knowledges: [],
+                    id: '',
+                  }}
+                  onUpdateTemplate={handleChange}
+                  onClearConversation={handleOnClearConversation}
+                  conversationId={conversationId || ''}
+                  campaignType={campaign?.playbook || ''}
+                  isAIReply
+                  setLoadingReply={setLoadingReply}
+                  knowledgeReply={aiReplyData}
+                  onChangeKnowledge={handleOnChangeKnowledge}
+                  onFinished={(subject: string, content: string) => {
+                    handleChange('subject', subject);
+                    handleChange('content', content);
+                    const replyEmail: PreviewEmailWithIntent = {
+                      from_email: agent?.data.entity.email || '',
+                      to_email: previewContact?.email || '',
+                      subject: subject || '',
+                      content: content || '',
+                      status: 'reply',
+                    };
+                    setCampaignSupport((prev) => {
+                      return {
+                        ...prev,
+                        preview: {
+                          ...prev.preview,
+                          [intent]: [
+                            prev.preview[intent]?.[0] ?? null,
+                            replyEmail,
+                          ],
+                        },
+                      };
+                    });
+                    setLoadingReply(false);
+                  }}
+                />
+              </ResizablePanel>
+            </>
           )}
-          <ScrollArea className="flex-grow w-full h-full bg-[#F7F7F7] p-4" type="always">
-            {loadingSample ? (
-              <div className="flex flex-col space-y-4">
-                <Skeleton className="h-[300px] rounded-lg" />
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {!!conversation[0] && (
-                  <div className="space-y-4">
-                    <p className="text-sm">Sample response from lead</p>
-                    <Conversation
-                      data={conversation[0]}
-                      previewContact={previewContact}
-                      currentUser={currentUser}
-                      agent={agent}
-                      salesReps={salesReps}
-                    />
-                  </div>
-                )}
-                {loadingReply ? (
-                  <div className="flex flex-col space-y-4">
-                    <Skeleton className="h-[300px] rounded-lg" />
-                  </div>
-                ) : (
-                  <>
-                    {!!conversation[1] && (
-                      <div className="space-y-4">
-                        <p className="text-sm">AI generates a reply</p>
-                        <Conversation
-                          data={conversation[1]}
-                          previewContact={previewContact}
-                          currentUser={currentUser}
-                          agent={agent}
-                          salesReps={salesReps}
-                        />
-                        {!assistantOpen && (
-                          <div className="flex justify-end">
-                            <MainButton
-                              size="sm"
-                              icon={RefreshCw}
-                              onClick={() => generateEmailReply()}
-                              text="Re-generate"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-                <div ref={scrollRef} />
-              </div>
-            )}
-          </ScrollArea>
-        </div>
+        </ResizablePanelGroup>
       )}
     </div>
   );

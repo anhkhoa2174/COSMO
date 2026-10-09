@@ -4,7 +4,10 @@ import type { Contact } from '@/models/contact';
 import type { EmailIntent } from '@/models/email';
 import type { Member } from '@/models/organization';
 import type { SalesRep } from '@/models/sales-rep';
-import type { GetDraftTemplateData, GetTemplateData } from '@/network/client/template';
+import type {
+  GetDraftTemplateData,
+  GetTemplateData,
+} from '@/network/client/template';
 
 type CampaignSupport = {
   previewContact?: Contact;
@@ -61,6 +64,8 @@ export const campaignSupportInitial: CampaignSupport = {
     'Request for information': [],
     'Do not contact': [],
     'Out of office': [],
+    Referral: [],
+    Nurture: [],
     'Unknown intent': [],
   },
   conversations: [],

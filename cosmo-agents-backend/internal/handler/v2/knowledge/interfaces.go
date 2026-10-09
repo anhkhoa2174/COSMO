@@ -25,4 +25,5 @@ type UserRepository interface {
 // KnowledgeService defines upload operations required by V2 handler
 type KnowledgeService interface {
 	Upload(ctx context.Context, userID uuid.UUID, files []*multipart.FileHeader) ([]v1schema.UploadKnowledgeResponse, error)
+	UploadOfType(ctx context.Context, userID uuid.UUID, files []*multipart.FileHeader, knowledgeType domain.KnowledgeType) ([]v1schema.UploadKnowledgeResponse, error)
 }

@@ -415,6 +415,14 @@ func (h *GmailHandler) HandleGmailOAuth2Callback(c fiber.Ctx) error {
 	// Exchange code for tokens
 	token, err := oauthCfg.Exchange(ctx, code)
 	if err != nil {
+		// Google's reason (redirect_uri_mismatch, invalid_client, invalid_grant…)
+		// only travels in the response body, which the popup discards. Log it so
+		// a failed connect is diagnosable from the server side.
+		logger.Logger.Error().
+			Err(err).
+			Str("redirect_uri", oauthCfg.RedirectURL).
+			Str("client_id", oauthCfg.ClientID).
+			Msg("Gmail OAuth token exchange failed")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status": "error",
 			"error": fiber.Map{
@@ -902,6 +910,29 @@ func (h *GmailHandler) startAgentWatch(ctx context.Context, agent *domain.Agent)
 	}
 
 	historyID := fmt.Sprintf("%d", resp.HistoryId)
+
+	// Catch up on anything that arrived while the watch was down (expired
+	// watch, revoked token, server restart). Gmail's watch only notifies from
+	// the moment it is registered, so without this every message received in
+	// the gap is lost: the mailbox moves on and the new history id skips past
+	// it. Enqueue a sync from the PREVIOUS mark before overwriting it.
+	if previous := agent.LastHistoryID; previous != "" && previous != historyID && h.workerClient != nil {
+		if err := h.workerClient.EnqueueTask(ctx, "email:sync_history", map[string]interface{}{
+			"agent_id":         agent.ID,
+			"start_history_id": previous,
+		}); err != nil {
+			logger.FromContext(ctx).Warn().Err(err).
+				Str("agent_id", agent.ID.String()).
+				Str("from_history_id", previous).
+				Msg("Failed to enqueue catch-up sync after (re)starting Gmail watch")
+		} else {
+			logger.FromContext(ctx).Info().
+				Str("agent_id", agent.ID.String()).
+				Str("from_history_id", previous).
+				Msg("Queued catch-up sync for messages missed while the watch was down")
+		}
+	}
+
 	agent.LastHistoryID = historyID
 	return historyID, resp.Expiration, nil
 }

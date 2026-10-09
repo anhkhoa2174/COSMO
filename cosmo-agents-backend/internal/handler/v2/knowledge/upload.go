@@ -4,6 +4,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 
+	"github.com/rockship/cosmo-agents-go/internal/domain"
 	"github.com/rockship/cosmo-agents-go/internal/schema"
 	v1schema "github.com/rockship/cosmo-agents-go/internal/schema/v1"
 	v2schema "github.com/rockship/cosmo-agents-go/internal/schema/v2"
@@ -17,6 +18,7 @@ import (
 // @Accept multipart/form-data
 // @Produce json
 // @Param files formData file true "Knowledge files to upload"
+// @Param type formData string false "Document type: pricing, product, case_study, faq or other (default other)"
 // @Success 200 {object} schema.APIResponse[[]v2schema.UploadKnowledgeResponse]
 // @Failure 400 {object} schema.APIResponse[any]
 // @Failure 401 {object} schema.APIResponse[any]
@@ -60,7 +62,18 @@ func (h *Handler) Upload(c fiber.Ctx) error {
 		))
 	}
 
-	uploaded, err := h.knowledgeSvc.Upload(c.Context(), userID, files)
+	// Optional: what the documents are about (pricing, product, case_study,
+	// faq, other). Retrieval prefers the matching type for a reply's intent.
+	knowledgeType, ok := domain.ParseKnowledgeType(firstFormValue(form.Value["type"]))
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(
+			fiber.StatusBadRequest,
+			"Invalid knowledge type",
+			"type must be one of: pricing, product, case_study, faq, other",
+		))
+	}
+
+	uploaded, err := h.knowledgeSvc.UploadOfType(c.Context(), userID, files, knowledgeType)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(
 			fiber.StatusInternalServerError,
@@ -127,4 +140,11 @@ func convertKnowledgeRead(src *v1schema.KnowledgeRead) *v2schema.KnowledgeRead {
 		dest.CozeDatasetID = src.CozeDatasetID
 	}
 	return dest
+}
+
+func firstFormValue(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
 }

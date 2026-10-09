@@ -15,7 +15,7 @@ const openSans = Open_Sans({
 });
 
 export const metadata = {
-  title: 'Cosmo Agents',
+  title: 'COSMO',
   description: 'Convert marketing leads into revenue with an AI workforce',
 };
 
@@ -26,7 +26,11 @@ export default function RootLayout({ children }: React.PropsWithChildren) {
         <link rel="shortcut icon" href="/favicon.svg" />
         <meta
           name="viewport"
-          content="minimum-scale=1, initial-scale=1, width=device-width, user-scalable=no"
+          // user-scalable=no blocked pinch-zoom, which Lighthouse flags as an
+          // accessibility failure and which anybody who needs to enlarge text
+          // simply cannot work around. It buys nothing here: the layout is
+          // responsive, so there is no mis-zoom to prevent.
+          content="minimum-scale=1, initial-scale=1, width=device-width"
         />
         <ColorSchemeScript />
       </head>

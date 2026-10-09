@@ -8,15 +8,17 @@ import (
 	"github.com/lib/pq"
 	"github.com/rockship/cosmo-agents-go/internal/domain"
 	"github.com/rockship/cosmo-agents-go/internal/domain/base"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupTestDB creates a test database
+// JSONB columns are compared with JSONEq: PostgreSQL normalises jsonb on write
+// (whitespace, key order), so a byte-for-byte comparison tests formatting, not data.
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 
 	// Auto-migrate the Workflow schema
@@ -49,9 +51,9 @@ func TestWorkflowRepository_Create(t *testing.T) {
 	assert.NotEqual(t, uuid.Nil, result.ID)
 	assert.Equal(t, userID, result.UserID)
 	assert.Equal(t, pq.StringArray{"node1", "node2", "node3"}, result.Nodes)
-	assert.Equal(t, base.JSONB([]byte(`[{"from": "node1", "to": "node2"}]`)), result.Edges)
-	assert.Equal(t, base.JSONB([]byte(`{"active": "node1"}`)), result.State)
-	assert.Equal(t, base.JSONB([]byte(`{"version": "1.0"}`)), result.CMetadata)
+	assert.JSONEq(t, `[{"from": "node1", "to": "node2"}]`, string(result.Edges))
+	assert.JSONEq(t, `{"active": "node1"}`, string(result.State))
+	assert.JSONEq(t, `{"version": "1.0"}`, string(result.CMetadata))
 }
 
 // TestWorkflowRepository_Create_WithDefaults tests creating workflow with default values
@@ -73,9 +75,9 @@ func TestWorkflowRepository_Create_WithDefaults(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Equal(t, userID, result.UserID)
 	assert.Equal(t, pq.StringArray{}, result.Nodes)
-	assert.Equal(t, base.JSONB([]byte("[]")), result.Edges)
-	assert.Equal(t, base.JSONB([]byte("{}")), result.State)
-	assert.Equal(t, base.JSONB([]byte("{}")), result.CMetadata)
+	assert.JSONEq(t, "[]", string(result.Edges))
+	assert.JSONEq(t, "{}", string(result.State))
+	assert.JSONEq(t, "{}", string(result.CMetadata))
 }
 
 // TestWorkflowRepository_FindByID tests finding a workflow by ID
@@ -136,8 +138,8 @@ func TestWorkflowRepository_Update(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, updated)
 	assert.Equal(t, pq.StringArray{"node1", "node2"}, updated.Nodes)
-	assert.Equal(t, base.JSONB([]byte(`[{"from": "node1", "to": "node2"}]`)), updated.Edges)
-	assert.Equal(t, base.JSONB([]byte(`{"current": "node2"}`)), updated.State)
+	assert.JSONEq(t, `[{"from": "node1", "to": "node2"}]`, string(updated.Edges))
+	assert.JSONEq(t, `{"current": "node2"}`, string(updated.State))
 }
 
 // TestWorkflowRepository_Delete tests deleting a workflow (soft delete)

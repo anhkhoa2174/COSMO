@@ -3,6 +3,7 @@ package skills
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"strings"
 
 	"github.com/google/uuid"
@@ -66,8 +67,10 @@ func evalFilters(contact map[string]any, raw any) (bool, []map[string]any) {
 		if !ok {
 			continue
 		}
-		field := rule["field"].(string)
-		op := rule["operator"].(string)
+		// Criteria are user-edited JSON; a rule missing its field or operator
+		// fails rather than panicking the request that evaluates it.
+		field, _ := rule["field"].(string)
+		op, _ := rule["operator"].(string)
 		val := rule["value"]
 		actual := extract(contact, field)
 		if !applyOp(actual, op, val) {
@@ -95,10 +98,12 @@ func applyOp(actual any, op string, expected any) bool {
 		return false
 	}
 	switch op {
+	// == on interfaces panics when both hold the same uncomparable type (a
+	// JSON array or object), so equality is structural.
 	case "=":
-		return actual == expected
+		return reflect.DeepEqual(actual, expected)
 	case "!=":
-		return actual != expected
+		return !reflect.DeepEqual(actual, expected)
 	case ">=", ">":
 		av, okA := toFloat(actual)
 		ev, okE := toFloat(expected)

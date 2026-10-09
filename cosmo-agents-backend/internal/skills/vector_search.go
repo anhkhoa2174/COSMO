@@ -66,15 +66,7 @@ func (s *VectorSearchSkill) SearchContactsByVector(ctx context.Context, queryVec
 
 	searchResults := make([]SearchSimilarContactsResult, len(results))
 	for i, r := range results {
-		// Convert cosine distance (0-2, lower is better) to similarity (0-1, higher is better)
-		// Formula: similarity = 1 - (distance / 2)
-		similarity := 1.0 - (r.Score / 2.0)
-		if similarity < 0 {
-			similarity = 0
-		}
-		if similarity > 1 {
-			similarity = 1
-		}
+		similarity := distanceToSimilarity(r.Score)
 
 		searchResults[i] = SearchSimilarContactsResult{
 			ContactID:  r.ID,
@@ -143,14 +135,7 @@ func (s *VectorSearchSkill) SearchKnowledge(ctx context.Context, query string, u
 			}
 		}
 
-		// Redis __vector_score returns similarity directly (0-1, higher=better)
-		similarity := r.Score
-		if similarity < 0 {
-			similarity = 0
-		}
-		if similarity > 1 {
-			similarity = 1
-		}
+		similarity := distanceToSimilarity(r.Score)
 
 		searchResults[i] = SearchKnowledgeResult{
 			KnowledgeID: knowledgeID,
@@ -192,14 +177,7 @@ func (s *VectorSearchSkill) SearchInteractions(ctx context.Context, query string
 
 	searchResults := make([]SearchInteractionResult, len(results))
 	for i, r := range results {
-		// Redis __vector_score returns similarity directly (0-1, higher=better)
-		similarity := r.Score
-		if similarity < 0 {
-			similarity = 0
-		}
-		if similarity > 1 {
-			similarity = 1
-		}
+		similarity := distanceToSimilarity(r.Score)
 
 		searchResults[i] = SearchInteractionResult{
 			InteractionID: r.ID,
@@ -247,14 +225,7 @@ func (s *VectorSearchSkill) FindSimilarSegments(ctx context.Context, query strin
 			}
 		}
 
-		// Redis __vector_score returns similarity directly (0-1, higher=better)
-		similarity := r.Score
-		if similarity < 0 {
-			similarity = 0
-		}
-		if similarity > 1 {
-			similarity = 1
-		}
+		similarity := distanceToSimilarity(r.Score)
 
 		searchResults[i] = SearchSegmentResult{
 			SegmentID:   r.ID,
@@ -300,4 +271,20 @@ func (s *VectorSearchSkill) HybridSearchContacts(ctx context.Context, query stri
 	}
 
 	return hybridResults, nil
+}
+
+// distanceToSimilarity turns RediSearch's __vector_score — a COSINE DISTANCE,
+// 0 for identical and up to 2 for opposite — into the 0..1, higher-is-better
+// similarity the API reports. The knowledge, interaction and segment searches
+// used to report the distance itself as the similarity, so the best match
+// carried the lowest "similarity" of the page.
+func distanceToSimilarity(distance float64) float64 {
+	similarity := 1.0 - (distance / 2.0)
+	if similarity < 0 {
+		return 0
+	}
+	if similarity > 1 {
+		return 1
+	}
+	return similarity
 }

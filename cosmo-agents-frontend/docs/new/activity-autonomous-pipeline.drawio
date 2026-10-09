@@ -1,0 +1,202 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="act-pipeline-v2" name="Automatic Pipeline Activity">
+    <mxGraphModel dx="1400" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1320" pageHeight="1110" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Swimlanes -->
+        <mxCell id="lane_gmail" value="Gmail (Pub/Sub)" style="shape=swimlane;startSize=25;horizontal=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontStyle=1;fontSize=11;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="20" y="20" width="180" height="1070" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_sys" value="COSMO Backend (Worker)" style="shape=swimlane;startSize=25;horizontal=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontStyle=1;fontSize=11;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="200" y="20" width="520" height="1070" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_llm" value="LLM Service" style="shape=swimlane;startSize=25;horizontal=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontStyle=1;fontSize=11;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="720" y="20" width="200" height="1070" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_fe" value="COSMO Frontend (SSE)" style="shape=swimlane;startSize=25;horizontal=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontStyle=1;fontSize=11;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="920" y="20" width="200" height="1070" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_bd" value="BD" style="shape=swimlane;startSize=25;horizontal=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontStyle=1;fontSize=11;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="20" width="180" height="1070" as="geometry" />
+        </mxCell>
+
+        <!-- Gmail -->
+        <mxCell id="initial" value="" style="ellipse;html=1;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="95" y="55" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="a1" value="Receive push notification&lt;br&gt;(prospect replied)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="30" y="105" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Backend: intake -->
+        <mxCell id="a2" value="Fetch full email content&lt;br&gt;via Gmail API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="420" y="105" width="200" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" value="Match email to&lt;br&gt;contact and campaign" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="420" y="180" width="200" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="a4" value="Store email in&lt;br&gt;conversations table" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="420" y="255" width="200" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- LLM: classification -->
+        <mxCell id="a5" value="Classify reply intent&lt;br&gt;(9 categories)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="730" y="255" width="180" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Backend: every reply moves the contact out of NO_REPLY -->
+        <mxCell id="a_state" value="Record intent;&lt;br&gt;update outreach_stage&lt;br&gt;(NO_REPLY → REPLIED)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="420" y="325" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Decisions, in the handler priority order used by the code -->
+        <mxCell id="d1" value="" style="rhombus;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="500" y="410" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="d2" value="" style="rhombus;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="500" y="490" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="d3" value="" style="rhombus;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="500" y="570" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Non-draft branches -->
+        <mxCell id="a_dnc" value="Mark do_not_contact;&lt;br&gt;suppress further mail" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="240" y="405" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="a_ooo" value="Record out-of-office;&lt;br&gt;no draft" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="240" y="485" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="a_assign" value="Assign to campaign owner&lt;br&gt;(REFERRAL: create lead)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="240" y="562" width="150" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="merge_left" value="" style="rhombus;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="202" y="660" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="final_left" value="" style="ellipse;html=1;shape=endState;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="207" y="730" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Draft path -->
+        <mxCell id="fork1" value="" style="shape=line;html=1;strokeWidth=5;strokeColor=#000000;perimeter=linePerimeter;" vertex="1" parent="1">
+          <mxGeometry x="410" y="670" width="240" height="10" as="geometry" />
+        </mxCell>
+        <mxCell id="a_hist" value="Build conversation&lt;br&gt;history context" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="410" y="700" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="a_rag" value="Retrieve knowledge&lt;br&gt;(RAG, top-5)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="530" y="700" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="join1" value="" style="shape=line;html=1;strokeWidth=5;strokeColor=#000000;perimeter=linePerimeter;" vertex="1" parent="1">
+          <mxGeometry x="410" y="770" width="240" height="10" as="geometry" />
+        </mxCell>
+        <mxCell id="a_draft" value="Generate grounded&lt;br&gt;draft reply" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="730" y="795" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="a_save" value="Save draft to&lt;br&gt;conversation.cmetadata&lt;br&gt;(ai_reply)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="420" y="870" width="200" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="a_sse" value="Push SSE notification" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="420" y="955" width="200" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="a_toast" value="Show toast:&lt;br&gt;new AI draft ready" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="940" y="955" width="160" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="a_review" value="Review draft&lt;br&gt;in AI Inbox" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1135" y="955" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="final_main" value="" style="ellipse;html=1;shape=endState;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="1195" y="1035" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e01" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="initial" target="a1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e02" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="a1" target="a2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e03" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="a2" target="a3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e04" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="a3" target="a4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e05" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="a4" target="a5" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e06" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;exitX=0.5;exitY=1;entryX=1;entryY=0.5;" edge="1" source="a5" target="a_state" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e07" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="a_state" target="d1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_dnc" value="[DO_NOT_CONTACT]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;fontSize=9;fontStyle=2;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" source="d1" target="a_dnc" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint y="-9" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="e_d1d2" value="[else]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;fontSize=9;fontStyle=2;labelBackgroundColor=#ffffff;" edge="1" source="d1" target="d2" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="18" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="e_ooo" value="[OUT_OF_OFFICE]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;fontSize=9;fontStyle=2;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" source="d2" target="a_ooo" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint y="-9" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="e_d2d3" value="[else]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;fontSize=9;fontStyle=2;labelBackgroundColor=#ffffff;" edge="1" source="d2" target="d3" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="18" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="e_assign" value="[other intents]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;fontSize=9;fontStyle=2;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" source="d3" target="a_assign" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint y="-9" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="e_draft" value="[INTERESTED /&lt;br&gt;REQUEST_FOR_PRICING /&lt;br&gt;REQUEST_FOR_INFORMATION]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;fontSize=9;fontStyle=2;align=left;labelBackgroundColor=#ffffff;" edge="1" source="d3" target="fork1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="12" y="-8" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_dnc_m" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;exitX=0;exitY=0.5;entryX=0.5;entryY=0;" edge="1" source="a_dnc" target="merge_left" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ooo_m" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;exitX=0;exitY=0.5;entryX=0.5;entryY=0;" edge="1" source="a_ooo" target="merge_left" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_assign_m" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;exitX=0;exitY=0.5;entryX=0.5;entryY=0;" edge="1" source="a_assign" target="merge_left" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_m_final" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="merge_left" target="final_left" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_f_hist" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="fork1" target="a_hist" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="465" y="675" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e_f_rag" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="fork1" target="a_rag" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="590" y="675" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e_hist_j" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="a_hist" target="join1" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="465" y="775" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e_rag_j" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="a_rag" target="join1" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="590" y="775" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e_j_draft" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;entryX=0;entryY=0.5;" edge="1" source="join1" target="a_draft" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="530" y="820" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e_draft_save" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;exitX=0.5;exitY=1;entryX=1;entryY=0.5;" edge="1" source="a_draft" target="a_save" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_save_sse" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="a_save" target="a_sse" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sse_toast" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="a_sse" target="a_toast" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_toast_review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="a_toast" target="a_review" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_review_final" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=open;endFill=0;" edge="1" source="a_review" target="final_main" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

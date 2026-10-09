@@ -11,10 +11,10 @@ import (
 	"unsafe"
 
 	"github.com/google/uuid"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/sashabaranov/go-openai"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
@@ -432,8 +432,7 @@ func TestAIEmailService_GenerateDeprecatedOutreach(t *testing.T) {
 
 func newTestEmailDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	db = db.Session(&gorm.Session{AllowGlobalUpdate: true})
 	require.NoError(t, db.AutoMigrate(&domain.Email{}, &domain.User{}, &domain.Knowledge{}))
@@ -494,7 +493,7 @@ func TestAIEmailService_ResolveConversationAndKnowledge(t *testing.T) {
 	require.Len(t, thread, 2)
 	assert.Equal(t, "New", thread[0].Subject)
 
-	knowledgeCtx, err := service.buildKnowledgeContext(ctx, userID)
+	knowledgeCtx, err := service.buildKnowledgeContext(ctx, userID, "Body", "Interested")
 	require.NoError(t, err)
 	assert.Contains(t, knowledgeCtx, "long summary")
 }

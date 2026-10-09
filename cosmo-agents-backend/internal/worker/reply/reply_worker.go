@@ -11,9 +11,11 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
+	nsdomain "github.com/rockship/cosmo-agents-go/internal/domain/nextstep"
 	"github.com/rockship/cosmo-agents-go/internal/service/autoreply"
 	dailyActionSvc "github.com/rockship/cosmo-agents-go/internal/service/daily_action"
 	intentService "github.com/rockship/cosmo-agents-go/internal/service/intent"
+	nextstepService "github.com/rockship/cosmo-agents-go/internal/service/nextstep"
 	outreachService "github.com/rockship/cosmo-agents-go/internal/service/outreach"
 	"time"
 )
@@ -53,6 +55,22 @@ type Worker struct {
 	// this worker behaved before auto-reply existed.
 	autoReply autoReplyDispatcher
 	agentRepo agentLookup
+
+	// Optional. Unset, or switched off for the organisation, replies are
+	// routed by intent alone, exactly as before the engine existed.
+	nextStep nextStepDecider
+}
+
+// nextStepDecider is the next-step engine (report Section 6.7).
+type nextStepDecider interface {
+	Enabled(ctx context.Context, userID uuid.UUID) bool
+	Decide(ctx context.Context, in nextstepService.Input) (*nsdomain.Decision, error)
+}
+
+// WithNextStep lets the next-step engine decide what each reply calls for.
+func (w *Worker) WithNextStep(d nextStepDecider) *Worker {
+	w.nextStep = d
+	return w
 }
 
 // autoReplyDispatcher decides whether the draft an intent handler just saved
@@ -227,9 +245,15 @@ func (w *Worker) ProcessTask(ctx context.Context, task *asynq.Task) error {
 		Msg("Classified intent")
 
 	// Update outreach state through state machine (EventReplied)
+	var replyContact *domain.Contact
+	if w.contactRepo != nil {
+		if c, err := w.contactRepo.FindByEmail(ctx, campaign.UserID, email.FromEmail); err == nil {
+			replyContact = c
+		}
+	}
 	if w.outreachSvc != nil && w.contactRepo != nil {
-		contact, contactErr := w.contactRepo.FindByEmail(ctx, campaign.UserID, email.FromEmail)
-		if contactErr == nil && contact != nil {
+		contact := replyContact
+		if contact != nil {
 			if _, err := w.outreachSvc.UpdateOutreachForHandler(
 				ctx, campaign.UserID, contact.ID,
 				"replied", email.Content, "Email", "",
@@ -275,6 +299,32 @@ func (w *Worker) ProcessTask(ctx context.Context, task *asynq.Task) error {
 		return fmt.Errorf("failed to update conversation: %w", err)
 	}
 
+	// The next-step engine decides what this reply calls for before any
+	// draft is written, so the draft can be written for that action — or not
+	// written at all when the action sends nothing.
+	nextStepDrafts := false
+	if w.nextStep != nil && replyContact != nil && w.nextStep.Enabled(ctx, campaign.UserID) {
+		convID, emailID := conversation.ID, email.ID
+		d, err := w.nextStep.Decide(ctx, nextstepService.Input{
+			UserID:         campaign.UserID,
+			ContactID:      replyContact.ID,
+			Trigger:        nsdomain.TriggerReply,
+			ConversationID: &convID,
+			EmailID:        &emailID,
+			Intent:         string(intent),
+			ReplyText:      email.Content,
+		})
+		if err != nil {
+			w.logger.Warn().Err(err).Str("contact_id", replyContact.ID.String()).
+				Msg("Next-step decision failed; continuing with intent routing")
+		} else if d != nil {
+			switch nsdomain.Action(d.Action) {
+			case nsdomain.AnswerReply, nsdomain.ProposeMeeting, nsdomain.MeetingFollowUp, nsdomain.ContactStakeholder:
+				nextStepDrafts = true
+			}
+		}
+	}
+
 	// Build the appropriate handler
 	handler, err := w.handlerFactory.Build(campaign, intent)
 	if err != nil {
@@ -314,6 +364,13 @@ func (w *Worker) ProcessTask(ctx context.Context, task *asynq.Task) error {
 		Str("email_id", email.ID.String()).
 		Msg("Contact email handled successfully with intent handler")
 
+	// The engine chose to answer, but this intent's handler routes to a
+	// person and wrote no draft (an objection classified "Not interested",
+	// for instance). Draft the answer so the person has something to review.
+	if nextStepDrafts {
+		w.draftForNextStep(ctx, campaign, intent, email, conversation.ID)
+	}
+
 	// The handler has saved its draft. Only now is it decided whether that
 	// draft goes out unreviewed: persisting first means there is a record of
 	// what was sent even if the send itself fails, and keeping the decision
@@ -341,6 +398,33 @@ func (w *Worker) ProcessTask(ctx context.Context, task *asynq.Task) error {
 	}
 
 	return nil
+}
+
+// draftForNextStep writes the reply the next-step engine asked for when the
+// intent handler did not.
+func (w *Worker) draftForNextStep(ctx context.Context, campaign *domain.Campaign,
+	intent domain.IntentType, email *domain.Email, conversationID uuid.UUID) {
+	conv, err := w.conversationRepo.FindByID(ctx, conversationID)
+	if err != nil {
+		return
+	}
+	var meta map[string]interface{}
+	_ = conv.CMetadata.Unmarshal(&meta)
+	if ai, ok := meta["ai_reply"].(map[string]interface{}); ok {
+		if d, _ := ai["draft_content"].(string); strings.TrimSpace(d) != "" {
+			return
+		}
+	}
+	src, ok := w.handlerFactory.(interface {
+		DraftHandler() intentService.IntentHandler
+	})
+	if !ok {
+		return
+	}
+	if _, err := src.DraftHandler().Execute(ctx, campaign, intent, email); err != nil {
+		w.logger.Warn().Err(err).Str("conversation_id", conversationID.String()).
+			Msg("Next-step draft could not be written")
+	}
 }
 
 func truncate(s string, maxLen int) string {

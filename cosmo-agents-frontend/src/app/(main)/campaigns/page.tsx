@@ -10,6 +10,8 @@ import { AddButton } from '@/components/buttons/add-button';
 import { MainButton } from '@/components/buttons/main-button';
 import { DataTable } from '@/components/data-table/data-table';
 import { ContentLayout } from '@/components/nav/content-layout';
+import { PageHero } from '@/components/ui/page-hero';
+import { Flag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -244,7 +246,15 @@ export default function CampaignsPage() {
   }, [user, data]);
 
   return (
-    <ContentLayout title="Campaigns Management" rightSection={rightSection}>
+    <ContentLayout title="Campaigns" section="Campaigns" icon={Flag}>
+      <PageHero
+        icon={Flag}
+        eyebrow="Campaigns"
+        accent="violet"
+        title="Campaigns"
+        description="Multi-step outreach sequences with follow-up delays and intent-based reply routing."
+        actions={rightSection}
+      />
       <DataTable
         columns={columns}
         data={data?.data.list || []}

@@ -39,7 +39,8 @@ export default function Settings({ closeSheet }: { closeSheet: () => void }) {
   const [notificationIds, setNotificationIds] = useState<string[]>(
     campaign.notifications.map((n) => n.user_id)
   );
-  const [isSettingScheduleDialogOpen, setIsSettingScheduleDialogOpen] = useState(false);
+  const [isSettingScheduleDialogOpen, setIsSettingScheduleDialogOpen] =
+    useState(false);
 
   const { mutateAsync, isPending } = useMutation({
     mutationFn: () =>
@@ -58,7 +59,9 @@ export default function Settings({ closeSheet }: { closeSheet: () => void }) {
       closeSheet();
     },
     onError: (err: any) => {
-      toast.error(err.error?.message || err.message || 'Cannot update schedule');
+      toast.error(
+        err.error?.message || err.message || 'Cannot update schedule'
+      );
     },
   });
 
@@ -76,7 +79,7 @@ export default function Settings({ closeSheet }: { closeSheet: () => void }) {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       <SheetHeader
         title="Settings"
         hasChanged={hasChanged}
@@ -84,9 +87,12 @@ export default function Settings({ closeSheet }: { closeSheet: () => void }) {
         onClose={closeSheet}
       />
       <Separator />
-      <div className="flex-1 p-4 flex flex-col gap-4">
+      <div className="flex flex-1 flex-col gap-4 p-4">
         <Spinner show={isPending} withOverlay />
-        <Group className={classes.listContact} onClick={() => setIsSettingScheduleDialogOpen(true)}>
+        <Group
+          className={classes.listContact}
+          onClick={() => setIsSettingScheduleDialogOpen(true)}
+        >
           <Group>
             <Calendar />
             <Text fw={500}>Schedule</Text>
@@ -104,7 +110,11 @@ export default function Settings({ closeSheet }: { closeSheet: () => void }) {
             value: n.id,
           }))}
           onSubmit={setNotificationIds}
-          fetchFn={() => OrganizationApi.searchMember(campaign.organization_id, { filter: {} })}
+          fetchFn={() =>
+            OrganizationApi.searchMember(campaign.organization_id, {
+              filter: {},
+            })
+          }
           afterFetch={({ data }: MemberSearchResponse) =>
             setCampaignSupport((prev) => ({
               ...prev,
@@ -149,7 +159,11 @@ interface SetScheduleDialogProps extends DialogProps {
   setOpen: (open: boolean) => void;
 }
 
-function SettingScheduleDialog({ isOpen, setOpen, ...props }: SetScheduleDialogProps) {
+function SettingScheduleDialog({
+  isOpen,
+  setOpen,
+  ...props
+}: SetScheduleDialogProps) {
   const [campaign, setCampaign] = useCampaign();
   const prevDate = campaign.schedule ? new Date(campaign.schedule) : undefined;
 
@@ -169,7 +183,9 @@ function SettingScheduleDialog({ isOpen, setOpen, ...props }: SetScheduleDialogP
       toast.success(`Email scheduled for ${date?.toLocaleString()}`);
     },
     onError: (err: any) => {
-      toast.error(err.error?.message || err.message || 'Cannot update schedule');
+      toast.error(
+        err.error?.message || err.message || 'Cannot update schedule'
+      );
     },
   });
 
@@ -216,16 +232,27 @@ function SettingScheduleDialog({ isOpen, setOpen, ...props }: SetScheduleDialogP
             onChange={setDate}
             defaultMonth={prevDate}
           />
-          {errorMessage && <p className="text-red-500 text-sm">{errorMessage}</p>}
+          {errorMessage && (
+            <p className="text-sm text-red-500">{errorMessage}</p>
+          )}
         </div>
-        <DialogFooter className="justify-between items-center">
-          <p className="text-muted-foreground mr-auto">
+        <DialogFooter className="items-center justify-between">
+          <p className="mr-auto text-muted-foreground">
             {Intl.DateTimeFormat().resolvedOptions().timeZone} (
-            {new Date().toLocaleTimeString('en-us', { timeZoneName: 'short' }).split(' ')[2]})
+            {
+              new Date()
+                .toLocaleTimeString('en-us', { timeZoneName: 'short' })
+                .split(' ')[2]
+            }
+            )
           </p>
           {hasChanged && (
             <div className="flex gap-2">
-              <MainButton text="Save" loading={isPending} onClick={handleSubmit} />
+              <MainButton
+                text="Save"
+                loading={isPending}
+                onClick={handleSubmit}
+              />
               <MainButton
                 text="Discard"
                 variant="ghost"

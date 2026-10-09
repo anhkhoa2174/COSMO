@@ -81,12 +81,14 @@ export function FormElementRenderer({
   error,
   form,
 }: FormElementRendererProps) {
-  const boxShadow = isSelected ? 'shadow-[0_25px_20px_-20px_rgba(0,0,0,0.30)] bg-white' : '';
+  const boxShadow = isSelected
+    ? 'shadow-[0_25px_20px_-20px_rgba(0,0,0,0.30)] bg-white'
+    : '';
   const commonClasses = cn(
     'w-full transition-shadow duration-300',
     element.className,
     inBuilder && 'cursor-move',
-    boxShadow,
+    boxShadow
   );
 
   const handleClick = (e: React.MouseEvent) => {
@@ -125,10 +127,7 @@ export function FormElementRenderer({
     case 'password':
     case 'number':
       return (
-        <div
-          className={cn('space-y-2', commonClasses)}
-          onClick={handleClick}
-        >
+        <div className={cn('space-y-2', commonClasses)} onClick={handleClick}>
           {renderLabel()}
           <Input
             className={cn(error ? 'border-red-500' : '')}
@@ -150,7 +149,11 @@ export function FormElementRenderer({
             target="_"
             {...form?.register(element.name)}
           >
-            <span className={cn(error ? 'border-red-500 underline' : 'text-[#4F46E5] underline')}>
+            <span
+              className={cn(
+                error ? 'border-red-500 underline' : 'text-[#4F46E5] underline'
+              )}
+            >
               {element.defaultValue}
             </span>
           </Link>
@@ -216,7 +219,10 @@ export function FormElementRenderer({
           defaultValue={!!element.defaultValue}
           render={({ field }) => (
             <div
-              className={cn('flex items-start space-x-3 space-y-0', commonClasses)}
+              className={cn(
+                'flex items-start space-x-3 space-y-0',
+                commonClasses
+              )}
               onClick={handleClick}
             >
               <Checkbox
@@ -298,7 +304,7 @@ export function FormElementRenderer({
                     className={cn(
                       'w-full pl-3 text-left font-normal',
                       !element.defaultValue && 'text-muted-foreground',
-                      error ? 'border-red-500' : '',
+                      error ? 'border-red-500' : ''
                     )}
                     disabled={inBuilder}
                   >

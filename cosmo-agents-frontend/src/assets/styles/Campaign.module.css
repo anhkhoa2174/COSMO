@@ -16,9 +16,25 @@
 }
 
 .flowContainer {
-  /* height: calc(100dvh - var(--app-shell-header-height) - 2 * var(--app-shell-padding)); */
-  height: calc(100% + 32px);
-  margin: -16px;
+  /* React Flow measures this box on mount and refuses to draw if either side
+     is zero, which is what "parent container needs a width and a height" in
+     the console means.
+     
+     It used to ask for `height: calc(100% + 32px)` with `margin: -16px`, a pair
+     written for a parent padded by 16px. The campaign builder now renders
+     inside ContentLayout's `editor` variant, which has no padding at all, so
+     the margin pulled the canvas outside its container and the percentage had
+     nothing definite to resolve against — a percentage height inside a flex
+     column whose own height comes from flex-grow is exactly the case browsers
+     may treat as `auto`, and `auto` here collapses to the height of a child
+     that is itself trying to be 100% of this box.
+     
+     Filling the leftover space as a flex item asks no question that can go
+     unanswered. min-height: 0 is what lets it shrink below its content, which
+     flex items otherwise refuse to do. */
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
   position: relative;
 
   div[class='react-flow__renderer'] svg {

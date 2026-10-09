@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { suggestMeetingTime } from '@/lib/meeting-utils';
 import {
   Sparkles,
   Copy,
@@ -43,7 +44,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import OutreachApi, { type GenerateDraftResponse, type ConversationState, type Meeting } from '@/network/client/outreach';
+import OutreachApi, {
+  type GenerateDraftResponse,
+  type ConversationState,
+  type Meeting,
+  type Language,
+} from '@/network/client/outreach';
 
 interface ContactOutreachProps {
   contactId: string;
@@ -76,15 +82,24 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
   const [meetingChannel, setMeetingChannel] = useState('Zoom');
 
   // Meeting prep states
-  const [meetingContentDialogOpen, setMeetingContentDialogOpen] = useState(false);
+  const [meetingContentDialogOpen, setMeetingContentDialogOpen] =
+    useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [meetingContent, setMeetingContent] = useState('');
   const [meetingPrepDialogOpen, setMeetingPrepDialogOpen] = useState(false);
 
+  // Language state
+  const [language, setLanguage] = useState<Language>('vi');
+
   // Generate draft
-  const { data: draftResponse, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['contact-draft', contactId],
-    queryFn: () => OutreachApi.generateDraft(contactId),
+  const {
+    data: draftResponse,
+    isLoading,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: ['contact-draft', contactId, language],
+    queryFn: () => OutreachApi.generateDraft(contactId, language),
     staleTime: 60_000,
     enabled: false, // Don't auto-fetch
   });
@@ -101,13 +116,38 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
 
   const meetings = meetingsResponse?.data || [];
 
+  // Fetch all user meetings for time suggestion
+  const { data: allMeetingsResponse } = useQuery({
+    queryKey: ['all-user-meetings'],
+    queryFn: () => OutreachApi.getAllMeetings(),
+    staleTime: 60_000,
+  });
+
+  const handleOpenMeetingDialog = useCallback(() => {
+    const allMeetings = allMeetingsResponse?.data || [];
+    const suggested = suggestMeetingTime(allMeetings, meetingDuration);
+    setMeetingTime(suggested);
+    setMeetingDialogOpen(true);
+  }, [allMeetingsResponse?.data, meetingDuration]);
+
   // Update outreach state mutation
   const updateStateMutation = useMutation({
-    mutationFn: (event: 'sent' | 'replied' | 'no_reply' | 'meeting_booked' | 'meeting_confirmed' | 'no_confirmation' | 'meeting_done' | 'drop') =>
-      OutreachApi.updateOutreach(contactId, event),
+    mutationFn: (
+      event:
+        | 'sent'
+        | 'replied'
+        | 'no_reply'
+        | 'meeting_booked'
+        | 'meeting_confirmed'
+        | 'no_confirmation'
+        | 'meeting_done'
+        | 'drop'
+    ) => OutreachApi.updateOutreach(contactId, event),
     onSuccess: (response) => {
       const data = response.data;
-      toast.success(`State updated: ${data?.previous_state} → ${data?.new_state}`);
+      toast.success(
+        `State updated: ${data?.previous_state} → ${data?.new_state}`
+      );
       // Invalidate and refetch draft to get new state
       queryClient.invalidateQueries({ queryKey: ['contact-draft', contactId] });
       refetch();
@@ -120,7 +160,9 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
   // Create meeting mutation
   const createMeetingMutation = useMutation({
     mutationFn: () => {
-      const meetingTimeISO = meetingTime ? new Date(meetingTime).toISOString() : '';
+      const meetingTimeISO = meetingTime
+        ? new Date(meetingTime).toISOString()
+        : '';
       return OutreachApi.createMeeting({
         contact_id: contactId,
         title: meetingTitle || 'Meeting',
@@ -134,7 +176,9 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
       setMeetingDialogOpen(false);
       setMeetingTitle('');
       setMeetingTime('');
-      queryClient.invalidateQueries({ queryKey: ['contact-meetings', contactId] });
+      queryClient.invalidateQueries({
+        queryKey: ['contact-meetings', contactId],
+      });
       queryClient.invalidateQueries({ queryKey: ['contact-draft', contactId] });
       refetch();
     },
@@ -146,13 +190,17 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
   // Update meeting content mutation
   const updateMeetingContentMutation = useMutation({
     mutationFn: (data: { meetingId: string; content: string }) =>
-      OutreachApi.updateMeeting(data.meetingId, { meeting_content: data.content }),
+      OutreachApi.updateMeeting(data.meetingId, {
+        meeting_content: data.content,
+      }),
     onSuccess: () => {
       toast.success('Nội dung cuộc họp đã được lưu!');
       setMeetingContentDialogOpen(false);
       setMeetingContent('');
       setSelectedMeeting(null);
-      queryClient.invalidateQueries({ queryKey: ['contact-meetings', contactId] });
+      queryClient.invalidateQueries({
+        queryKey: ['contact-meetings', contactId],
+      });
     },
     onError: () => {
       toast.error('Lưu nội dung thất bại');
@@ -161,13 +209,24 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
 
   // Generate meeting prep mutation
   const generateMeetingPrepMutation = useMutation({
-    mutationFn: (meetingId: string) => OutreachApi.generateMeetingPrep(meetingId),
+    mutationFn: (meetingId: string) =>
+      OutreachApi.generateMeetingPrep(meetingId, language),
     onSuccess: () => {
-      toast.success('Meeting Prep đã được tạo!');
-      queryClient.invalidateQueries({ queryKey: ['contact-meetings', contactId] });
+      toast.success(
+        language === 'vi'
+          ? 'Meeting Prep đã được tạo!'
+          : 'Meeting Prep generated!'
+      );
+      queryClient.invalidateQueries({
+        queryKey: ['contact-meetings', contactId],
+      });
     },
     onError: () => {
-      toast.error('Tạo Meeting Prep thất bại');
+      toast.error(
+        language === 'vi'
+          ? 'Tạo Meeting Prep thất bại'
+          : 'Failed to generate Meeting Prep'
+      );
     },
   });
 
@@ -196,10 +255,26 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-amber-500" />
             <span>Message Draft</span>
+            {/* Language Toggle */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-2 h-6 text-xs"
+              onClick={() =>
+                setLanguage((lang) => (lang === 'vi' ? 'en' : 'vi'))
+              }
+            >
+              {language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}
+            </Button>
           </div>
           {draft?.state && (
             <div className="flex items-center gap-2">
-              <Badge className={stateColors[draft.state.conversation_state] || stateColors.COLD}>
+              <Badge
+                className={
+                  stateColors[draft.state.conversation_state] ||
+                  stateColors.COLD
+                }
+              >
                 {draft.state.conversation_state}
               </Badge>
               <Badge variant="outline">
@@ -212,14 +287,15 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
       <CardContent className="space-y-4">
         {/* Notes Context */}
         {draft?.notes && draft.notes.length > 0 && (
-          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
-            <p className="text-xs font-medium text-amber-800 mb-2">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="mb-2 text-xs font-medium text-amber-800">
               Context from team notes:
             </p>
             <div className="space-y-1">
               {draft.notes.slice(0, 3).map((note) => (
-                <p key={note.id} className="text-xs text-amber-700 truncate">
-                  {format(new Date(note.timestamp), 'dd/MM')} - {note.content.slice(0, 100)}
+                <p key={note.id} className="truncate text-xs text-amber-700">
+                  {format(new Date(note.timestamp), 'dd/MM')} -{' '}
+                  {note.content.slice(0, 100)}
                   {note.content.length > 100 && '...'}
                 </p>
               ))}
@@ -230,12 +306,13 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
         {/* Draft Content */}
         {!draft && !isLoading && !isFetching ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <MessageSquarePlus className="h-10 w-10 text-gray-300 mb-3" />
-            <p className="text-sm text-gray-500 mb-4">
-              Generate a personalized message draft based on contact info and team notes
+            <MessageSquarePlus className="mb-3 h-10 w-10 text-gray-300" />
+            <p className="mb-4 text-sm text-gray-500">
+              Generate a personalized message draft based on contact info and
+              team notes
             </p>
             <Button onClick={handleGenerate} disabled={isLoading}>
-              <Sparkles className="h-4 w-4 mr-2" />
+              <Sparkles className="mr-2 h-4 w-4" />
               Generate Draft
             </Button>
           </div>
@@ -271,9 +348,9 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
                 disabled={isFetching}
               >
                 {isFetching ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                  <RefreshCw className="mr-2 h-4 w-4" />
                 )}
                 Regenerate
               </Button>
@@ -284,9 +361,9 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
                 disabled={!currentDraft}
               >
                 {copied ? (
-                  <Check className="h-4 w-4 mr-2" />
+                  <Check className="mr-2 h-4 w-4" />
                 ) : (
-                  <Copy className="h-4 w-4 mr-2" />
+                  <Copy className="mr-2 h-4 w-4" />
                 )}
                 {copied ? 'Copied!' : 'Copy'}
               </Button>
@@ -295,7 +372,9 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
             {/* State Triggers */}
             <Separator className="my-3" />
             <div className="space-y-2">
-              <p className="text-xs font-medium text-gray-500">Update Status:</p>
+              <p className="text-xs font-medium text-gray-500">
+                Update Status:
+              </p>
               <div className="flex flex-wrap gap-2">
                 {/* Mark as Sent - only show when COLD or NO_REPLY */}
                 {(currentState === 'COLD' || currentState === 'NO_REPLY') && (
@@ -304,12 +383,12 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
                     size="sm"
                     onClick={() => updateStateMutation.mutate('sent')}
                     disabled={updateStateMutation.isPending}
-                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                    className="border-blue-200 text-blue-600 hover:bg-blue-50"
                   >
                     {updateStateMutation.isPending ? (
-                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                     ) : (
-                      <Send className="h-3 w-3 mr-1" />
+                      <Send className="mr-1 h-3 w-3" />
                     )}
                     Sent
                   </Button>
@@ -322,12 +401,12 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
                     size="sm"
                     onClick={() => updateStateMutation.mutate('replied')}
                     disabled={updateStateMutation.isPending}
-                    className="text-green-600 border-green-200 hover:bg-green-50"
+                    className="border-green-200 text-green-600 hover:bg-green-50"
                   >
                     {updateStateMutation.isPending ? (
-                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                     ) : (
-                      <MessageCircle className="h-3 w-3 mr-1" />
+                      <MessageCircle className="mr-1 h-3 w-3" />
                     )}
                     Replied
                   </Button>
@@ -340,12 +419,12 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
                     size="sm"
                     onClick={() => updateStateMutation.mutate('meeting_booked')}
                     disabled={updateStateMutation.isPending}
-                    className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                    className="border-purple-200 text-purple-600 hover:bg-purple-50"
                   >
                     {updateStateMutation.isPending ? (
-                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                     ) : (
-                      <Calendar className="h-3 w-3 mr-1" />
+                      <Calendar className="mr-1 h-3 w-3" />
                     )}
                     Meeting Booked
                   </Button>
@@ -362,12 +441,12 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
                       }
                     }}
                     disabled={updateStateMutation.isPending}
-                    className="text-gray-500 border-gray-200 hover:bg-gray-50"
+                    className="border-gray-200 text-gray-500 hover:bg-gray-50"
                   >
                     {updateStateMutation.isPending ? (
-                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                     ) : (
-                      <XCircle className="h-3 w-3 mr-1" />
+                      <XCircle className="mr-1 h-3 w-3" />
                     )}
                     Drop
                   </Button>
@@ -379,11 +458,22 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
             <Separator className="my-3" />
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-gray-500">Meetings ({meetings.length})</p>
-                <Dialog open={meetingDialogOpen} onOpenChange={setMeetingDialogOpen}>
+                <p className="text-xs font-medium text-gray-500">
+                  Meetings ({meetings.length})
+                </p>
+                <Dialog
+                  open={meetingDialogOpen}
+                  onOpenChange={(open) => {
+                    if (open) {
+                      handleOpenMeetingDialog();
+                    } else {
+                      setMeetingDialogOpen(false);
+                    }
+                  }}
+                >
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm" className="h-7 text-xs">
-                      <Plus className="h-3 w-3 mr-1" />
+                      <Plus className="mr-1 h-3 w-3" />
                       New Meeting
                     </Button>
                   </DialogTrigger>
@@ -417,7 +507,9 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
                           <Input
                             type="number"
                             value={meetingDuration}
-                            onChange={(e) => setMeetingDuration(parseInt(e.target.value) || 30)}
+                            onChange={(e) =>
+                              setMeetingDuration(parseInt(e.target.value) || 30)
+                            }
                             min={15}
                             step={15}
                           />
@@ -425,14 +517,21 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
                       </div>
                       <div className="space-y-2">
                         <Label>Channel</Label>
-                        <Select value={meetingChannel} onValueChange={setMeetingChannel}>
+                        <Select
+                          value={meetingChannel}
+                          onValueChange={setMeetingChannel}
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="Zoom">Zoom</SelectItem>
-                            <SelectItem value="Google Meet">Google Meet</SelectItem>
-                            <SelectItem value="Teams">Microsoft Teams</SelectItem>
+                            <SelectItem value="Google Meet">
+                              Google Meet
+                            </SelectItem>
+                            <SelectItem value="Teams">
+                              Microsoft Teams
+                            </SelectItem>
                             <SelectItem value="Phone">Phone Call</SelectItem>
                             <SelectItem value="In-person">In-person</SelectItem>
                           </SelectContent>
@@ -440,17 +539,22 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
                       </div>
                     </div>
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setMeetingDialogOpen(false)}>
+                      <Button
+                        variant="outline"
+                        onClick={() => setMeetingDialogOpen(false)}
+                      >
                         Cancel
                       </Button>
                       <Button
                         onClick={() => createMeetingMutation.mutate()}
-                        disabled={!meetingTime || createMeetingMutation.isPending}
+                        disabled={
+                          !meetingTime || createMeetingMutation.isPending
+                        }
                       >
                         {createMeetingMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         ) : (
-                          <Calendar className="h-4 w-4 mr-2" />
+                          <Calendar className="mr-2 h-4 w-4" />
                         )}
                         Create
                       </Button>
@@ -461,23 +565,31 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
 
               {/* Meetings List */}
               {meetings.length > 0 && (
-                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                <div className="max-h-[200px] space-y-2 overflow-y-auto">
                   {meetings.map((meeting: Meeting) => (
                     <div
                       key={meeting.id}
-                      className="p-2 rounded border bg-white text-xs space-y-2"
+                      className="space-y-2 rounded border bg-white p-2 text-xs"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Calendar className="h-3 w-3 text-purple-500" />
-                          <span className="font-medium">{meeting.title || 'Meeting'}</span>
+                          <span className="font-medium">
+                            {meeting.title || 'Meeting'}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 text-gray-500">
                           <Clock className="h-3 w-3" />
-                          <span>{format(new Date(meeting.time), 'dd/MM HH:mm')}</span>
+                          <span>
+                            {format(new Date(meeting.time), 'dd/MM HH:mm')}
+                          </span>
                           <Badge
-                            variant={meeting.status === 'completed' ? 'default' : 'outline'}
-                            className="text-[10px] h-5"
+                            variant={
+                              meeting.status === 'completed'
+                                ? 'default'
+                                : 'outline'
+                            }
+                            className="h-5 text-[10px]"
                           >
                             {meeting.status}
                           </Badge>
@@ -486,22 +598,30 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
 
                       {/* Meeting Prep Actions - show for scheduled meetings */}
                       {meeting.status === 'scheduled' && (
-                        <div className="flex items-center gap-2 pt-1 border-t">
+                        <div className="flex items-center gap-2 border-t pt-1">
                           {/* Generate Prep Button - only show when no prep yet */}
                           {!meeting.meeting_prep && (
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-6 text-[10px] text-amber-600 border-amber-200 hover:bg-amber-50"
-                              onClick={() => generateMeetingPrepMutation.mutate(meeting.id)}
+                              className="h-6 border-amber-200 text-[10px] text-amber-600 hover:bg-amber-50"
+                              onClick={() =>
+                                generateMeetingPrepMutation.mutate(meeting.id)
+                              }
                               disabled={generateMeetingPrepMutation.isPending}
                             >
                               {generateMeetingPrepMutation.isPending ? (
-                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                               ) : (
-                                <Sparkles className="h-3 w-3 mr-1" />
+                                <Sparkles className="mr-1 h-3 w-3" />
                               )}
-                              Tạo Meeting Prep
+                              {generateMeetingPrepMutation.isPending
+                                ? language === 'vi'
+                                  ? 'Đang tạo... có thể mất đến 2 phút'
+                                  : 'Generating... may take up to 2 min'
+                                : language === 'vi'
+                                  ? 'Tạo Meeting Prep'
+                                  : 'Generate Meeting Prep'}
                             </Button>
                           )}
 
@@ -510,13 +630,13 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-6 text-[10px] text-green-600 border-green-200 hover:bg-green-50"
+                              className="h-6 border-green-200 text-[10px] text-green-600 hover:bg-green-50"
                               onClick={() => {
                                 setSelectedMeeting(meeting);
                                 setMeetingPrepDialogOpen(true);
                               }}
                             >
-                              <FileSearch className="h-3 w-3 mr-1" />
+                              <FileSearch className="mr-1 h-3 w-3" />
                               Xem Prep
                             </Button>
                           )}
@@ -525,19 +645,19 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
 
                       {/* Meeting Content Actions - show for completed meetings */}
                       {meeting.status === 'completed' && (
-                        <div className="flex items-center gap-2 pt-1 border-t">
+                        <div className="flex items-center gap-2 border-t pt-1">
                           {/* View Prep Button - only show when has prep */}
                           {meeting.meeting_prep && (
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-6 text-[10px] text-green-600 border-green-200 hover:bg-green-50"
+                              className="h-6 border-green-200 text-[10px] text-green-600 hover:bg-green-50"
                               onClick={() => {
                                 setSelectedMeeting(meeting);
                                 setMeetingPrepDialogOpen(true);
                               }}
                             >
-                              <FileSearch className="h-3 w-3 mr-1" />
+                              <FileSearch className="mr-1 h-3 w-3" />
                               Xem Prep
                             </Button>
                           )}
@@ -553,8 +673,10 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
                               setMeetingContentDialogOpen(true);
                             }}
                           >
-                            <FileText className="h-3 w-3 mr-1" />
-                            {meeting.meeting_content ? 'Sửa nội dung' : 'Thêm nội dung'}
+                            <FileText className="mr-1 h-3 w-3" />
+                            {meeting.meeting_content
+                              ? 'Sửa nội dung'
+                              : 'Thêm nội dung'}
                           </Button>
                         </div>
                       )}
@@ -564,7 +686,10 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
               )}
 
               {/* Meeting Content Dialog */}
-              <Dialog open={meetingContentDialogOpen} onOpenChange={setMeetingContentDialogOpen}>
+              <Dialog
+                open={meetingContentDialogOpen}
+                onOpenChange={setMeetingContentDialogOpen}
+              >
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>Nội dung cuộc họp</DialogTitle>
@@ -584,7 +709,10 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
                     </div>
                   </div>
                   <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setMeetingContentDialogOpen(false)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => setMeetingContentDialogOpen(false)}
+                    >
                       Hủy
                     </Button>
                     <Button
@@ -596,12 +724,15 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
                           });
                         }
                       }}
-                      disabled={!meetingContent || updateMeetingContentMutation.isPending}
+                      disabled={
+                        !meetingContent ||
+                        updateMeetingContentMutation.isPending
+                      }
                     >
                       {updateMeetingContentMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       ) : (
-                        <FileText className="h-4 w-4 mr-2" />
+                        <FileText className="mr-2 h-4 w-4" />
                       )}
                       Lưu
                     </Button>
@@ -610,12 +741,20 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
               </Dialog>
 
               {/* Meeting Prep Dialog */}
-              <Dialog open={meetingPrepDialogOpen} onOpenChange={setMeetingPrepDialogOpen}>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <Dialog
+                open={meetingPrepDialogOpen}
+                onOpenChange={setMeetingPrepDialogOpen}
+              >
+                <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Meeting Prep</DialogTitle>
                     <DialogDescription>
-                      Tài liệu chuẩn bị: {selectedMeeting?.title || 'Meeting'} - {selectedMeeting && format(new Date(selectedMeeting.time), 'dd/MM/yyyy HH:mm')}
+                      Tài liệu chuẩn bị: {selectedMeeting?.title || 'Meeting'} -{' '}
+                      {selectedMeeting &&
+                        format(
+                          new Date(selectedMeeting.time),
+                          'dd/MM/yyyy HH:mm'
+                        )}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="py-4">
@@ -628,12 +767,14 @@ export function ContactOutreach({ contactId }: ContactOutreachProps) {
                       variant="outline"
                       onClick={() => {
                         if (selectedMeeting?.meeting_prep) {
-                          navigator.clipboard.writeText(selectedMeeting.meeting_prep);
+                          navigator.clipboard.writeText(
+                            selectedMeeting.meeting_prep
+                          );
                           toast.success('Đã copy Meeting Prep');
                         }
                       }}
                     >
-                      <Copy className="h-4 w-4 mr-2" />
+                      <Copy className="mr-2 h-4 w-4" />
                       Copy
                     </Button>
                     <Button onClick={() => setMeetingPrepDialogOpen(false)}>

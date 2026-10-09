@@ -3,7 +3,15 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Send, MessageSquare, Loader2, Pencil, Trash2, Check, X } from 'lucide-react';
+import {
+  Send,
+  MessageSquare,
+  Loader2,
+  Pencil,
+  Trash2,
+  Check,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -90,7 +98,10 @@ export function ContactNotes({ contactId }: ContactNotesProps) {
 
   const handleSaveEdit = () => {
     if (!editingId || !editContent.trim()) return;
-    updateNoteMutation.mutate({ noteId: editingId, content: editContent.trim() });
+    updateNoteMutation.mutate({
+      noteId: editingId,
+      content: editContent.trim(),
+    });
   };
 
   const handleCancelEdit = () => {
@@ -105,21 +116,21 @@ export function ContactNotes({ contactId }: ContactNotesProps) {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="flex h-full flex-col">
+      <div className="mb-3 flex items-center gap-2">
         <MessageSquare className="h-4 w-4 text-gray-500" />
         <h3 className="font-semibold text-gray-900">Team Notes</h3>
         <span className="text-xs text-gray-500">({notes.length})</span>
       </div>
 
       {/* Notes List */}
-      <ScrollArea className="flex-1 max-h-[300px] mb-3">
+      <ScrollArea className="mb-3 max-h-[300px] flex-1">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
           </div>
         ) : notes.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 text-sm">
+          <div className="py-8 text-center text-sm text-gray-500">
             No notes yet. Add one below.
           </div>
         ) : (
@@ -127,14 +138,14 @@ export function ContactNotes({ contactId }: ContactNotesProps) {
             {notes.map((note: InteractionLog) => (
               <div
                 key={note.id}
-                className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm group"
+                className="group rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
               >
                 {editingId === note.id ? (
                   <>
                     <Textarea
                       value={editContent}
                       onChange={(e) => setEditContent(e.target.value)}
-                      className="min-h-[60px] text-sm mb-2"
+                      className="mb-2 min-h-[60px] text-sm"
                       autoFocus
                     />
                     <div className="flex justify-end gap-1">
@@ -163,11 +174,11 @@ export function ContactNotes({ contactId }: ContactNotesProps) {
                   </>
                 ) : (
                   <>
-                    <div className="flex justify-between items-start">
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap break-words flex-1">
+                    <div className="flex items-start justify-between">
+                      <p className="flex-1 whitespace-pre-wrap break-words text-sm text-gray-700">
                         {note.content}
                       </p>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                      <div className="ml-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                         <Button
                           size="icon"
                           variant="ghost"
@@ -187,7 +198,7 @@ export function ContactNotes({ contactId }: ContactNotesProps) {
                         </Button>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">
+                    <p className="mt-2 text-xs text-gray-400">
                       {format(new Date(note.timestamp), 'dd/MM/yyyy HH:mm')}
                     </p>
                   </>

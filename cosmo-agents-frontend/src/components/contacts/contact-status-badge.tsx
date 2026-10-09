@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { Badge } from "@/components/ui/badge";
+import { Badge } from '@/components/ui/badge';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { ContactStatus } from "@/models/contact";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+} from '@/components/ui/tooltip';
+import { ContactStatus } from '@/models/contact';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface ContactStatusBadgeProps {
   status?: ContactStatus;
@@ -17,11 +17,11 @@ interface ContactStatusBadgeProps {
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  name: "Name",
-  company: "Company",
-  job_title: "Job Title",
-  industry: "Industry",
-  contact_channel: "Contact Channel",
+  name: 'Name',
+  company: 'Company',
+  job_title: 'Job Title',
+  industry: 'Industry',
+  contact_channel: 'Contact Channel',
 };
 
 export function ContactStatusBadge({
@@ -29,11 +29,11 @@ export function ContactStatusBadge({
   missingFields,
   showTooltip = true,
 }: ContactStatusBadgeProps) {
-  const isReady = status === "ready";
+  const isReady = status === 'ready';
 
   const badge = (
     <Badge
-      variant={isReady ? "success" : "warning"}
+      variant={isReady ? 'success' : 'warning'}
       className="gap-1 capitalize"
     >
       {isReady ? (
@@ -41,7 +41,7 @@ export function ContactStatusBadge({
       ) : (
         <AlertCircle className="h-3 w-3" />
       )}
-      {status || "pending"}
+      {status || 'pending'}
     </Badge>
   );
 
@@ -55,8 +55,8 @@ export function ContactStatusBadge({
         <TooltipTrigger asChild>{badge}</TooltipTrigger>
         <TooltipContent>
           <div className="text-sm">
-            <p className="font-medium mb-1">Missing fields:</p>
-            <ul className="list-disc list-inside">
+            <p className="mb-1 font-medium">Missing fields:</p>
+            <ul className="list-inside list-disc">
               {missingFields.map((field) => (
                 <li key={field}>{FIELD_LABELS[field] || field}</li>
               ))}

@@ -156,14 +156,42 @@ func scoreTitle(contact map[string]any, ideal any) int {
 		if s, ok := v.(string); ok && strings.ToLower(s) == title {
 			return 100
 		}
-		if s, ok := v.(string); ok && strings.Contains(title, strings.ToLower(s)) {
+		if s, ok := v.(string); ok && containsWords(title, strings.ToLower(s)) {
 			return 80
 		}
 	}
-	if strings.Contains(title, "vp") || strings.Contains(title, "director") || strings.Contains(title, "head") || strings.Contains(title, "chief") {
-		return 70
+	for _, senior := range []string{"vp", "director", "head", "chief"} {
+		if containsWords(title, senior) {
+			return 70
+		}
 	}
 	return 30
+}
+
+// containsWords reports whether phrase appears in text as whole words.
+// A plain substring test matched "cto" inside "director", so a Sales
+// Director scored as a near-match for an ideal title of CTO.
+func containsWords(text, phrase string) bool {
+	words := strings.FieldsFunc(text, func(r rune) bool {
+		return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r > 127)
+	})
+	want := strings.Fields(phrase)
+	if len(want) == 0 {
+		return false
+	}
+	for i := 0; i+len(want) <= len(words); i++ {
+		match := true
+		for j, w := range want {
+			if words[i+j] != w {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
+	}
+	return false
 }
 
 func scoreCompanySize(contact map[string]any, ideal any) int {
@@ -183,6 +211,12 @@ func scoreCompanySize(contact map[string]any, ideal any) int {
 func scoreIndustry(contact map[string]any, ideal any) int {
 	idealList, _ := ideal.([]any)
 	industry := strings.ToLower(getString(contact, "profile.company_data.industry"))
+	if industry == "" {
+		// Contacts store their industry in the top-level column (CSV import,
+		// the contact form, enrichment); only some carry enriched company data.
+		// Reading the profile alone scored every such contact as unknown.
+		industry = strings.ToLower(getString(contact, "industry"))
+	}
 	if industry == "" || len(idealList) == 0 {
 		return 50
 	}

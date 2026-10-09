@@ -123,23 +123,37 @@ const HubspotApi = {
     return api.post('api/hubspot/token', { json: body }).json<TokenResponse>();
   },
   processCallback: (params: any) => {
-    return kyClient.get('v2/hubspot/callback', { searchParams: params }).json<ApiResponse<TokenResponse>>();
+    return kyClient
+      .get('v2/hubspot/callback', { searchParams: params })
+      .json<ApiResponse<TokenResponse>>();
   },
   getOwners: (accessToken: string, refreshToken: string) => {
-    return api.get('api/hubspot/owners', { searchParams: { accessToken, refreshToken }}).json<OwnersResponse>();
+    return api
+      .get('api/hubspot/owners', {
+        searchParams: { accessToken, refreshToken },
+      })
+      .json<OwnersResponse>();
   },
   searchLists: (accessToken: string, refreshToken: string) => {
-    return api.get(`api/hubspot/lists`, { searchParams: { accessToken, refreshToken }}).json<ListsResponse>();
+    return api
+      .get(`api/hubspot/lists`, { searchParams: { accessToken, refreshToken } })
+      .json<ListsResponse>();
   },
   getProperties: (accessToken: string, refreshToken: string) => {
-    return api.get(`api/hubspot/properties`, { searchParams: { accessToken, refreshToken }}).json<PropertiesResponse>();
+    return api
+      .get(`api/hubspot/properties`, {
+        searchParams: { accessToken, refreshToken },
+      })
+      .json<PropertiesResponse>();
   },
   getMe: () => {
     return kyClient.get(`v2/hubspot/users/me`).json<ApiResponse<any>>();
   },
   updateMe: (body: any) => {
-    return kyClient.patch(`v2/hubspot/users/me`, { json: body }).json<ApiResponse<any>>();
-  }
+    return kyClient
+      .patch(`v2/hubspot/users/me`, { json: body })
+      .json<ApiResponse<any>>();
+  },
 };
 
 export { HubspotApi };

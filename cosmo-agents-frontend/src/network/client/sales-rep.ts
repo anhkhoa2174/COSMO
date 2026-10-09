@@ -9,10 +9,13 @@ import type {
 
 const SalesRepApi = {
   search: async (payload: SalesRepSearchRequest, params?: BaseQuery) => {
-    const data = await kyClient.post<SalesRepSearchResponse>('v1/sale-reps/search', {
-      json: payload,
-      searchParams: params,
-    });
+    const data = await kyClient.post<SalesRepSearchResponse>(
+      'v1/sale-reps/search',
+      {
+        json: payload,
+        searchParams: params,
+      }
+    );
     return data.json();
   },
   create: async (payload: any) => {
@@ -32,11 +35,15 @@ const SalesRepApi = {
       .json();
   },
   delete: (sales_rep_id: string) => {
-    return kyClient.delete<ApiResponse<string>>(`v1/sale-reps/${sales_rep_id}`).json();
+    return kyClient
+      .delete<ApiResponse<string>>(`v1/sale-reps/${sales_rep_id}`)
+      .json();
   },
   update: (sales_rep_id: string, payload: any) => {
     return kyClient
-      .patch<SalesRepCreateResponse>(`v1/sale-reps/${sales_rep_id}`, { json: payload })
+      .patch<SalesRepCreateResponse>(`v1/sale-reps/${sales_rep_id}`, {
+        json: payload,
+      })
       .json();
   },
 };

@@ -28,6 +28,10 @@ type Handler struct {
 	// V3 specific services
 	fieldValidator *contactService.ContactFieldValidator
 	fieldMapper    *fieldValidationService.FieldMapper
+	csvImporter    *contactService.CSVImporter
+
+	// runAsync starts a background import; tests swap it to run inline.
+	runAsync func(func())
 }
 
 // New creates a new refactored V3 ContactHandler
@@ -55,5 +59,7 @@ func New(
 		// V3 specific services
 		fieldValidator: contactService.NewContactFieldValidator(customFieldRepo),
 		fieldMapper:    fieldValidationService.NewFieldMapper(),
+		csvImporter:    contactService.NewCSVImporter(contactRepo),
+		runAsync:       func(f func()) { go f() },
 	}
 }

@@ -27,6 +27,10 @@ export type TemplateNode = Node<
     label: string;
     children: React.ReactNode;
     isCompleted?: boolean;
+    // Set when the panel for this node closes after a change. Selection alone
+    // is not enough: closing the panel clears it, so the canvas gave no sign
+    // of which of a dozen similar cards had just been edited.
+    justEdited?: boolean;
   },
   'template-node'
 >;
@@ -58,7 +62,7 @@ export type AppNode =
   | BadgeNode
   | IntentNode
   | ActionNode
-  | TemplateNode
+  | TemplateNode;
 
 export const nodeTypes = {
   'custom-node': CustomNode,

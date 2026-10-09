@@ -30,7 +30,6 @@ export default function FormPreview({
   selectedElement,
   loading,
 }: FormPreviewProps) {
-
   const form = useForm({
     resolver: validationSchema ? zodResolver(validationSchema) : undefined,
   });
@@ -126,8 +125,7 @@ export default function FormPreview({
               >
                 {elements?.map((element) => {
                   const colSpan = element.colSpan || 1;
-                  const error =
-                    form.formState.errors?.[element.name]?.message;
+                  const error = form.formState.errors?.[element.name]?.message;
                   const isSelected = selectedElement?.id === element.id;
                   return (
                     <div
@@ -149,7 +147,11 @@ export default function FormPreview({
                 className="sticky bottom-0 z-10"
                 style={submitButtonContainerStyle}
               >
-                <Button type="submit" style={submitButtonStyle} disabled={loading}>
+                <Button
+                  type="submit"
+                  style={submitButtonStyle}
+                  disabled={loading}
+                >
                   {loading && (
                     <Loader className="mr-2 h-4 w-4 animate-spin text-white" />
                   )}

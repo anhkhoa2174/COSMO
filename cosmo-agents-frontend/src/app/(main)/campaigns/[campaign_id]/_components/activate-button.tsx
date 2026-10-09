@@ -17,7 +17,9 @@ const ActivateButton = ({ campaignId }: { campaignId: string }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const [opened, { open, close }] = useDisclosure(false);
-  const [selectedStatus, setSelectedStatus] = useState<CampaignStatus>(campaign?.status || 'draft');
+  const [selectedStatus, setSelectedStatus] = useState<CampaignStatus>(
+    campaign?.status || 'draft'
+  );
 
   const newStatus: Record<CampaignStatus, CampaignStatus> = {
     active: 'paused',
@@ -36,7 +38,9 @@ const ActivateButton = ({ campaignId }: { campaignId: string }) => {
       toast.success('Update campaign successfully');
       setCampaign({ ...campaign, status: newStatus[selectedStatus] });
     } catch (err: any) {
-      toast.error(err.error?.message || err.message || 'Oops! Something went wrong');
+      toast.error(
+        err.error?.message || err.message || 'Oops! Something went wrong'
+      );
     } finally {
       close();
       setIsLoading(false);
@@ -44,9 +48,12 @@ const ActivateButton = ({ campaignId }: { campaignId: string }) => {
   };
 
   const text: Record<CampaignStatus, string> = {
-    active: 'The campaign will be paused, and the email will not be sent to the contact list.',
-    paused: 'The campaign will be continued, and the email will be sent to the contact list.',
-    draft: 'The campaign will be activated, and the email will be sent to the contact list.',
+    active:
+      'The campaign will be paused, and the email will not be sent to the contact list.',
+    paused:
+      'The campaign will be continued, and the email will be sent to the contact list.',
+    draft:
+      'The campaign will be activated, and the email will be sent to the contact list.',
     ended: 'The campaign has ended.',
     scheduled: 'The campaign is scheduled.',
   };

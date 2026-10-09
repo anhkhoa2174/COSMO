@@ -1,7 +1,6 @@
 package contact
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -11,7 +10,7 @@ import (
 )
 
 type validateInsightRequest struct {
-	InsightType   string                 `json:"insight_type"`   // pain_point|goal|objection
+	InsightType   string                 `json:"insight_type"`   // pain_point|goal|objection|signal
 	InsightText   string                 `json:"insight_text"`   // text to match
 	Validation    string                 `json:"validation"`     // confirmed|rejected
 	ConfirmedData map[string]interface{} `json:"confirmed_data"` // optional extra fields when confirming
@@ -44,8 +43,9 @@ func (h *Handler) ValidateInsight(c fiber.Ctx) error {
 		return h.responseHelper.NotFound(c, "contact not found", err)
 	}
 	if contactModel.UserID != user.ID {
+		// Same 404 as a missing contact: do not confirm the id exists.
 		if contactModel.OrganizationID == nil || *contactModel.OrganizationID != orgID {
-			return h.responseHelper.HandleAuthError(c, fmt.Errorf("unauthorized contact access"))
+			return h.responseHelper.NotFound(c, "contact not found", nil)
 		}
 	}
 
@@ -94,8 +94,14 @@ func (h *Handler) ValidateInsight(c fiber.Ctx) error {
 		updateAI("suspected_goals", "goal")
 	case "objection":
 		updateAI("anticipated_objections", "objection")
+	// The frontend sends "signal"; accept the longer spelling too.
+	case "buying_signal", "signal":
+		updateAI("buying_signals", "signal")
 	default:
-		updateAI("suspected_pain_points", "pain_point")
+		// Falling through to pain points would silently edit a list the caller
+		// never named — reject instead.
+		return h.responseHelper.BadRequest(c,
+			"insight_type must be one of: pain_point, goal, objection, signal", nil)
 	}
 
 	// Persist updates
@@ -151,6 +157,8 @@ func keyToConfirmed(aiKey string) string {
 		return "goals"
 	case "anticipated_objections":
 		return "objections"
+	case "buying_signals":
+		return "buying_signals"
 	default:
 		return aiKey
 	}

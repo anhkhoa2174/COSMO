@@ -1,6 +1,7 @@
 package customfield
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -24,6 +25,7 @@ import (
 // @Failure 401 {object} schema.APIResponse[any] "User not authenticated"
 // @Failure 403 {object} schema.APIResponse[any] "Access denied - user doesn't own this custom field"
 // @Failure 404 {object} schema.APIResponse[any] "Custom field not found"
+// @Failure 409 {object} schema.APIResponse[any] "A custom field with this name already exists"
 // @Failure 500 {object} schema.APIResponse[any] "Failed to update custom field"
 // @Router /v1/custom-fields/{id} [patch]
 // @Security BearerAuth
@@ -65,23 +67,65 @@ func (h *Handler) Update(c fiber.Ctx) error {
 	// Build update map with only fields that are being updated
 	updates := make(map[string]interface{})
 
+	// Validate the definition as it will look after the update, so that e.g.
+	// switching to select without options or keeping a fallback that no longer
+	// matches the new type is rejected.
+	merged := *customField
 	if req.Name != nil {
-		if strings.TrimSpace(*req.Name) == "" {
+		merged.Name = strings.TrimSpace(*req.Name)
+		if merged.Name == "" {
 			return badRequest(c, "Name cannot be empty", nil)
 		}
-		updates["name"] = *req.Name
+		updates["name"] = merged.Name
 	}
 	if req.DataType != nil {
+		merged.DataType = *req.DataType
 		updates["data_type"] = *req.DataType
 	}
 	if req.EntityType != nil {
+		merged.EntityType = *req.EntityType
 		updates["entity_type"] = *req.EntityType
 	}
 	if req.IsRequired != nil {
 		updates["is_required"] = *req.IsRequired
 	}
 	if req.Options != nil {
-		updates["options"] = pq.StringArray(req.Options)
+		merged.Options = pq.StringArray(req.Options)
+	}
+	if req.SampleData != nil {
+		merged.SampleData = req.SampleData
+	}
+	if req.FallbackValue != nil {
+		merged.FallbackValue = req.FallbackValue
+	}
+	if err := validateDefinition(&merged); err != nil {
+		return badRequest(c, err.Error(), nil)
+	}
+	if req.Options != nil || req.DataType != nil {
+		updates["options"] = merged.Options
+	}
+	if req.Name != nil || req.EntityType != nil {
+		if err := h.checkDuplicate(c.Context(), userID, customField.OrganizationID, merged.EntityType, merged.Name, customField.ID); err != nil {
+			if errors.Is(err, errDuplicateName) {
+				return conflict(c, err.Error())
+			}
+			return internalError(c, "Failed to check existing custom fields", err)
+		}
+	}
+	// Moving a field to another entity keeps its stored key, so that key must
+	// be free there too: a company field keyed "email" would otherwise become
+	// a contact field colliding with the email column, or with another
+	// contact field that already uses the key.
+	if req.EntityType != nil && merged.EntityType != customField.EntityType {
+		if err := validateNewKey(merged.EntityType, customField.NormalizedName); err != nil {
+			return badRequest(c, err.Error(), nil)
+		}
+		if err := h.checkDuplicate(c.Context(), userID, customField.OrganizationID, merged.EntityType, customField.NormalizedName, customField.ID); err != nil {
+			if errors.Is(err, errDuplicateName) {
+				return conflict(c, err.Error())
+			}
+			return internalError(c, "Failed to check existing custom fields", err)
+		}
 	}
 	if req.SampleData != nil {
 		updates["sample_data"] = req.SampleData

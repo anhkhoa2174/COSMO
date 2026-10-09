@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	baseRepo "github.com/rockship/cosmo-agents-go/internal/repository/base"
+	contactRepo "github.com/rockship/cosmo-agents-go/internal/repository/contact"
 	v1schema "github.com/rockship/cosmo-agents-go/internal/schema/v1"
 )
 
@@ -42,8 +43,8 @@ func (h *Handler) Search(c fiber.Ctx) error {
 	if limitInt <= 0 {
 		limitInt = 25
 	}
-	if limitInt > 100 {
-		limitInt = 100
+	if limitInt > 1000 {
+		limitInt = 1000
 	}
 
 	var req v1schema.ContactSearchRequest
@@ -52,20 +53,18 @@ func (h *Handler) Search(c fiber.Ctx) error {
 	}
 
 	// Filter by organization_id only - all members can see all contacts in the org
-	// The "Added By" field shows which BD added each contact
-	filterMap := baseRepo.Filter{
-		"is_deleted":      false,
-		"organization_id": organizationID,
+	// The "Added By" field shows which BD added each contact.
+	// The scope keys are set after the client's filter so it cannot override them.
+	userFilter := req.Filter
+	if userFilter == nil {
+		userFilter = req.LegacyFilter
 	}
-	if req.Filter != nil {
-		for k, v := range req.Filter {
-			filterMap[k] = v
-		}
-	} else if req.LegacyFilter != nil {
-		for k, v := range req.LegacyFilter {
-			filterMap[k] = v
-		}
-	}
+	rawFilter := dropRawFilters(userFilter)
+	rawFilter["is_deleted"] = false
+	rawFilter["organization_id"] = organizationID
+
+	// Normalize filter: convert text fields to ILIKE partial match
+	filterMap := contactRepo.NormalizeContactFilter(rawFilter)
 
 	pagination := &baseRepo.PaginationParams{
 		Offset: offsetInt,
@@ -189,4 +188,32 @@ func parseUUID(value interface{}) (uuid.UUID, error) {
 	default:
 		return uuid.Nil, fmt.Errorf("invalid UUID value")
 	}
+}
+
+// dropRawFilters copies a client-supplied filter without the "$raw" operator,
+// at any depth. FilterBuilder splices $raw into the WHERE clause verbatim, so
+// accepting it from a client is SQL injection; the repository adds its own $raw
+// expressions after this runs.
+func dropRawFilters(filter map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(filter))
+	for k, v := range filter {
+		if k != string(baseRepo.OpRaw) {
+			out[k] = dropRawValue(v)
+		}
+	}
+	return out
+}
+
+func dropRawValue(v interface{}) interface{} {
+	switch t := v.(type) {
+	case map[string]interface{}:
+		return dropRawFilters(t)
+	case []interface{}:
+		out := make([]interface{}, len(t))
+		for i, item := range t {
+			out[i] = dropRawValue(item)
+		}
+		return out
+	}
+	return v
 }

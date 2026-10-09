@@ -40,6 +40,10 @@ func NewTaskHandler(taskRepo *taskRepo.TaskRepository) *TaskHandler {
 // @Security BearerAuth
 // @Router /v1/task [post]
 func (h *TaskHandler) Create(c fiber.Ctx) error {
+	userID, ok, err := callerID(c)
+	if !ok {
+		return err
+	}
 	var req v1schema.CreateTaskRequest
 	if err := c.Bind().JSON(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(
@@ -50,6 +54,18 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 	if err := v1validation.ValidateStruct(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(
 			fiber.StatusBadRequest, "Validation failed", err.Error(),
+		))
+	}
+
+	// A task sends mail for its campaign; it may only be added to a campaign
+	// the caller can see.
+	if visible, err := h.taskRepo.CampaignVisibleTo(c.Context(), req.CampaignID, userID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(
+			fiber.StatusInternalServerError, "Failed to check campaign", "",
+		))
+	} else if !visible {
+		return c.Status(fiber.StatusNotFound).JSON(schema.ErrorResponse(
+			fiber.StatusNotFound, "Campaign not found", "",
 		))
 	}
 
@@ -109,11 +125,16 @@ func (h *TaskHandler) GetByID(c fiber.Ctx) error {
 		))
 	}
 
+	userID, ok, authErr := callerID(c)
+	if !ok {
+		return authErr
+	}
 	task, err := h.taskRepo.FindByID(c.Context(), id)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(schema.ErrorResponse(
-			fiber.StatusNotFound, "Task not found", err.Error(),
-		))
+	if err != nil || task == nil {
+		return taskNotFound(c)
+	}
+	if visible, err := h.taskRepo.CampaignVisibleTo(c.Context(), task.CampaignID, userID); err != nil || !visible {
+		return taskNotFound(c)
 	}
 
 	response := toTaskResponse(task)
@@ -136,6 +157,14 @@ func (h *TaskHandler) GetByID(c fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /v1/task [get]
 func (h *TaskHandler) List(c fiber.Ctx) error {
+	userID, ok, authErr := callerID(c)
+	if !ok {
+		return authErr
+	}
+	// mine=true: only tasks of campaigns the caller created ("My work").
+	// overdue=true: only tasks whose scheduled time has passed, counted here
+	// rather than from one page of results in the browser.
+	scope := taskRepo.TaskScope{OwnOnly: c.Query("mine") == "true", OverdueOnly: c.Query("overdue") == "true"}
 	offset := 0
 	if offsetParam := c.Query("offset"); offsetParam != "" {
 		if parsed, err := strconv.Atoi(offsetParam); err == nil {
@@ -178,7 +207,7 @@ func (h *TaskHandler) List(c fiber.Ctx) error {
 		Limit:  limit,
 	}
 
-	result, err := h.taskRepo.FindAll(c.Context(), filter, pagination)
+	result, err := h.taskRepo.FindAllVisibleTo(c.Context(), userID, scope, filter, pagination)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(schema.ErrorResponse(
 			fiber.StatusInternalServerError, "Failed to fetch tasks", err.Error(),
@@ -245,11 +274,16 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 		))
 	}
 
+	userID, ok, authErr := callerID(c)
+	if !ok {
+		return authErr
+	}
 	task, err := h.taskRepo.FindByID(c.Context(), id)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(schema.ErrorResponse(
-			fiber.StatusNotFound, "Task not found", err.Error(),
-		))
+	if err != nil || task == nil {
+		return taskNotFound(c)
+	}
+	if visible, err := h.taskRepo.CampaignVisibleTo(c.Context(), task.CampaignID, userID); err != nil || !visible {
+		return taskNotFound(c)
 	}
 
 	// Apply updates
@@ -327,11 +361,16 @@ func (h *TaskHandler) Respond(c fiber.Ctx) error {
 		req.ResponseData = make(map[string]any)
 	}
 
+	userID, ok, authErr := callerID(c)
+	if !ok {
+		return authErr
+	}
 	task, err := h.taskRepo.FindByID(c.Context(), id)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(schema.ErrorResponse(
-			fiber.StatusNotFound, "Task not found", err.Error(),
-		))
+	if err != nil || task == nil {
+		return taskNotFound(c)
+	}
+	if visible, err := h.taskRepo.CampaignVisibleTo(c.Context(), task.CampaignID, userID); err != nil || !visible {
+		return taskNotFound(c)
 	}
 
 	// Mark as responded
@@ -389,11 +428,16 @@ func (h *TaskHandler) Resolve(c fiber.Ctx) error {
 		))
 	}
 
+	userID, ok, authErr := callerID(c)
+	if !ok {
+		return authErr
+	}
 	task, err := h.taskRepo.FindByID(c.Context(), id)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(schema.ErrorResponse(
-			fiber.StatusNotFound, "Task not found", err.Error(),
-		))
+	if err != nil || task == nil {
+		return taskNotFound(c)
+	}
+	if visible, err := h.taskRepo.CampaignVisibleTo(c.Context(), task.CampaignID, userID); err != nil || !visible {
+		return taskNotFound(c)
 	}
 
 	// Resolve task
@@ -440,4 +484,23 @@ func toTaskResponse(task *domain.Task) v1schema.TaskResponse {
 		Payload:     payload,
 		Error:       task.Error,
 	}
+}
+
+// callerID is the authenticated user, or ok=false with a 401 written.
+func callerID(c fiber.Ctx) (uuid.UUID, bool, error) {
+	id, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return uuid.Nil, false, c.Status(fiber.StatusUnauthorized).JSON(schema.ErrorResponse(
+			fiber.StatusUnauthorized, "Unauthorized", "",
+		))
+	}
+	return id, true, nil
+}
+
+// taskNotFound answers for a task the caller may not see as for one that does
+// not exist, so ids cannot be probed.
+func taskNotFound(c fiber.Ctx) error {
+	return c.Status(fiber.StatusNotFound).JSON(schema.ErrorResponse(
+		fiber.StatusNotFound, "Task not found", "",
+	))
 }

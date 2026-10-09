@@ -3,12 +3,12 @@ package lab
 import (
 	"context"
 	"fmt"
+	"github.com/rockship/cosmo-agents-go/pkg/ai"
 	"net/http"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	openai "github.com/openai/openai-go"
-	"github.com/openai/openai-go/option"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
 	baseRepo "github.com/rockship/cosmo-agents-go/internal/repository/base"
@@ -233,7 +233,7 @@ func (h *LabHandler) generateResponseForIntent(
 	}
 
 	// Create OpenAI client
-	client := openai.NewClient(option.WithAPIKey(h.openaiKey))
+	client := openai.NewClient(ai.CompatOptions(h.openaiKey)...)
 
 	// Build messages
 	messages := []openai.ChatCompletionMessageParamUnion{

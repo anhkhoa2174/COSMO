@@ -10,9 +10,17 @@ export type CampaignPlaybook =
   | 'click_start_from_scratch'
   | 'custom';
 
-export type CampaignStatus = 'active' | 'paused' | 'draft' | 'scheduled' | 'ended';
+export type CampaignStatus =
+  | 'active'
+  | 'paused'
+  | 'draft'
+  | 'scheduled'
+  | 'ended';
 
-export type CampaignAction = 'Let AI reply' | 'Assign to a person' | 'Draft an email';
+export type CampaignAction =
+  | 'Let AI reply'
+  | 'Assign to a person'
+  | 'Draft an email';
 
 export type CampaignConfig<T = any> = {
   intent_type: EmailIntent;

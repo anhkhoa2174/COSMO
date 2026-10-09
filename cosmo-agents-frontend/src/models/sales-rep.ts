@@ -19,10 +19,14 @@ export type SalesRepSearchRequest = {
 type SalesRepSearchResponseData = {
   entity: Omit<SalesRep, 'created_at' | 'updated_at'>;
 };
-export type SalesRepSearchResponse = PaginateResponse<SalesRepSearchResponseData>;
+export type SalesRepSearchResponse =
+  PaginateResponse<SalesRepSearchResponseData>;
 
 // create
-export type SalesRepCreateRequest = Omit<SalesRep, 'id' | 'created_at' | 'updated_at'> & {
+export type SalesRepCreateRequest = Omit<
+  SalesRep,
+  'id' | 'created_at' | 'updated_at'
+> & {
   picture?: string;
   calendar_link?: string;
 };

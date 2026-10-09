@@ -68,6 +68,27 @@ jobs:
           go mod tidy
           git diff --exit-code go.mod go.sum
 
+      - name: Start PostgreSQL for tests
+        # The repository and service tests run against PostgreSQL, each in its own
+        # throwaway schema (internal/testutil/pgtest), not against an in-memory
+        # substitute. The container is named per run and bound to a random host
+        # port so parallel workflows on this self-hosted runner cannot collide.
+        run: |
+          name="cosmo-ci-pg-${{ github.run_id }}-${{ github.run_attempt }}"
+          docker rm -f "$name" >/dev/null 2>&1 || true
+          docker run -d --name "$name" \
+            -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=cosmo_agents_test \
+            -p 127.0.0.1::5432 pgvector/pgvector:pg16
+          for i in $(seq 1 60); do
+            docker exec "$name" pg_isready -U postgres -d cosmo_agents_test >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec "$name" psql -U postgres -d cosmo_agents_test \
+            -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
+          port="$(docker port "$name" 5432/tcp | head -1 | awk -F: '{print $NF}')"
+          echo "PG_TEST_CONTAINER=$name" >> "$GITHUB_ENV"
+          echo "TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:${port}/cosmo_agents_test?sslmode=disable" >> "$GITHUB_ENV"
+
       - name: Run unit tests
         run: go test -timeout=10m ./...
 
@@ -83,6 +104,10 @@ jobs:
 
       - name: Run race detector tests
         run: go test -v -race -timeout=12m ./...
+
+      - name: Stop PostgreSQL for tests
+        if: always()
+        run: docker rm -f "${PG_TEST_CONTAINER:-cosmo-ci-pg-${{ github.run_id }}-${{ github.run_attempt }}}" >/dev/null 2>&1 || true
 
   security:
     runs-on: self-hosted

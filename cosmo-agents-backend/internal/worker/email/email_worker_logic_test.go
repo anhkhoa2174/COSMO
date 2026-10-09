@@ -4,13 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
-	"gorm.io/driver/sqlite"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
@@ -502,8 +501,10 @@ func TestGeneralEmailWorker_HandleSyncGmailHistory_Process(t *testing.T) {
 	if emailRepo.created == nil {
 		t.Fatalf("expected inbound email to be saved")
 	}
-	if len(convoRepo.setRepliedIDs) == 0 {
-		t.Fatalf("expected conversation replied flag to be set")
+	// Replied để reply_worker set sau khi phân loại intent (xem NOTE trong
+	// handleInboundMessage) — bước sync không được set sớm.
+	if len(convoRepo.setRepliedIDs) != 0 {
+		t.Fatalf("sync must not set replied flag; reply_worker owns it")
 	}
 	if worker.agentRepo.(*stubAgentRepo).lastHistoryID != "h2" {
 		t.Fatalf("expected last history id to be updated")
@@ -574,8 +575,7 @@ func sampleAgent() *domain.Agent {
 }
 
 func setupEmailDatabase(t *testing.T) *gorm.DB {
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString())
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open sqlite db: %v", err)
 	}
@@ -592,13 +592,14 @@ func setupEmailDatabase(t *testing.T) *gorm.DB {
 		contact_information TEXT,
 		industry TEXT,
 			contact_channel TEXT,
-			lifecycle_stage TEXT,
 			context_level TEXT,
 			outreach_decision TEXT,
 			scenario TEXT,
 			message_draft TEXT,
 			last_outcome TEXT,
 			next_step TEXT,
+			outreach_stage TEXT,
+			followup_count INTEGER,
 			meeting TEXT,
 			business_stage TEXT
 		);`,
@@ -750,6 +751,13 @@ type stubContactRepo struct {
 }
 
 func (s *stubContactRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Contact, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.contact, nil
+}
+
+func (s *stubContactRepo) FindByEmail(ctx context.Context, userID uuid.UUID, email string) (*domain.Contact, error) {
 	if s.err != nil {
 		return nil, s.err
 	}

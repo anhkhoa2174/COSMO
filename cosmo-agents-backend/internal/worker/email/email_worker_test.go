@@ -393,7 +393,7 @@ func TestBuildTemplateData(t *testing.T) {
 		Country:  "USA",
 	}
 
-	templateData := buildTemplateData(agent, contact)
+	templateData := buildTemplateData(agent, contact, "")
 
 	// Test contact fields
 	assert.Equal(t, "John", templateData["contact_first_name"])

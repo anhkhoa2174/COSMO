@@ -23,7 +23,7 @@ func TestBuildTemplateDataAndApply(t *testing.T) {
 		Country:  "US",
 	}
 
-	data := buildTemplateData(agent, contact)
+	data := buildTemplateData(agent, contact, "")
 	if data["contact_first_name"] != "Bob" || data["sender_name"] != "Alice" {
 		t.Fatalf("unexpected template data: %+v", data)
 	}

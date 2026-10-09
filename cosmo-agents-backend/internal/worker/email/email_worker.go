@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rockship/cosmo-agents-go/internal/contactinfo"
 	"html/template"
 	"log"
 	"net/mail"
@@ -18,9 +19,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
+	outreachdomain "github.com/rockship/cosmo-agents-go/internal/domain/outreach"
 	repositoryHelper "github.com/rockship/cosmo-agents-go/internal/repository/helper"
 	"github.com/rockship/cosmo-agents-go/internal/repository/organization"
 	resendService "github.com/rockship/cosmo-agents-go/internal/service/resend"
@@ -41,19 +44,12 @@ const (
 
 const SUBJECT_INVITATION = "Welcome to Cosmo Agents Your Account Awaits"
 
-// extractEmailFromProfile extracts email from contact's profile JSONB
-func extractEmailFromProfile(profile domain.JSONB) string {
-	if len(profile) == 0 {
+// extractContactEmail extracts email from contact, checking contact_information first then profile JSONB
+func extractContactEmail(contact *domain.Contact) string {
+	if contact == nil {
 		return ""
 	}
-	var profileData map[string]interface{}
-	if err := json.Unmarshal(profile, &profileData); err != nil {
-		return ""
-	}
-	if email, ok := profileData["email"].(string); ok {
-		return email
-	}
-	return ""
+	return contactinfo.Resolve(contact.ContactInformation, contact.Profile)
 }
 
 // AgentSendEmailPayload represents the payload for sending emails via agent.
@@ -115,6 +111,10 @@ type gmailClient interface {
 type gmailClientFactory func(ctx context.Context, accessToken string) (gmailClient, error)
 
 // GeneralEmailWorker handles general email-related background tasks (from original file).
+type enqueueClient interface {
+	EnqueueTask(ctx context.Context, taskType string, payload interface{}, opts ...asynq.Option) (*asynq.TaskInfo, error)
+}
+
 type GeneralEmailWorker struct {
 	db               *gorm.DB
 	oauth2Client     oauth2Client
@@ -125,6 +125,13 @@ type GeneralEmailWorker struct {
 	conversationRepo generalConversationRepo
 	organizationRepo *organization.OrganizationRepository
 	gmailFactory     gmailClientFactory
+	enqueueClient    enqueueClient
+	interactionRepo  generalInteractionRepo
+	redisClient      redisPublisher
+}
+
+type redisPublisher interface {
+	Publish(ctx context.Context, channel string, message interface{}) *redis.IntCmd
 }
 
 // EmailWorker handles agent-related background tasks.
@@ -173,6 +180,11 @@ type generalTaskRepo interface {
 
 type generalContactRepo interface {
 	FindByID(ctx context.Context, id uuid.UUID) (*domain.Contact, error)
+	FindByEmail(ctx context.Context, userID uuid.UUID, email string) (*domain.Contact, error)
+}
+
+type generalInteractionRepo interface {
+	Create(ctx context.Context, log *outreachdomain.InteractionLog) error
 }
 
 type generalConversationRepo interface {
@@ -404,6 +416,21 @@ func (w *EmailWorker) HandleAgentSendEmail(ctx context.Context, task *asynq.Task
 				continue
 			}
 
+			// Tôn trọng opt-out: contact đã DO_NOT_CONTACT thì không gửi nữa.
+			// Đây là đường gửi chính của campaign — thiếu chốt này thì cam kết
+			// "chặn ở mọi đường gửi" không thành hiện thực.
+			if taskWithRelations.Contact.DoNotContact {
+				logger.FromContext(ctx).Warn().
+					Str("task_id", t.ID.String()).
+					Str("contact_id", taskWithRelations.Contact.ID.String()).
+					Msg("Contact is marked do-not-contact - skipping send")
+				t.Status = "failed"
+				errMsg := "Contact opted out (do_not_contact)"
+				t.Error = &errMsg
+				failedTasks = append(failedTasks, *t)
+				continue
+			}
+
 			// Check if template exists
 			if taskWithRelations.Template == nil {
 				logger.FromContext(ctx).Error().
@@ -434,8 +461,8 @@ func (w *EmailWorker) HandleAgentSendEmail(ctx context.Context, task *asynq.Task
 			plainContent := w.formatTemplate(taskWithRelations.Template.Content, contactData)
 			htmlContent := strings.ReplaceAll(plainContent, "\n", "<br>")
 
-			// Extract contact email from profile
-			contactEmail := extractEmailFromProfile(taskWithRelations.Contact.Profile)
+			// Extract contact email
+			contactEmail := extractContactEmail(taskWithRelations.Contact)
 
 			// Determine CC recipients based on campaign config
 			_ = w.determineCCRecipients(ctx, campaign, idx, len(tasks))
@@ -641,8 +668,11 @@ func NewGeneralEmailWorker(
 	contactRepo generalContactRepo,
 	conversationRepo generalConversationRepo,
 	organizationRepo *organization.OrganizationRepository,
+	enqueueClient enqueueClient,
+	interactionRepo generalInteractionRepo,
+	redisClient ...redisPublisher,
 ) *GeneralEmailWorker {
-	return &GeneralEmailWorker{
+	w := &GeneralEmailWorker{
 		db:               db,
 		oauth2Client:     oauth2Client,
 		agentRepo:        agentRepo,
@@ -651,10 +681,16 @@ func NewGeneralEmailWorker(
 		contactRepo:      contactRepo,
 		conversationRepo: conversationRepo,
 		organizationRepo: organizationRepo,
+		enqueueClient:    enqueueClient,
+		interactionRepo:  interactionRepo,
 		gmailFactory: func(ctx context.Context, accessToken string) (gmailClient, error) {
 			return gmail.NewClient(ctx, accessToken)
 		},
 	}
+	if len(redisClient) > 0 {
+		w.redisClient = redisClient[0]
+	}
+	return w
 }
 
 // HandleSendEmail processes general email sending tasks.
@@ -699,9 +735,37 @@ func (w *GeneralEmailWorker) HandleSendEmail(ctx context.Context, task *asynq.Ta
 		}
 	}
 
+	// Tôn trọng opt-out: không gửi cho contact đã DO_NOT_CONTACT
+	if contact != nil && contact.DoNotContact {
+		logger.Logger.Warn().
+			Str("contact_id", contact.ID.String()).
+			Str("to", payload.To).
+			Msg("Contact is marked do-not-contact; dropping send task")
+		return nil
+	}
+
+	// Fallback: if payload.To is empty, extract email from contact
+	if strings.TrimSpace(payload.To) == "" && contact != nil {
+		payload.To = extractContactEmail(contact)
+		if payload.To != "" {
+			logger.Logger.Info().
+				Str("contact_id", contact.ID.String()).
+				Str("resolved_email", payload.To).
+				Msg("Resolved empty To from contact data")
+		}
+	}
+
 	// Note: Agent.Organization relationship removed to avoid circular imports
 	// Organization data should be loaded separately using relations package if needed
-	templateData := buildTemplateData(agent, contact)
+	organizationName := ""
+	if agent.OrganizationID != nil && w.organizationRepo != nil {
+		if org, err := w.organizationRepo.FindByID(ctx, *agent.OrganizationID); err == nil && org != nil {
+			organizationName = org.Name
+		} else if err != nil {
+			logger.Logger.Warn().Err(err).Str("agent_id", agent.ID.String()).Msg("Could not load organisation name for merge tags")
+		}
+	}
+	templateData := buildTemplateData(agent, contact, organizationName)
 	subject := applyTemplateData(payload.Subject, templateData)
 	body := applyTemplateData(payload.Body, templateData)
 	body, sendAsHTML := prepareEmailBody(body, payload.IsHTML)
@@ -916,6 +980,31 @@ func (w *GeneralEmailWorker) HandleSendEmail(ctx context.Context, task *asynq.Ta
 	// Update conversation if in reply to
 	if payload.InReplyTo != "" && message.ThreadID != "" {
 		w.updateConversationThread(ctx, message.ThreadID, email.ID)
+	}
+
+	// Log outgoing interaction so recalculate worker can track state transitions
+	if w.interactionRepo != nil && payload.ContactID != uuid.Nil {
+		log := &outreachdomain.InteractionLog{
+			UserID:    agent.UserID,
+			ContactID: payload.ContactID,
+			Channel:   "email",
+			Direction: "outgoing",
+			Content:   body,
+			Subject:   &subject,
+			Timestamp: time.Now(),
+		}
+		if err := w.interactionRepo.Create(ctx, log); err != nil {
+			logger.Logger.Warn().Err(err).Str("contact_id", payload.ContactID.String()).Msg("Failed to save outgoing interaction log")
+		}
+
+		// Update contact outreach state: COLD → NO_REPLY after sending
+		if err := w.db.Table("contacts").Where("id = ? AND outreach_stage = ?", payload.ContactID, "COLD").Updates(map[string]interface{}{
+			"outreach_stage": "NO_REPLY",
+			"next_step":      "WAIT",
+			"last_outcome":   "sent",
+		}).Error; err != nil {
+			logger.Logger.Warn().Err(err).Msg("Failed to update contact state after email sent")
+		}
 	}
 
 	return nil
@@ -1167,6 +1256,9 @@ func (w *GeneralEmailWorker) persistInboundMessage(ctx context.Context, agent *d
 	email := &domain.Email{
 		UserID:         agent.UserID,
 		ConversationID: &conversation.ID,
+		// Kế thừa campaign của hội thoại: reply_worker cần trường này để tra
+		// campaign, thiếu nó thì toàn bộ pipeline phân loại + chặn opt-out chết.
+		CampaignID:     conversation.CampaignID,
 		GmailMessageID: msg.ID,
 		FromEmail:      fromEmail,
 		ToEmail:        toEmail,
@@ -1180,9 +1272,76 @@ func (w *GeneralEmailWorker) persistInboundMessage(ctx context.Context, agent *d
 		return fmt.Errorf("failed to save email: %w", err)
 	}
 
-	// Mark conversation as replied (contact responded).
-	if err := w.conversationRepo.SetReplied(ctx, conversation.ID, true); err != nil {
-		return fmt.Errorf("failed to mark conversation replied: %w", err)
+	// NOTE: Don't set conversation.Replied here — let reply_worker handle it
+	// after intent classification + AI draft reply. Setting it here causes
+	// reply_worker to skip the conversation.
+
+	// Log incoming interaction so recalculate worker can track REPLIED state
+	if w.interactionRepo != nil {
+		if contact, err := w.contactRepo.FindByEmail(ctx, agent.UserID, fromEmail); err == nil && contact != nil {
+			log := &outreachdomain.InteractionLog{
+				UserID:    agent.UserID,
+				ContactID: contact.ID,
+				Channel:   "email",
+				Direction: "incoming",
+				Content:   firstNonEmpty(msg.Body, msg.Snippet),
+				Subject:   func() *string { s := msg.Headers["Subject"]; return &s }(),
+				Timestamp: time.Now(),
+			}
+			if err := w.interactionRepo.Create(ctx, log); err != nil {
+				logger.FromContext(ctx).Warn().Err(err).Str("from_email", fromEmail).Msg("Failed to save incoming interaction log")
+			}
+		}
+	}
+
+	// Publish SSE event so frontend shows real-time toast notification
+	if w.redisClient != nil {
+		if contact, err := w.contactRepo.FindByEmail(ctx, agent.UserID, fromEmail); err == nil && contact != nil {
+			sseEvent := fmt.Sprintf(`{"id":"%s","event":"prospect_replied","data":{"event_type":"prospect_replied","event_id":"%s","timestamp":"%s","contact":{"name":"%s","email":"%s","id":"%s"},"reply_preview":"%s"},"timestamp":"%s"}`,
+				uuid.New().String(),
+				uuid.New().String(),
+				time.Now().Format(time.RFC3339),
+				strings.ReplaceAll(contact.Name, `"`, `\"`),
+				fromEmail,
+				contact.ID.String(),
+				strings.ReplaceAll(truncateForSSE(firstNonEmpty(msg.Body, msg.Snippet), 100), `"`, `\"`),
+				time.Now().Format(time.RFC3339),
+			)
+			topic := fmt.Sprintf("sse:daily-actions:%s", agent.UserID.String())
+			if err := w.redisClient.Publish(ctx, topic, sseEvent).Err(); err != nil {
+				logger.FromContext(ctx).Warn().Err(err).Msg("Failed to publish prospect_replied SSE event")
+			} else {
+				logger.FromContext(ctx).Info().
+					Str("contact_name", contact.Name).
+					Str("from_email", fromEmail).
+					Msg("Published prospect_replied SSE event")
+			}
+
+			// Note: outreach state update (REPLIED) is handled by reply_worker
+			// via the outreach state machine (UpdateOutreachForHandler)
+			// to ensure consistent state transitions with interaction logging,
+			// followup count reset, and sentiment tracking.
+		}
+	}
+
+	// Enqueue handle_reply task for intent classification + auto-reply
+	if w.enqueueClient != nil {
+		replyPayload := map[string]interface{}{"email_id": email.ID}
+		if _, err := w.enqueueClient.EnqueueTask(ctx, "email:handle_reply", replyPayload); err != nil {
+			// Không nuốt lỗi: thiếu bước này thì reply không bao giờ được phân
+			// loại/draft. Trả lỗi để asynq retry cả sync task (email đã lưu là
+			// idempotent nhờ check tồn tại phía trên).
+			logger.FromContext(ctx).Error().
+				Err(err).
+				Str("email_id", email.ID.String()).
+				Msg("Failed to enqueue handle_reply task")
+			return fmt.Errorf("failed to enqueue handle_reply for email %s: %w", email.ID, err)
+		} else {
+			logger.FromContext(ctx).Info().
+				Str("email_id", email.ID.String()).
+				Str("conversation_id", conversation.ID.String()).
+				Msg("Enqueued handle_reply task for inbound email")
+		}
 	}
 
 	return nil
@@ -1204,6 +1363,13 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func truncateForSSE(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen]
 }
 
 var (
@@ -1261,7 +1427,7 @@ func (w *GeneralEmailWorker) SendInviteMemberEmail(ctx context.Context, task *as
 	return nil
 }
 
-func buildTemplateData(agent *domain.Agent, contact *domain.Contact) map[string]string {
+func buildTemplateData(agent *domain.Agent, contact *domain.Contact, organizationName string) map[string]string {
 	data := map[string]string{}
 
 	// Contact fields
@@ -1275,8 +1441,8 @@ func buildTemplateData(agent *domain.Agent, contact *domain.Contact) map[string]
 		if len(nameParts) > 1 {
 			data["contact_last_name"] = normalizeTemplateValue(strings.Join(nameParts[1:], " "))
 		}
-		// Extract email from profile JSONB
-		contactEmail := extractEmailFromProfile(contact.Profile)
+		// Extract email from contact
+		contactEmail := extractContactEmail(contact)
 		data["contact_email"] = normalizeTemplateValue(contactEmail)
 		data["contact_company"] = normalizeTemplateValue(contact.Company)
 		data["contact_job_title"] = normalizeTemplateValue(contact.JobTitle)
@@ -1285,9 +1451,10 @@ func buildTemplateData(agent *domain.Agent, contact *domain.Contact) map[string]
 
 	// Agent fields
 	senderName := normalizeTemplateValue(agent.Name)
-	organizationName := ""
-	// Note: Agent.Organization relationship removed to avoid circular imports
-	// Organization data should be loaded separately using relations package if needed
+	// The caller looks the organisation up; this used to be a hard-coded ""
+	// so every email went out as "We Miss You at !" with an empty signature
+	// line, while the editor preview showed the name.
+	organizationName = normalizeTemplateValue(organizationName)
 
 	signatureTemplate := strings.TrimSpace(agent.Signature)
 	if signatureTemplate == "" {
@@ -1322,12 +1489,70 @@ func normalizeTemplateValue(val string) string {
 
 func prepareEmailBody(body string, isHTML bool) (string, bool) {
 	normalized := strings.ReplaceAll(body, "\r\n", "\n")
+	normalized = stripUnfilledPlaceholders(normalized)
+	normalized = collapseBlankLines(normalized)
 
 	if isHTML || looksLikeMarkdown(normalized) {
 		return markdownToHTML(normalized), true
 	}
 
 	return normalized, false
+}
+
+// unfilledPlaceholder matches a bracketed instruction the model left behind,
+// e.g. "[Your Name]", "[Tên bạn]", "[Company]". These are meant to be filled
+// from contact data before sending; anything still bracketed at send time is a
+// gap, and shipping it to a prospect looks worse than shipping nothing.
+//
+// At most three words are matched, so a merge field like "[Your Full Name]"
+// is removed while genuine bracketed prose such as
+// "[attached to this message for your review]" is left alone.
+var unfilledPlaceholder = regexp.MustCompile(
+	`\[[\p{L}\p{N}._/'-]+(?: [\p{L}\p{N}._/'-]+){0,2}\]`)
+
+// stripUnfilledPlaceholders removes leftover placeholders and tidies the
+// punctuation they leave behind.
+func stripUnfilledPlaceholders(body string) string {
+	if !strings.Contains(body, "[") {
+		return body
+	}
+
+	cleaned := unfilledPlaceholder.ReplaceAllString(body, "")
+
+	// A removed placeholder often sat alone on the signature line ("Best,\n
+	// [Your Name]"), leaving a dangling blank line or a stray comma.
+	lines := strings.Split(cleaned, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " \t")
+	}
+	return strings.Join(lines, "\n")
+}
+
+// collapseBlankLines squeezes runs of empty lines down to a single blank line.
+//
+// Every newline becomes a <br/> downstream, so three blank lines between two
+// paragraphs render as four stacked breaks in the prospect's inbox. Models are
+// inconsistent about paragraph spacing, so normalise here rather than hope the
+// prompt holds.
+func collapseBlankLines(body string) string {
+	lines := strings.Split(body, "\n")
+	out := make([]string, 0, len(lines))
+	blank := 0
+
+	for _, line := range lines {
+		line = strings.TrimRight(line, " \t")
+		if strings.TrimSpace(line) == "" {
+			blank++
+			if blank > 1 {
+				continue
+			}
+		} else {
+			blank = 0
+		}
+		out = append(out, line)
+	}
+
+	return strings.Trim(strings.Join(out, "\n"), "\n")
 }
 
 func looksLikeMarkdown(body string) bool {
@@ -1354,12 +1579,72 @@ func applyTemplateData(template string, data map[string]string) string {
 		return template
 	}
 
-	result := template
+	result := dropDuplicateSignOff(template, data["agent_signature"])
 	for key, value := range data {
 		single := "{" + key + "}"
 		double := "{{" + key + "}}"
 		result = strings.ReplaceAll(result, double, value)
 		result = strings.ReplaceAll(result, single, value)
 	}
-	return result
+	return fillNamePlaceholders(result, data["sender_name"])
+}
+
+// signOffLine reports whether a line is a closing such as "Best," or
+// "Kind regards," on its own.
+var signOffLine = regexp.MustCompile(`(?i)^\s*(best|best regards?|kind regards?|warm regards?|regards?|thanks|thank you|many thanks|cheers|sincerely|yours sincerely|all the best|take care|wishing you well|trân trọng|thân mến|thân ái|cảm ơn)[,.!]?\s*$`)
+
+// dropDuplicateSignOff removes the template's own closing line when the
+// signature brings one of its own. Generated templates end with "Best,"
+// followed by {agent_signature}, and the signature starts with "Best
+// regards,", so prospects received "Best,\nBest regards,\nName".
+func dropDuplicateSignOff(template, signature string) string {
+	const tag = "{agent_signature}"
+	idx := strings.Index(template, tag)
+	if idx < 0 {
+		idx = strings.Index(template, "{{agent_signature}}")
+		if idx < 0 {
+			return template
+		}
+	}
+	sigLines := strings.Split(strings.TrimSpace(signature), "\n")
+	if len(sigLines) == 0 || !signOffLine.MatchString(sigLines[0]) {
+		return template
+	}
+	before := template[:idx]
+	lines := strings.Split(before, "\n")
+	// Walk back over blank lines to the last line of text before the tag.
+	i := len(lines) - 1
+	for i >= 0 && strings.TrimSpace(lines[i]) == "" {
+		i--
+	}
+	if i < 0 || !signOffLine.MatchString(lines[i]) {
+		return template
+	}
+	lines = append(lines[:i], lines[i+1:]...)
+	return strings.Join(lines, "\n") + template[idx:]
+}
+
+// namePlaceholders are the square-bracket sign-offs models leave in a draft
+// instead of the sender's name. They use brackets rather than the {key} merge
+// syntax, so applyTemplateData's loop never touches them and they reach the
+// prospect verbatim as "Best, [Your Name]".
+var namePlaceholders = []string{
+	"[Your Name]", "[your name]", "[YOUR NAME]", "[Your name]",
+	"[Sender Name]", "[sender name]", "[Your Full Name]",
+	"[Tên bạn]", "[tên bạn]", "[Tên Bạn]",
+	"[Tên của bạn]", "[tên của bạn]",
+	"[Tên người gửi]", "[tên người gửi]",
+}
+
+// fillNamePlaceholders swaps those sign-offs for the real sender name. With no
+// name available they are left in place for stripUnfilledPlaceholders to
+// remove — better an unsigned email than one addressed from "[Your Name]".
+func fillNamePlaceholders(text, senderName string) string {
+	if senderName == "" || !strings.Contains(text, "[") {
+		return text
+	}
+	for _, ph := range namePlaceholders {
+		text = strings.ReplaceAll(text, ph, senderName)
+	}
+	return text
 }

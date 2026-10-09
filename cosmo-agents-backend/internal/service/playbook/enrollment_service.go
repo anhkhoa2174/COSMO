@@ -3,6 +3,7 @@ package playbook
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -103,70 +104,102 @@ func (s *EnrollmentService) ListPendingApprovals(ctx context.Context) ([]*playbo
 
 // ApproveEnrollment approves an enrollment request and creates actual enrollment
 func (s *EnrollmentService) ApproveEnrollment(ctx context.Context, requestID, reviewedBy uuid.UUID) error {
-	// Get approval request
-	var approvalReq playbook.EnrollmentApprovalRequest
-	if err := s.approvalRepo.Approve(ctx, requestID, reviewedBy); err != nil {
-		return fmt.Errorf("failed to approve request: %w", err)
-	}
-
-	// Get the approval request details to create enrollment
-	requests, err := s.approvalRepo.ListPending(ctx)
+	// Read the request BEFORE approving it. Approving flips its status out of
+	// 'pending', so looking it up afterwards through ListPending found nothing
+	// and the enrollment below was silently never created.
+	approvalReq, err := s.pendingRequest(ctx, requestID)
 	if err != nil {
 		return err
 	}
 
-	// Find the approved request
-	for _, req := range requests {
-		if req.RequestID == requestID {
-			approvalReq = *req
-			break
-		}
+	// Everything that can stop the enrollment is checked before the request is
+	// marked approved: an approved request leaves the pending queue, so one
+	// whose enrollment then failed was never shown to anyone again.
+	pb, err := s.playbookRepo.GetByID(ctx, approvalReq.PlaybookID)
+	if err != nil {
+		return fmt.Errorf("failed to get playbook: %w", err)
+	}
+	if pb == nil {
+		return fmt.Errorf("playbook not found")
 	}
 
-	// Create enrollment (if approval succeeded)
-	if approvalReq.ContactID != uuid.Nil {
-		// Parse playbook config
-		pb, err := s.playbookRepo.GetByID(ctx, approvalReq.PlaybookID)
-		if err != nil {
-			return fmt.Errorf("failed to get playbook: %w", err)
-		}
+	var config v1schema.PlaybookConfig
+	if err := json.Unmarshal(pb.Config, &config); err != nil {
+		return fmt.Errorf("failed to parse playbook config: %w", err)
+	}
+	if len(config.Stages) == 0 {
+		return fmt.Errorf("playbook has no stages")
+	}
 
-		var config v1schema.PlaybookConfig
-		if err := json.Unmarshal(pb.Config, &config); err != nil {
-			return fmt.Errorf("failed to parse playbook config: %w", err)
-		}
+	existing, err := s.enrollmentRepo.GetByContactAndPlaybook(ctx, approvalReq.ContactID, approvalReq.PlaybookID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing enrollment: %w", err)
+	}
+	if existing != nil {
+		return fmt.Errorf("%w: contact already enrolled in this playbook", ErrAlreadyDecided)
+	}
 
-		if len(config.Stages) == 0 {
-			return fmt.Errorf("playbook has no stages")
+	if err := s.approvalRepo.Approve(ctx, requestID, reviewedBy); err != nil {
+		if errors.Is(err, playbookRepo.ErrRequestNotPending) {
+			return fmt.Errorf("%w: decided by someone else just now", ErrAlreadyDecided)
 		}
+		return fmt.Errorf("failed to approve request: %w", err)
+	}
 
-		firstStage := config.Stages[0]
-		executionLog := []map[string]interface{}{}
-		logBytes, _ := json.Marshal(executionLog)
+	firstStage := config.Stages[0]
+	executionLog := []map[string]interface{}{}
+	logBytes, _ := json.Marshal(executionLog)
 
-		now := time.Now()
-		enrollment := &playbook.ContactEnrollment{
-			ContactID:         approvalReq.ContactID,
-			PlaybookID:        approvalReq.PlaybookID,
-			AutomationRuleID:  &approvalReq.AutomationRuleID,
-			EnrollmentStatus:  "active",
-			CurrentStageOrder: firstStage.Order,
-			CurrentStageID:    firstStage.ID,
-			EnrolledAt:        &now,
-			ExecutionLog:      base.JSONB(logBytes),
-		}
+	now := time.Now()
+	enrollment := &playbook.ContactEnrollment{
+		ContactID:         approvalReq.ContactID,
+		PlaybookID:        approvalReq.PlaybookID,
+		AutomationRuleID:  &approvalReq.AutomationRuleID,
+		EnrollmentStatus:  "active",
+		CurrentStageOrder: firstStage.Order,
+		CurrentStageID:    firstStage.ID,
+		EnrolledAt:        &now,
+		ExecutionLog:      base.JSONB(logBytes),
+	}
 
-		if err := s.enrollmentRepo.Create(ctx, enrollment); err != nil {
-			return fmt.Errorf("failed to create enrollment: %w", err)
-		}
+	if err := s.enrollmentRepo.Create(ctx, enrollment); err != nil {
+		return fmt.Errorf("failed to create enrollment: %w", err)
 	}
 
 	return nil
 }
 
+// ErrAlreadyDecided marks a request that can no longer be approved or
+// rejected; the handler answers 409 rather than 500.
+var ErrAlreadyDecided = errors.New("approval request already decided")
+
 // RejectEnrollment rejects an enrollment request
 func (s *EnrollmentService) RejectEnrollment(ctx context.Context, requestID, reviewedBy uuid.UUID) error {
-	return s.approvalRepo.Reject(ctx, requestID, reviewedBy)
+	if _, err := s.pendingRequest(ctx, requestID); err != nil {
+		return err
+	}
+	if err := s.approvalRepo.Reject(ctx, requestID, reviewedBy); err != nil {
+		if errors.Is(err, playbookRepo.ErrRequestNotPending) {
+			return fmt.Errorf("%w: decided by someone else just now", ErrAlreadyDecided)
+		}
+		return err
+	}
+	return nil
+}
+
+// pendingRequest loads a request that is still awaiting a decision. A decided
+// request is not decided again: approving twice would enroll twice, and
+// rejecting an approved request would report "rejected" for a contact the
+// approval already enrolled.
+func (s *EnrollmentService) pendingRequest(ctx context.Context, requestID uuid.UUID) (*playbook.EnrollmentApprovalRequest, error) {
+	req, err := s.approvalRepo.GetByID(ctx, requestID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load approval request: %w", err)
+	}
+	if req.Status != "pending" {
+		return nil, fmt.Errorf("%w: it is %s", ErrAlreadyDecided, req.Status)
+	}
+	return req, nil
 }
 
 // GetEnrollmentByID gets an enrollment by ID

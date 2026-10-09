@@ -34,6 +34,13 @@ type ImportConfig struct {
 	// FieldMapping maps CSV column names to contact field names
 	// e.g., {"Company Name": "company", "Job": "job_title", "Custom Field 1": "custom_field_1"}
 	FieldMapping map[string]string
+	// ExplicitMapping imports only the columns in FieldMapping. RequiredFields
+	// are then contact fields that must be mapped to a column, not header
+	// names, and a mapped field that is not a contact column is stored in
+	// profile under its own name. Without it, every unmapped column is
+	// auto-mapped, so a column that happens to be called "email" competes with
+	// the one the user picked for email.
+	ExplicitMapping bool
 }
 
 // ImportResult contains the result of a CSV import operation
@@ -74,17 +81,37 @@ func (s *CSVImporter) Import(ctx context.Context, config ImportConfig) (*ImportR
 		return nil, fmt.Errorf("CSV file is empty")
 	}
 
-	// Step 2: Parse headers
+	// Step 2: Parse headers. Excel's "CSV UTF-8" export prefixes a byte order
+	// mark, which TrimSpace keeps; left on, the first column never matched
+	// its name (a leading "name" column landed in profile as "\ufeffname").
 	headers := records[0]
+	if len(headers) > 0 {
+		headers[0] = strings.TrimPrefix(headers[0], "\ufeff")
+	}
 	headerMap := make(map[string]int)
 	for i, header := range headers {
 		headerMap[strings.TrimSpace(strings.ToLower(header))] = i
 	}
 
 	// Step 3: Validate required columns
-	for _, field := range config.RequiredFields {
-		if _, exists := headerMap[field]; !exists {
-			return nil, fmt.Errorf("missing required header '%s'", field)
+	if config.ExplicitMapping {
+		mapped := make(map[string]bool, len(config.FieldMapping))
+		for column, target := range config.FieldMapping {
+			if _, exists := headerMap[strings.TrimSpace(strings.ToLower(column))]; !exists {
+				return nil, fmt.Errorf("column '%s' is not in the CSV file", column)
+			}
+			mapped[strings.ToLower(strings.TrimSpace(target))] = true
+		}
+		for _, field := range config.RequiredFields {
+			if !mapped[field] {
+				return nil, fmt.Errorf("no column is mapped to required field '%s'", field)
+			}
+		}
+	} else {
+		for _, field := range config.RequiredFields {
+			if _, exists := headerMap[field]; !exists {
+				return nil, fmt.Errorf("missing required header '%s'", field)
+			}
 		}
 	}
 
@@ -98,7 +125,12 @@ func (s *CSVImporter) Import(ctx context.Context, config ImportConfig) (*ImportR
 	result.RejectedReasons = make(map[string]string)
 
 	// Step 5: Build effective field mapping (CSV column -> contact field)
-	effectiveMapping := s.buildEffectiveMapping(headers, config.FieldMapping)
+	var effectiveMapping map[string]string
+	if config.ExplicitMapping {
+		effectiveMapping = explicitMapping(config.FieldMapping)
+	} else {
+		effectiveMapping = s.buildEffectiveMapping(headers, config.FieldMapping)
+	}
 
 	// Step 6: Process each row and create contacts
 	contacts, skipped := s.parseCSVRecordsWithMapping(records, headerMap, effectiveMapping, config.UserID, config.OrganizationID)
@@ -130,6 +162,9 @@ func (s *CSVImporter) Import(ctx context.Context, config ImportConfig) (*ImportR
 
 // Standard contact fields that map directly to Contact struct
 var standardFields = map[string]bool{
+	// "name" is read by combineName; without it here a "name" column was
+	// mapped to profile.name and every contact was saved as "N/A".
+	"name":       true,
 	"first_name": true,
 	"last_name":  true,
 	"email":      true,
@@ -141,6 +176,29 @@ var standardFields = map[string]bool{
 	"country":    true,
 	"state":      true,
 	"zip":        true,
+	// Contact columns too; before they were listed here an "industry" column
+	// was filed under profile and the contact's own field stayed empty.
+	"industry":        true,
+	"contact_channel": true,
+}
+
+// explicitMapping normalises a user-chosen column -> field mapping into the
+// form parseCSVRecordsWithMapping reads: lower-cased column names, and fields
+// that are not contact columns redirected into profile.
+func explicitMapping(fieldMapping map[string]string) map[string]string {
+	out := make(map[string]string, len(fieldMapping))
+	for column, target := range fieldMapping {
+		column = strings.TrimSpace(strings.ToLower(column))
+		target = strings.TrimSpace(strings.ToLower(target))
+		if column == "" || target == "" {
+			continue
+		}
+		if !standardFields[target] && !strings.HasPrefix(target, "profile.") {
+			target = "profile." + target
+		}
+		out[column] = target
+	}
+	return out
 }
 
 // buildEffectiveMapping creates the final field mapping from CSV headers
@@ -181,6 +239,9 @@ func (s *CSVImporter) buildEffectiveMapping(headers []string, customMapping map[
 // parseCSVRecordsWithMapping converts CSV records to domain.Contact objects using field mapping
 func (s *CSVImporter) parseCSVRecordsWithMapping(records [][]string, headerMap map[string]int, fieldMapping map[string]string, userID uuid.UUID, orgID *uuid.UUID) ([]*domain.Contact, int) {
 	contacts := make([]*domain.Contact, 0, len(records)-1)
+	// One INSERT ... ON CONFLICT cannot touch the same row twice, so a file
+	// repeating an email failed as a whole; the later row wins instead.
+	bySourceID := make(map[string]int)
 	skipped := 0
 	now := time.Now().UTC()
 
@@ -246,7 +307,7 @@ func (s *CSVImporter) parseCSVRecordsWithMapping(records [][]string, headerMap m
 			UserID:         userID,
 			OrganizationID: orgID,
 			Source:         string(domain.ContactSourceCSV),
-			SourceID:       fmt.Sprintf("csv_%s", email),
+			SourceID:       csvSourceID(email),
 			Name:           combineName(getFieldByTarget("first_name", ""), getFieldByTarget("last_name", ""), getFieldByTarget("name", "N/A")),
 			Company:        getFieldByTarget("company", "N/A"),
 			JobTitle:       getFieldByTarget("job_title", "N/A"),
@@ -255,6 +316,8 @@ func (s *CSVImporter) parseCSVRecordsWithMapping(records [][]string, headerMap m
 			Country:        getFieldByTarget("country", "N/A"),
 			State:          getFieldByTarget("state", "N/A"),
 			Zip:            getFieldByTarget("zip", "N/A"),
+			Industry:       getFieldByTarget("industry", ""),
+			ContactChannel: getFieldByTarget("contact_channel", ""),
 			DoNotContact:   false,
 			TimestampMixin: domain.TimestampMixin{
 				CreatedAt: now,
@@ -272,10 +335,34 @@ func (s *CSVImporter) parseCSVRecordsWithMapping(records [][]string, headerMap m
 			}
 		}
 
+		// Create sets these too: contact_information is the duplicate key and
+		// the outreach recipient, and without a status every imported row
+		// stayed "pending" even when complete.
+		if email != "" && email != "N/A" {
+			contact.ContactInformation = email
+		}
+		contact.CalculateStatus()
+
+		if prev, dup := bySourceID[contact.SourceID]; dup {
+			contacts[prev] = contact
+			skipped++
+			continue
+		}
+		bySourceID[contact.SourceID] = len(contacts)
 		contacts = append(contacts, contact)
 	}
 
 	return contacts, skipped
+}
+
+// csvSourceID keys an imported row by its email, case-folded so that
+// "Ann@x.com" and "ann@x.com" are one contact. A row without an email gets a
+// key of its own: sharing "csv_N/A" collapsed all of them into one contact.
+func csvSourceID(email string) string {
+	if email == "" || email == "N/A" {
+		return fmt.Sprintf("csv_%s", uuid.NewString())
+	}
+	return fmt.Sprintf("csv_%s", strings.ToLower(email))
 }
 
 // parseCSVRecords converts CSV records to domain.Contact objects (legacy method for backwards compatibility)
@@ -407,6 +494,9 @@ func (s *CSVImporter) ValidateCSVFile(filePath string, requiredFields []string) 
 		return fmt.Errorf("failed to read CSV headers: %w", err)
 	}
 
+	if len(headers) > 0 {
+		headers[0] = strings.TrimPrefix(headers[0], "\ufeff")
+	}
 	headerMap := make(map[string]bool)
 	for _, header := range headers {
 		headerMap[strings.TrimSpace(strings.ToLower(header))] = true

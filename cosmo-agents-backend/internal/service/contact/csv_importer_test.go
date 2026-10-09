@@ -9,10 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
 	baseRepo "github.com/rockship/cosmo-agents-go/internal/repository/base"
 	contactRepo "github.com/rockship/cosmo-agents-go/internal/repository/contact"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 )
 
 func emailPhoneFromProfile(t *testing.T, contact *domain.Contact) (string, string) {
@@ -362,4 +364,65 @@ func TestCSVImporter_DefaultRequiredFields(t *testing.T) {
 	assert.Equal(t, 1, result.ImportedRows)
 
 	mockRepo.AssertExpectations(t)
+}
+
+// importCSVIntoPG runs a real import against Postgres, with the unique index
+// production carries for the upsert, and returns the stored rows by name.
+func importCSVIntoPG(t *testing.T, content string) (*ImportResult, map[string]domain.Contact) {
+	t.Helper()
+	db, err := pgtest.Open(t, &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&domain.Contact{}))
+	require.NoError(t, db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_contacts_source_id_source_user_id ON contacts(source_id, source, user_id)`).Error)
+
+	f, err := os.CreateTemp(t.TempDir(), "import_*.csv")
+	require.NoError(t, err)
+	_, err = f.WriteString(content)
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+
+	orgID := uuid.New()
+	result, err := NewCSVImporter(contactRepo.NewContactRepository(db)).Import(context.Background(), ImportConfig{
+		FilePath:       f.Name(),
+		UserID:         uuid.New(),
+		OrganizationID: &orgID,
+		RequiredFields: []string{"email"},
+	})
+	require.NoError(t, err)
+
+	var rows []domain.Contact
+	require.NoError(t, db.Find(&rows).Error)
+	byName := make(map[string]domain.Contact, len(rows))
+	for _, r := range rows {
+		byName[r.Name] = r
+	}
+	return result, byName
+}
+
+func TestCSVImporter_Import_PG_RealWorldFiles(t *testing.T) {
+	t.Run("BOM and name column", func(t *testing.T) {
+		// Excel "CSV UTF-8" output: BOM, then a name column first.
+		_, rows := importCSVIntoPG(t, "\ufeffname,email,company,job_title\nNguyễn Văn An,an@example.vn,Công ty Việt,CTO\n")
+		require.Len(t, rows, 1)
+		got, ok := rows["Nguyễn Văn An"]
+		require.True(t, ok, "name column must fill the name, got %v", rows)
+		assert.Equal(t, "Công ty Việt", got.Company)
+		assert.NotContains(t, string(got.Profile), "name", "name must not be filed as a profile field")
+		// Complete rows are ready to send and carry their dedupe key.
+		assert.Equal(t, "an@example.vn", got.ContactInformation)
+		assert.Equal(t, "ready", got.Status)
+	})
+
+	t.Run("repeated email in one file", func(t *testing.T) {
+		result, rows := importCSVIntoPG(t, "name,email,company\nFirst,dup@example.com,A\nSecond,DUP@example.com,B\nOther,other@example.com,C\n")
+		require.Len(t, rows, 2, "one contact per email, whatever its case")
+		assert.Equal(t, "B", rows["Second"].Company, "the later row wins")
+		assert.Equal(t, 2, result.ImportedRows)
+		assert.Equal(t, 1, result.SkippedRows)
+	})
+
+	t.Run("rows without email are kept apart", func(t *testing.T) {
+		_, rows := importCSVIntoPG(t, "name,email\nNo Mail One,\nNo Mail Two,\n")
+		assert.Len(t, rows, 2)
+	})
 }

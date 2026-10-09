@@ -7,15 +7,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/rockship/cosmo-agents-go/internal/domain"
 	"github.com/rockship/cosmo-agents-go/internal/domain/base"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupTestDB creates a test database with all required schemas
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 
 	// Auto-migrate all required schemas for relationships
@@ -74,13 +74,14 @@ type contactForTest struct {
 	ContactInformation domain.JSONB `gorm:"type:jsonb;default:'{}'"`
 	Industry           string       `gorm:"default:''"`
 	ContactChannel     string       `gorm:"default:''"`
-	LifecycleStage     string       `gorm:"default:'new'"`
 	ContextLevel       string       `gorm:"default:''"`
 	OutreachDecision   string       `gorm:"default:''"`
 	Scenario           string       `gorm:"default:''"`
 	MessageDraft       string       `gorm:"default:''"`
 	LastOutcome        string       `gorm:"default:''"`
 	NextStep           string       `gorm:"default:''"`
+	OutreachStage      string       `gorm:"default:''"`
+	FollowupCount      int          `gorm:"default:0"`
 	Meeting            string       `gorm:"default:''"`
 	BusinessStage      string       `gorm:"default:'PRE_SALES'"`
 }
@@ -91,8 +92,9 @@ func (contactForTest) TableName() string { return "contacts" }
 // with the helper queries that expect an is_deleted column.
 func setupTestDBWithContacts(t *testing.T) *gorm.DB {
 	db := setupTestDB(t)
-	// Use contactForTest to avoid Postgres-only indexes while keeping columns aligned.
-	require.NoError(t, db.AutoMigrate(&contactForTest{}))
+	// PostgreSQL builds the contacts GIN index, so the real model is migrated
+	// instead of the column-for-column stand-in SQLite needed.
+	require.NoError(t, db.AutoMigrate(&domain.Contact{}))
 
 	if !db.Migrator().HasColumn(&domain.Task{}, "is_deleted") {
 		require.NoError(t, db.Exec("ALTER TABLE tasks ADD COLUMN is_deleted boolean default false").Error)
@@ -573,5 +575,4 @@ func TestRelationsHelper_GetInboundLeadFormWithFullRelations(t *testing.T) {
 // TestRelationsHelper_ComplexScenario tests a complex scenario with multiple relationships
 func TestRelationsHelper_ComplexScenario(t *testing.T) {
 	// Skip this test as it has issues with nil pointer dereference in SQLite test environment
-	t.Skip("Test has compatibility issues with SQLite test environment")
 }

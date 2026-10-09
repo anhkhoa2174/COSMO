@@ -56,6 +56,11 @@ func (i *Initializer) verifyRedisStack(ctx context.Context) error {
 
 	hasSearch := false
 	for _, mod := range moduleList {
+		// RESP3 (go-redis v9's default) replies with one map per module;
+		// RESP2 with a flat [name, value, ver, value, ...] array.
+		if m, ok := mod.(map[interface{}]interface{}); ok {
+			mod = []interface{}{"name", m["name"]}
+		}
 		modInfo, ok := mod.([]interface{})
 		if !ok || len(modInfo) < 2 {
 			continue
@@ -148,38 +153,32 @@ func (i *Initializer) GetIndexStats(ctx context.Context) (map[string]IndexStats,
 			continue
 		}
 
-		infoList, ok := info.([]interface{})
-		if !ok {
+		// RESP3 (go-redis v9's default) replies with a map, RESP2 with a flat
+		// [key, value, ...] array; current servers send the counts as integers
+		// under both, older ones as strings, so values are read with Sprint.
+		fields := map[string]interface{}{}
+		switch v := info.(type) {
+		case map[interface{}]interface{}:
+			for k, val := range v {
+				fields[fmt.Sprint(k)] = val
+			}
+		case []interface{}:
+			for j := 0; j+1 < len(v); j += 2 {
+				fields[fmt.Sprint(v[j])] = v[j+1]
+			}
+		default:
 			continue
 		}
 
-		stat := IndexStats{
-			Name: idx,
+		stat := IndexStats{Name: idx}
+		if v, ok := fields["num_docs"]; ok {
+			stat.DocumentCount = fmt.Sprint(v)
 		}
-
-		// Parse index info
-		for j := 0; j < len(infoList); j += 2 {
-			if j+1 >= len(infoList) {
-				break
-			}
-
-			key := fmt.Sprintf("%v", infoList[j])
-			value := infoList[j+1]
-
-			switch key {
-			case "num_docs":
-				if v, ok := value.(string); ok {
-					stat.DocumentCount = v
-				}
-			case "num_records":
-				if v, ok := value.(string); ok {
-					stat.RecordCount = v
-				}
-			case "indexing":
-				if v, ok := value.(string); ok {
-					stat.IsIndexing = v == "1"
-				}
-			}
+		if v, ok := fields["num_records"]; ok {
+			stat.RecordCount = fmt.Sprint(v)
+		}
+		if v, ok := fields["indexing"]; ok {
+			stat.IsIndexing = fmt.Sprint(v) == "1"
 		}
 
 		stats[idx] = stat

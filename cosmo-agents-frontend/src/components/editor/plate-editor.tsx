@@ -19,13 +19,26 @@ interface PlateEditorProps {
   deps?: any[];
 }
 
-export function PlateEditor({ value = '', onChange, onFocus, onBlur, deps, readOnly = false }: PlateEditorProps) {
-  const editor = useCreateEditor({ value: (editor) => deserializeMd(editor, value), readOnly }, deps);
+export function PlateEditor({
+  value = '',
+  onChange,
+  onFocus,
+  onBlur,
+  deps,
+  readOnly = false,
+}: PlateEditorProps) {
+  const editor = useCreateEditor(
+    { value: (editor) => deserializeMd(editor, value), readOnly },
+    deps
+  );
 
-  const handleOnChange = useCallback(({ editor }: { editor: any }) => {
-    const _value = editor.api.markdown.serialize();
-    onChange?.(_value);
-  }, [onChange]);
+  const handleOnChange = useCallback(
+    ({ editor }: { editor: any }) => {
+      const _value = editor.api.markdown.serialize();
+      onChange?.(_value);
+    },
+    [onChange]
+  );
 
   return (
     <DndProvider backend={HTML5Backend}>

@@ -27,7 +27,7 @@ export const copilotPlugins = [
         },
         onError: (error) => {
           api.copilot.setBlockSuggestion({
-            text: stripMarkdown(error?.message || "Oops! Something went wrong"),
+            text: stripMarkdown(error?.message || 'Oops! Something went wrong'),
           });
         },
         onFinish: (_, completion) => {

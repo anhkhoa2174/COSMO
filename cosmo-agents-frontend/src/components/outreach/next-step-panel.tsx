@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/card';
 import {
   describeNextAction,
+  nextActionDetail,
   nextActionColors,
   nextActionLabels,
 } from '@/lib/next-step';
@@ -205,7 +206,7 @@ export function NextStepPanel({ contactId }: { contactId: string }) {
             <div className="flex flex-wrap items-center gap-2">
               <ActionBadge action={current.action} />
               <span className="text-sm font-medium">
-                {describeNextAction(current.action, current.args, current.due_at)}
+                {nextActionDetail(current.action, current.args, current.due_at)}
               </span>
             </div>
             {current.reason && (

@@ -63,6 +63,7 @@ import { GroupPicker } from './conversation-groups';
 import { Badge } from '@/components/ui/badge';
 import {
   describeNextAction,
+  nextActionDetail,
   nextActionColors,
   nextActionLabels,
 } from '@/lib/next-step';
@@ -460,7 +461,7 @@ export function ConversationDisplay({
                   {nextActionLabels[nextStep.action] ?? nextStep.action}
                 </Badge>
                 <span>
-                  {describeNextAction(
+                  {nextActionDetail(
                     nextStep.action,
                     nextStep.args,
                     nextStep.due_at

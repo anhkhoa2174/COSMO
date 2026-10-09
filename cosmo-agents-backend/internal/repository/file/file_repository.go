@@ -2,6 +2,8 @@ package file
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -87,6 +89,28 @@ func (r *FileRepository) FindByUserID(ctx context.Context, userID uuid.UUID, pag
 	}, nil
 }
 
+// filterableFileColumns are the only filter keys FindAll accepts. A key is
+// spliced into the SQL as a column name, so taking it from a client body
+// otherwise let the client write arbitrary SQL into the WHERE clause.
+var filterableFileColumns = map[string]bool{
+	"user_id": true, "filename": true, "mime_type": true, "s3_key": true, "size": true,
+}
+
+// OwnsKnowledgeKey reports whether the S3 key belongs to one of the user's
+// knowledge documents. Those uploads are not rows in files: they are recorded
+// in knowledges with the key under cmetadata.s3_key, and the library preview
+// downloads them through the same file endpoint.
+func (r *FileRepository) OwnsKnowledgeKey(ctx context.Context, userID uuid.UUID, key string) (bool, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Table("knowledges").
+		Where("user_id = ? AND is_deleted = ? AND cmetadata->>'s3_key' = ?", userID, false, key).
+		Count(&n).Error
+	return n > 0, err
+}
+
+// ErrUnknownFilter is returned for a filter key that is not a file column.
+var ErrUnknownFilter = errors.New("unknown filter field")
+
 // FindAll finds all files with filter and pagination
 func (r *FileRepository) FindAll(ctx context.Context, filter base.Filter, pagination *base.PaginationParams) (*base.PaginatedResult[domain.File], error) {
 	var files []domain.File
@@ -96,6 +120,9 @@ func (r *FileRepository) FindAll(ctx context.Context, filter base.Filter, pagina
 
 	// Apply filters
 	for key, value := range filter {
+		if !filterableFileColumns[key] {
+			return nil, fmt.Errorf("%w: %q", ErrUnknownFilter, key)
+		}
 		query = query.Where(key+" = ?", value)
 	}
 
@@ -139,5 +166,12 @@ func (r *FileRepository) Update(ctx context.Context, file *domain.File) error {
 func (r *FileRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).Model(&domain.File{}).
 		Where("id = ?", id).
+		Update("is_deleted", true).Error
+}
+
+// DeleteByS3Key soft deletes a file by S3 key
+func (r *FileRepository) DeleteByS3Key(ctx context.Context, s3Key string) error {
+	return r.db.WithContext(ctx).Model(&domain.File{}).
+		Where("s3_key = ?", s3Key).
 		Update("is_deleted", true).Error
 }

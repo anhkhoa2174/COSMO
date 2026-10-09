@@ -52,6 +52,12 @@ type ContactResponse struct {
 	NextStep         string `json:"next_step,omitempty"`         // SEND, FOLLOW_UP, SET_MEETING, WAIT, DROP
 	Meeting          string `json:"meeting,omitempty"`           // Meeting details if scheduled
 	BusinessStage    string `json:"business_stage,omitempty"`    // PRE_SALES, SALES, POST_SALES
+
+	// Next-step engine (report Section 6.7); absent until it has decided.
+	NextAction       *string     `json:"next_action,omitempty"`
+	NextActionArgs   interface{} `json:"next_action_args,omitempty"`
+	NextActionReason *string     `json:"next_action_reason,omitempty"`
+	NextActionDueAt  interface{} `json:"next_action_due_at,omitempty"`
 }
 
 // ContactListItem mirrors the legacy Python response shape for contact listings.
@@ -193,6 +199,14 @@ func ToContactResponse(contact *domain.Contact) *ContactResponse {
 	response.NextStep = contact.NextStep
 	response.Meeting = contact.Meeting
 	response.BusinessStage = contact.BusinessStage
+	response.NextAction = contact.NextAction
+	response.NextActionReason = contact.NextActionReason
+	if len(contact.NextActionArgs) > 0 {
+		response.NextActionArgs = json.RawMessage(contact.NextActionArgs)
+	}
+	if contact.NextActionDueAt != nil {
+		response.NextActionDueAt = contact.NextActionDueAt
+	}
 
 	return response
 }
@@ -322,6 +336,18 @@ func ToContactListItem(contact *domain.Contact) *ContactListItem {
 	entity["next_step"] = contact.NextStep
 	entity["meeting"] = contact.Meeting
 	entity["business_stage"] = contact.BusinessStage
+	if contact.NextAction != nil {
+		entity["next_action"] = *contact.NextAction
+		if len(contact.NextActionArgs) > 0 {
+			entity["next_action_args"] = json.RawMessage(contact.NextActionArgs)
+		}
+		if contact.NextActionReason != nil {
+			entity["next_action_reason"] = *contact.NextActionReason
+		}
+		if contact.NextActionDueAt != nil {
+			entity["next_action_due_at"] = contact.NextActionDueAt
+		}
+	}
 
 	return &ContactListItem{Entity: entity}
 }

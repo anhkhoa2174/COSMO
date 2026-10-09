@@ -2,6 +2,7 @@ package outreach
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -9,14 +10,21 @@ import (
 	"gorm.io/gorm"
 
 	contactdomain "github.com/rockship/cosmo-agents-go/internal/domain/contact"
+	nsdomain "github.com/rockship/cosmo-agents-go/internal/domain/nextstep"
 	outreachdomain "github.com/rockship/cosmo-agents-go/internal/domain/outreach"
 	contactrepo "github.com/rockship/cosmo-agents-go/internal/repository/contact"
 	outreachrepo "github.com/rockship/cosmo-agents-go/internal/repository/outreach"
+	nextstepservice "github.com/rockship/cosmo-agents-go/internal/service/nextstep"
 	outreachservice "github.com/rockship/cosmo-agents-go/internal/service/outreach"
 	"github.com/rockship/cosmo-agents-go/pkg/logger"
 )
 
 const defaultBatchSize = 200
+
+// maxDecisionsPerSweep bounds the model calls one sweep may make for one
+// user. The sweep runs every minute; a backlog is worked off over several
+// sweeps rather than in one burst.
+const maxDecisionsPerSweep = 10
 
 // RecalculateWorker recalculates outreach next_step for contacts periodically.
 // This worker runs on a schedule to update contacts whose next_step may have changed
@@ -29,6 +37,24 @@ type RecalculateWorker struct {
 	stateRepo       *outreachrepo.OutreachStateRepository
 	feedbackRepo    *outreachrepo.FeedbackRepository
 	outreachConfig  *outreachservice.Config
+
+	// Optional: the next-step engine and the organisation settings loader.
+	// Without them the sweep maintains the fixed cadence only.
+	engine      *nextstepservice.Engine
+	orgSettings func(ctx context.Context, userID uuid.UUID) ([]byte, error)
+	running     sync.Mutex
+}
+
+// WithNextStep lets the sweep run the next-step engine for organisations that
+// turned it on, and makes the cadence it computes the organisation's own
+// rather than the built-in default.
+func (w *RecalculateWorker) WithNextStep(
+	engine *nextstepservice.Engine,
+	orgSettings func(ctx context.Context, userID uuid.UUID) ([]byte, error),
+) *RecalculateWorker {
+	w.engine = engine
+	w.orgSettings = orgSettings
+	return w
 }
 
 // NewRecalculateWorker creates a new outreach recalculate worker
@@ -60,6 +86,14 @@ func NewRecalculateWorker(
 // HandleRecalculateNextStep recalculates next_step for all contacts in WAIT state.
 // This is triggered periodically by the scheduler.
 func (w *RecalculateWorker) HandleRecalculateNextStep(ctx context.Context, _ *asynq.Task) error {
+	// A sweep that makes model calls can outlast the one-minute schedule; two
+	// overlapping sweeps would decide the same contact twice.
+	if !w.running.TryLock() {
+		logger.Logger.Info().Msg("outreach: previous recalculation still running; skipped")
+		return nil
+	}
+	defer w.running.Unlock()
+
 	logger.Logger.Info().Msg("outreach: recalculate next_step started")
 
 	// Get all distinct user IDs from contacts
@@ -104,6 +138,11 @@ func (w *RecalculateWorker) recalculateForUser(ctx context.Context, userID uuid.
 		w.contactRepo,
 		w.outreachConfig,
 	)
+	if w.orgSettings != nil {
+		outreachSvc = outreachSvc.WithOrgSettings(w.orgSettings)
+	}
+	engineOn := w.engine != nil && w.engine.Enabled(ctx, userID)
+	decisions := 0
 
 	// Find all active contacts (excluding DROPPED) that may need recalculation
 	contacts, err := w.findActiveContacts(ctx, userID)
@@ -189,9 +228,36 @@ func (w *RecalculateWorker) recalculateForUser(ctx context.Context, userID uuid.
 
 			updatedCount++
 		}
+
+		if engineOn && decisions < maxDecisionsPerSweep {
+			if trigger := engineTrigger(contact, nextStepChanged); trigger != "" {
+				decisions++
+				if _, err := w.engine.Decide(ctx, nextstepservice.Input{
+					UserID: userID, ContactID: contact.ID, Trigger: trigger,
+				}); err != nil {
+					logger.Logger.Warn().Err(err).Str("contact_id", contact.ID.String()).
+						Msg("outreach: next-step decision failed")
+				}
+			}
+		}
 	}
 
 	return updatedCount, nil
+}
+
+// engineTrigger says whether a contact needs a new next-step decision: its
+// wait or nurture date has come, the cadence has moved on, or the engine has
+// never decided for it. A contact still waiting is left alone.
+func engineTrigger(c *contactdomain.Contact, cadenceMoved bool) nsdomain.Trigger {
+	switch {
+	case c.NextActionDueAt != nil && !c.NextActionDueAt.After(time.Now()):
+		return nsdomain.TriggerTimer
+	case c.NextActionDueAt != nil:
+		return ""
+	case c.NextAction == nil, cadenceMoved:
+		return nsdomain.TriggerCadence
+	}
+	return ""
 }
 
 // findActiveContacts finds all non-dropped contacts for a user that may need recalculation

@@ -3,7 +3,6 @@
 import { NavMain, type NavSection } from '@/components/nav/nav-main';
 import {
   Building2,
-  Calendar,
   CheckSquare,
   ClipboardList,
   Flag,
@@ -87,12 +86,6 @@ const sections: NavSection[] = [
         title: 'Outreach',
         url: '/outreach',
         icon: Send,
-      },
-      {
-        id: 'meetings-nav',
-        title: 'Meetings',
-        url: '/meetings',
-        icon: Calendar,
       },
       {
         id: 'tasks-nav',

@@ -248,7 +248,7 @@ const InlineComboboxInput = forwardRef<
         <Combobox
           ref={ref}
           className={cn(
-            'absolute top-0 left-0 size-full bg-transparent outline-none',
+            'absolute left-0 top-0 size-full bg-transparent outline-none',
             className
           )}
           value={value}
@@ -282,7 +282,7 @@ const InlineComboboxContent: typeof ComboboxPopover = ({
 };
 
 const comboboxItemVariants = cva(
-  'relative mx-1 flex h-[28px] items-center rounded-sm px-2 text-sm text-foreground outline-none select-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'relative mx-1 flex h-[28px] select-none items-center rounded-sm px-2 text-sm text-foreground outline-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     defaultVariants: {
       interactive: true,
@@ -373,12 +373,12 @@ const InlineComboboxRow = ComboboxRow;
 
 const InlineComboboxGroup = withCn(
   ComboboxGroup,
-  'hidden py-1.5 not-last:border-b [&:has([role=option])]:block'
+  'not-last:border-b hidden py-1.5 [&:has([role=option])]:block'
 );
 
 const InlineComboboxGroupLabel = withCn(
   ComboboxGroupLabel,
-  'mt-1.5 mb-2 px-3 text-xs font-medium text-muted-foreground'
+  'mb-2 mt-1.5 px-3 text-xs font-medium text-muted-foreground'
 );
 
 export {

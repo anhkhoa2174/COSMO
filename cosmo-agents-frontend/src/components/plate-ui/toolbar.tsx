@@ -12,7 +12,7 @@ import { withTooltip } from './tooltip';
 
 export const Toolbar = withCn(
   ToolbarPrimitive.Root,
-  'relative flex items-center select-none'
+  'relative flex select-none items-center'
 );
 
 const a = cn('flex items-center');
@@ -34,7 +34,7 @@ export const ToolbarSeparator = withCn(
 
 const toolbarButtonVariants = cva(
   cn(
-    'inline-flex cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg:not([data-icon])]:size-4'
+    'inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg:not([data-icon])]:size-4'
   ),
   {
     defaultVariants: {
@@ -241,7 +241,7 @@ export const ToolbarGroup = withRef<'div'>(({ children, className }, ref) => {
     >
       <div className="flex items-center">{children}</div>
 
-      <div className="mx-1.5 py-0.5 group-last/toolbar-group:hidden!">
+      <div className="group-last/toolbar-group:hidden! mx-1.5 py-0.5">
         <Separator orientation="vertical" />
       </div>
     </div>

@@ -27,6 +27,11 @@ export function NavUser() {
 
   if (!user) return null;
 
+  const initial = (user.name || user.email || '?')
+    .trim()
+    .charAt(0)
+    .toUpperCase();
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -38,7 +43,9 @@ export function NavUser() {
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={user.picture ?? ''} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                <AvatarFallback className="rounded-lg bg-violet-600 font-semibold text-white">
+                  {initial}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{user.name}</span>
@@ -57,7 +64,9 @@ export function NavUser() {
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.picture ?? ''} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                  <AvatarFallback className="rounded-lg bg-violet-600 font-semibold text-white">
+                    {initial}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{user.name}</span>

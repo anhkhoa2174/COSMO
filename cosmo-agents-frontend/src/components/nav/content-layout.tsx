@@ -1,48 +1,54 @@
 import React from 'react';
-// import { Separator } from '@/components/ui/separator';
-// import { SidebarTrigger } from '@/components/ui/sidebar';
+import { TopBar } from '@/components/nav/top-bar';
 import { cn } from '@/lib/utils';
 
 export function ContentLayout({
   title,
+  section,
+  icon,
   children,
   className,
   leftSection,
   rightSection,
+  variant = 'page',
 }: {
   title: string | JSX.Element;
+  /** Breadcrumb parent shown before the page title, e.g. "Pipeline". */
+  section?: string;
+  icon?: React.ComponentType<{ className?: string }>;
   children: React.ReactNode;
   className?: string;
   leftSection?: React.ReactNode;
   rightSection?: React.ReactNode;
+  /**
+   * `editor` is for full-bleed document screens — the campaign builder, the
+   * template editor, the playbook picker. They drop the utility cluster and
+   * the page padding so the canvas owns the whole area.
+   */
+  variant?: 'page' | 'editor';
 }) {
+  const isEditor = variant === 'editor';
+
   return (
     <>
-      <header className="sticky top-0 z-50 flex h-16 w-full shrink-0 items-center justify-between gap-2 border-b bg-background px-4 shadow-sm transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-16">
-        <div className="flex items-center gap-4">
-          {/* <SidebarTrigger className="-ml-1" /> */}
-          {/* <Separator orientation="vertical" className="mr-2 h-4" /> */}
-          {leftSection}
-          {typeof title === 'string' ? (
-            <p className="text-base font-semibold">{title}</p>
-          ) : (
-            title
-          )}
-        </div>
-        {rightSection}
-      </header>
+      <TopBar
+        title={title}
+        section={section}
+        icon={icon}
+        leftSection={leftSection}
+        rightSection={rightSection}
+        utilities={!isEditor}
+      />
       <div
         className={cn(
-          'flex flex-1 flex-col gap-4 overflow-y-auto p-4',
+          // min-w-0 lets this shrink inside the sidebar's flex row; without it
+          // a wide child stretches the whole shell and clips content at both
+          // edges instead of scrolling inside its own container.
+          'flex min-w-0 flex-1 flex-col overflow-y-auto',
+          isEditor ? 'bg-background' : 'gap-6 bg-muted/40 p-4 md:p-6',
           className
         )}
       >
-        {/* <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-            <div className="aspect-video rounded-xl bg-muted/50" />
-            <div className="aspect-video rounded-xl bg-muted/50" />
-            <div className="aspect-video rounded-xl bg-muted/50" />
-          </div>
-          <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min" /> */}
         {children}
       </div>
     </>

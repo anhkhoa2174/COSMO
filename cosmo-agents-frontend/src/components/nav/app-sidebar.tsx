@@ -1,9 +1,27 @@
 'use client';
 
-import { NavMain } from '@/components/nav/nav-main';
-import { AudioWaveform, Command, Flag, GalleryVerticalEnd, Settings, Users } from 'lucide-react';
+import { NavMain, type NavSection } from '@/components/nav/nav-main';
+import {
+  Building2,
+  Calendar,
+  CheckSquare,
+  ClipboardList,
+  Flag,
+  FolderOpen,
+  Inbox,
+  LayoutDashboard,
+  LayoutTemplate,
+  Library,
+  ListFilter,
+  Mail,
+  Send,
+  Settings,
+  SlidersHorizontal,
+  Sparkles,
+  Users,
+  Zap,
+} from 'lucide-react';
 import * as React from 'react';
-// import { NavProjects } from '@/components/nav/nav-projects';
 import { NavUser } from '@/components/nav/nav-user';
 import { TeamSwitcher } from '@/components/nav/team-switcher';
 import {
@@ -14,93 +32,175 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar';
 
-// This is sample data.
-const data = {
-  user: {
-    name: 'shadcn',
-    email: 'm@example.com',
-    avatar: '/favicon.svg',
+const sections: NavSection[] = [
+  {
+    items: [
+      {
+        id: 'dashboard-nav',
+        title: 'Dashboard',
+        url: '/dashboard',
+        icon: LayoutDashboard,
+      },
+    ],
   },
-  teams: [
-    {
-      name: 'Acme Inc',
-      logo: GalleryVerticalEnd,
-      plan: 'Enterprise',
-    },
-    {
-      name: 'Acme Corp.',
-      logo: AudioWaveform,
-      plan: 'Startup',
-    },
-    {
-      name: 'Evil Corp.',
-      logo: Command,
-      plan: 'Free',
-    },
-  ],
-  navMain: [
-    {
-      id: 'campaigns-nav',
-      title: 'Campaigns',
-      url: '/campaigns',
-      icon: Flag,
-    },
-    {
-      id: 'contacts-nav',
-      title: 'Contacts',
-      url: '#',
-      icon: Users,
-      isActive: true,
-      items: [
-        {
-          title: 'Contacts',
-          url: '/contacts',
-        },
-        {
-          title: 'Contact Lists',
-          url: '/contact-lists',
-        },
-        {
-          title: 'Custom Fields',
-          url: '/custom-fields',
-        },
-      ],
-    },
-    {
-      id: 'settings-nav',
-      title: 'Settings',
-      url: '#',
-      icon: Settings,
-      isActive: true,
-      items: [
-        {
-          title: 'Agents',
-          url: '/agents',
-        },
-        {
-          title: 'Company Information',
-          url: '/company-information',
-        },
-        {
-          title: 'Team Members',
-          url: '/team-members',
-        },
-      ],
-    },
-  ],
-};
+  {
+    label: 'Daily Work',
+    items: [
+      {
+        id: 'daily-actions-nav',
+        title: 'Daily Actions',
+        url: '/daily-actions',
+        icon: Zap,
+        badge: 8,
+      },
+      {
+        id: 'smart-insights-nav',
+        title: 'Smart Insights',
+        url: '/smart-insights',
+        icon: Sparkles,
+      },
+    ],
+  },
+  {
+    label: 'Inbox',
+    defaultOpen: false,
+    items: [
+      {
+        id: 'ai-inboxes-nav',
+        title: 'AI Inboxes',
+        url: '/ai-inboxes',
+        icon: Inbox,
+      },
+      {
+        id: 'emails-nav',
+        title: 'Emails',
+        url: '/emails',
+        icon: Mail,
+      },
+    ],
+  },
+  {
+    label: 'Pipeline',
+    items: [
+      {
+        id: 'outreach-nav',
+        title: 'Outreach',
+        url: '/outreach',
+        icon: Send,
+      },
+      {
+        id: 'meetings-nav',
+        title: 'Meetings',
+        url: '/meetings',
+        icon: Calendar,
+      },
+      {
+        id: 'tasks-nav',
+        title: 'Tasks',
+        url: '/tasks',
+        icon: CheckSquare,
+      },
+    ],
+  },
+  {
+    label: 'Prospects',
+    items: [
+      {
+        id: 'all-prospects-nav',
+        title: 'All Prospects',
+        url: '/all-prospects',
+        icon: Users,
+      },
+      {
+        id: 'audiences-nav',
+        title: 'Audiences',
+        url: '/audiences',
+        icon: ListFilter,
+      },
+      {
+        id: 'profile-fields-nav',
+        title: 'Profile Fields',
+        url: '/profile-fields',
+        icon: SlidersHorizontal,
+      },
+      {
+        id: 'lead-forms-nav',
+        title: 'Lead Forms',
+        url: '/lead-forms',
+        icon: ClipboardList,
+      },
+    ],
+  },
+  {
+    label: 'Campaigns',
+    items: [
+      {
+        id: 'campaigns-nav',
+        title: 'Campaigns',
+        url: '/campaigns',
+        icon: Flag,
+      },
+      {
+        id: 'templates-nav',
+        title: 'Templates',
+        url: '/templates',
+        icon: LayoutTemplate,
+      },
+    ],
+  },
+  {
+    label: 'Knowledge',
+    items: [
+      {
+        id: 'libraries-nav',
+        title: 'Knowledge Base',
+        url: '/libraries',
+        icon: Library,
+      },
+      {
+        id: 'files-nav',
+        title: 'Files',
+        url: '/files',
+        icon: FolderOpen,
+      },
+    ],
+  },
+  {
+    label: 'Settings',
+    defaultOpen: false,
+    items: [
+      {
+        id: 'agents-nav',
+        title: 'Agents',
+        url: '/agents',
+        icon: Settings,
+      },
+      {
+        id: 'organization-nav',
+        title: 'Organization',
+        url: '#',
+        icon: Building2,
+        items: [
+          { title: 'Company Information', url: '/company-information' },
+          { title: 'Team Members', url: '/team-members' },
+          { title: 'Sales Reps', url: '/sales-reps' },
+          { title: 'Outreach Timing', url: '/outreach-timing' },
+        ],
+      },
+    ],
+  },
+];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props} style={{ zIndex: 10 }}>
-      <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
+      <SidebarHeader className="px-3 pt-4">
+        <TeamSwitcher />
       </SidebarHeader>
-      <SidebarContent>
-        <NavMain items={data.navMain} />
-        {/* <NavProjects projects={data.projects} /> */}
+      <SidebarContent className="px-1.5">
+        <NavMain sections={sections} />
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-sidebar-border">
         <NavUser />
       </SidebarFooter>
       <SidebarRail />

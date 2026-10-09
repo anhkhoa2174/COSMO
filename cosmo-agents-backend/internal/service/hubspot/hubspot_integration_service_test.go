@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain/base"
@@ -710,8 +710,7 @@ func newStubHubspotAPI(transport http.RoundTripper) *HubspotAPI {
 
 func newHubspotServiceWithDB(t *testing.T, transport http.RoundTripper) (*HubspotIntegrationService, *userRepo.UserRepository, uuid.UUID) {
 	t.Helper()
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&user.User{}))
 

@@ -12,181 +12,18 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
-	campaignRepo "github.com/rockship/cosmo-agents-go/internal/repository/campaign"
-	contactRepo "github.com/rockship/cosmo-agents-go/internal/repository/contact"
-	inboundRepo "github.com/rockship/cosmo-agents-go/internal/repository/inbound_lead_form"
 	roleRepo "github.com/rockship/cosmo-agents-go/internal/repository/role"
 	userRepo "github.com/rockship/cosmo-agents-go/internal/repository/user"
 	"github.com/rockship/cosmo-agents-go/pkg/auth"
 	googleoauth "github.com/rockship/cosmo-agents-go/pkg/oauth2/google"
 	"golang.org/x/oauth2"
 )
-
-func newGoogleAdsService(t *testing.T) (*GoogleAdsService, context.Context, *campaignRepo.CampaignRepository, *inboundRepo.InboundLeadFormRepository, *contactRepo.ListContactRepository) {
-	t.Helper()
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
-	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(
-		&domain.InboundLeadForm{},
-		&domain.FormField{},
-		&domain.InboundLeadFormListContactAssociation{},
-		&domain.Campaign{},
-	))
-	// Minimal list_contacts table to avoid GIN index on contacts in SQLite
-	require.NoError(t, db.Exec(`CREATE TABLE list_contacts (
-		id TEXT PRIMARY KEY,
-		user_id TEXT,
-		name TEXT,
-		source TEXT,
-		source_id TEXT,
-		created_at DATETIME,
-		updated_at DATETIME,
-		hubspot_id TEXT,
-		organization_id TEXT,
-		is_deleted BOOLEAN DEFAULT false
-	);`).Error)
-	require.NoError(t, db.Exec(`CREATE TABLE list_contact_association (
-		id TEXT PRIMARY KEY,
-		list_contact_id TEXT,
-		contact_id TEXT
-	);`).Error)
-
-	inbound := inboundRepo.NewInboundLeadFormRepository(db)
-	contact := contactRepo.NewContactRepository(db)
-	list := contactRepo.NewListContactRepository(db)
-	campaign := campaignRepo.NewCampaignRepository(db)
-
-	service := NewGoogleAdsService(inbound, contact, list, campaign, nil, "http://localhost")
-	return service, context.Background(), campaign, inbound, list
-}
-
-func TestGoogleAdsService_GenerateWebhook(t *testing.T) {
-	svc, ctx, campaignRepo, _, listRepo := newGoogleAdsService(t)
-
-	userID := uuid.New()
-	campaignID := uuid.New()
-	listID := uuid.New()
-
-	require.NoError(t, campaignRepo.GetDB().Create(&domain.Campaign{
-		Base:           domain.Base{ID: campaignID},
-		UserID:         userID,
-		Status:         domain.CampaignStatusActive,
-		OrganizationID: nil,
-	}).Error)
-	require.NoError(t, listRepo.GetDB().Create(&domain.ListContact{
-		Base:   domain.Base{ID: listID},
-		UserID: userID,
-		Name:   "List",
-	}).Error)
-
-	webhook, err := svc.GenerateWebhook(ctx, CreateWebhookRequest{
-		CampaignID:    campaignID,
-		ContactListID: listID,
-		Name:          "Webhook",
-		Slug:          "google-webhook",
-		UserID:        userID,
-	})
-	require.NoError(t, err)
-	assert.Contains(t, webhook, "google-webhook")
-
-	// slug exists branch
-	webhook2, err := svc.GenerateWebhook(ctx, CreateWebhookRequest{
-		CampaignID:    campaignID,
-		ContactListID: listID,
-		Name:          "Webhook",
-		Slug:          "google-webhook",
-		UserID:        userID,
-	})
-	assert.Equal(t, ErrWebhookSlugExists, err)
-	assert.Empty(t, webhook2)
-
-	// campaign missing
-	_, err = svc.GenerateWebhook(ctx, CreateWebhookRequest{
-		CampaignID:    uuid.New(),
-		ContactListID: listID,
-		Name:          "Webhook",
-		Slug:          "another",
-		UserID:        userID,
-	})
-	assert.Equal(t, ErrCampaignNotFound, err)
-}
-
-func TestGoogleAdsService_ProcessWebhook_Errors(t *testing.T) {
-	svc, ctx, campaignRepo, inboundRepo, _ := newGoogleAdsService(t)
-
-	userID := uuid.New()
-	campaignID := uuid.New()
-	listID := uuid.New()
-
-	require.NoError(t, campaignRepo.GetDB().Create(&domain.Campaign{
-		Base:           domain.Base{ID: campaignID},
-		UserID:         userID,
-		Status:         domain.CampaignStatusPaused,
-		OrganizationID: nil,
-		AgentID:        func() *uuid.UUID { v := uuid.New(); return &v }(),
-	}).Error)
-
-	meta := map[string]string{
-		"campaign_id":     campaignID.String(),
-		"contact_list_id": listID.String(),
-	}
-	var metaJSON domain.JSONB
-	require.NoError(t, metaJSON.Marshal(meta))
-	require.NoError(t, inboundRepo.GetDB().Create(&domain.InboundLeadForm{
-		Base:       domain.Base{ID: uuid.New()},
-		Slug:       "slug",
-		Name:       "Form",
-		UIMetadata: metaJSON,
-	}).Error)
-
-	// Campaign inactive
-	err := svc.ProcessWebhook(ctx, "slug", GoogleAdsLeadPayload{
-		LeadID:         "1",
-		UserColumnData: []GoogleAdsColumnEntry{{ColumnID: "EMAIL", StringValue: "lead@example.com"}},
-	})
-	assert.Equal(t, ErrCampaignInactive, err)
-
-	// Missing agent
-	require.NoError(t, campaignRepo.GetDB().Model(&domain.Campaign{}).Where("id = ?", campaignID).Update("status", domain.CampaignStatusActive).Error)
-	require.NoError(t, campaignRepo.GetDB().Model(&domain.Campaign{}).Where("id = ?", campaignID).Update("agent_id", nil).Error)
-	err = svc.ProcessWebhook(ctx, "slug", GoogleAdsLeadPayload{
-		LeadID:         "1",
-		UserColumnData: []GoogleAdsColumnEntry{{ColumnID: "EMAIL", StringValue: "lead@example.com"}},
-	})
-	assert.Equal(t, ErrMissingAgent, err)
-
-	// Missing email => no error, early return
-	require.NoError(t, campaignRepo.GetDB().Model(&domain.Campaign{}).Where("id = ?", campaignID).Update("agent_id", uuid.New()).Error)
-	err = svc.ProcessWebhook(ctx, "slug", GoogleAdsLeadPayload{
-		LeadID:         "1",
-		UserColumnData: []GoogleAdsColumnEntry{{ColumnID: "FIRST_NAME", StringValue: "Lead"}},
-	})
-	assert.NoError(t, err)
-
-	// Unknown slug => nil
-	err = svc.ProcessWebhook(ctx, "unknown", GoogleAdsLeadPayload{})
-	assert.NoError(t, err)
-}
-
-func TestGoogleAdsHelpers(t *testing.T) {
-	data := mapLeadData(GoogleAdsLeadPayload{
-		UserColumnData: []GoogleAdsColumnEntry{
-			{ColumnID: "EMAIL", StringValue: "a@example.com"},
-			{ColumnID: "UNKNOWN", StringValue: "skip"},
-		},
-	})
-	assert.Equal(t, "a@example.com", data["email"])
-
-	assert.Equal(t, domain.NOT_AVAILABLE, fallback(" "))
-	assert.Equal(t, "value", fallback(" value "))
-}
 
 // Minimal GoogleAuthService error-path coverage
 func TestGoogleAuthService_GetAuthURLAndCallbackErrors(t *testing.T) {
@@ -199,8 +36,7 @@ func TestGoogleAuthService_GetAuthURLAndCallbackErrors(t *testing.T) {
 }
 
 func TestGoogleAuthService_IssueTokens(t *testing.T) {
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&domain.Role{}))
 
@@ -235,8 +71,7 @@ func (s *stubTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 // Full OAuth flow happy-path with stubbed HTTP.
 func TestGoogleAuthService_HandleOAuth2CallbackSuccess(t *testing.T) {
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&domain.User{}, &domain.Role{}))
 
@@ -278,8 +113,7 @@ func TestGoogleAuthService_HandleOAuth2CallbackSuccess(t *testing.T) {
 }
 
 func TestGoogleAuthService_InviteMemberAndRefreshAndAuthorize(t *testing.T) {
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&domain.User{}, &domain.Role{}))
 

@@ -1,0 +1,215 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="act-pipeline" name="Automatic Pipeline Activity">
+    <mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="lane_gmail" value="Gmail (Pub/Sub)" style="shape=swimlane;startSize=25;horizontal=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontStyle=1;fontSize=11;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="240" height="1140" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lane_sys" value="COSMO Backend (Worker)" style="shape=swimlane;startSize=25;horizontal=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontStyle=1;fontSize=11;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="280" y="20" width="320" height="1140" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lane_llm" value="LLM Service (OpenAI)" style="shape=swimlane;startSize=25;horizontal=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontStyle=1;fontSize=11;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="600" y="20" width="320" height="1140" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lane_fe" value="COSMO Frontend (SSE)" style="shape=swimlane;startSize=25;horizontal=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontStyle=1;fontSize=11;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="920" y="20" width="260" height="1140" as="geometry" />
+        </mxCell>
+
+        <mxCell id="initial" value="" style="ellipse;html=1;shape=mxgraph.flowchart.start_2;fontSize=12;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="lane_gmail">
+          <mxGeometry x="105" y="50" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a1" value="Receive push notification&#xa;(prospect replied)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_gmail">
+          <mxGeometry x="30" y="110" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a2" value="Fetch full email content&#xa;via Gmail API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="70" y="110" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a3" value="Match email to&#xa;contact and campaign" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="70" y="190" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a4" value="Store email in&#xa;conversations table" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="70" y="265" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a5" value="Classify reply intent&#xa;(6 categories)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_llm">
+          <mxGeometry x="75" y="265" width="170" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d1" value="" style="rhombus;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;" vertex="1" parent="lane_sys">
+          <mxGeometry x="140" y="350" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_dnc" value="Mark do_not_contact&#xa;= true, DROP contact" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="70" y="425" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_ooo" value="Pause follow-ups,&#xa;reschedule later" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="70" y="500" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fork1" value="" style="shape=line;html=1;strokeWidth=4;strokeColor=#000000;fillColor=#000000;fontSize=1;perimeter=linePerimeter;" vertex="1" parent="lane_sys">
+          <mxGeometry x="20" y="590" width="270" height="10" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a6_history" value="Build conversation&#xa;history context" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="20" y="630" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a6_rag" value="Retrieve knowledge&#xa;(RAG)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="170" y="630" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="join_context" value="" style="shape=line;html=1;strokeWidth=4;strokeColor=#000000;fillColor=#000000;fontSize=1;perimeter=linePerimeter;" vertex="1" parent="lane_sys">
+          <mxGeometry x="20" y="710" width="270" height="10" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a7_draft" value="Generate AI draft reply&#xa;(Coze / OpenAI)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_llm">
+          <mxGeometry x="75" y="740" width="170" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a8_save" value="Save draft to&#xa;conversation.cmetadata&#xa;(ai_reply JSONB)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="70" y="810" width="180" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fork2" value="" style="shape=line;html=1;strokeWidth=4;strokeColor=#000000;fillColor=#000000;fontSize=1;perimeter=linePerimeter;" vertex="1" parent="lane_sys">
+          <mxGeometry x="20" y="900" width="270" height="10" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a9_outreach" value="Update outreach_stage&#xa;(NO_REPLY to REPLIED)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="20" y="940" width="130" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a9_next" value="Update next_step&#xa;(WAIT to SET_MEETING)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="170" y="940" width="130" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="join2" value="" style="shape=line;html=1;strokeWidth=4;strokeColor=#000000;fillColor=#000000;fontSize=1;perimeter=linePerimeter;" vertex="1" parent="lane_sys">
+          <mxGeometry x="20" y="1020" width="270" height="10" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a10_sse" value="Push SSE notification&#xa;to BD frontend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_fe">
+          <mxGeometry x="40" y="1050" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a10_toast" value="Show toast:&#xa;New AI draft ready" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_fe">
+          <mxGeometry x="40" y="940" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="final" value="" style="ellipse;html=1;shape=mxgraph.flowchart.terminate;fontSize=12;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="lane_fe">
+          <mxGeometry x="115" y="1100" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="final2" value="" style="ellipse;html=1;shape=mxgraph.flowchart.terminate;fontSize=12;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="lane_sys">
+          <mxGeometry x="145" y="1080" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e01" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="initial" target="a1" parent="lane_gmail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e02" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a1" target="a2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e03" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a2" target="a3" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e04" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a3" target="a4" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e05" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a4" target="a5" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e06" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a5" target="d1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e07" value="[DO_NOT_CONTACT]" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;fontSize=9;fontStyle=2;" edge="1" source="d1" target="a_dnc" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="30" y="370" />
+              <mxPoint x="30" y="448" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e08" value="[OUT_OF_OFFICE]" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;fontSize=9;fontStyle=2;" edge="1" source="d1" target="a_ooo" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="280" y="370" />
+              <mxPoint x="280" y="523" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e09" value="[INTERESTED /&#xa;REQUEST_PRICING /&#xa;REQUEST_INFO]" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;fontSize=9;fontStyle=2;" edge="1" source="d1" target="fork1" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="fork1" target="a6_history" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="fork1" target="a6_rag" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a6_history" target="join_context" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a6_rag" target="join_context" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="join_context" target="a7_draft" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a7_draft" target="a8_save" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a8_save" target="fork2" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="fork2" target="a9_outreach" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="fork2" target="a9_next" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a9_outreach" target="join2" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e20" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a9_next" target="join2" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e21" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="join2" target="a10_sse" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e22" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="fork2" target="a10_toast" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e23" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a10_sse" target="final" parent="lane_fe">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e24" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_dnc" target="final2" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="30" y="470" />
+              <mxPoint x="30" y="1095" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e25" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_ooo" target="final2" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="280" y="523" />
+              <mxPoint x="280" y="1095" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

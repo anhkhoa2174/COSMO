@@ -1,0 +1,203 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="seq-uc3" name="UC-3 Classify Reply Intent (Automatic)">
+    <mxGraphModel dx="1422" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="UC-3: Classify Reply Intent (Automatic Pipeline)" style="text;html=1;fontSize=16;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="380" y="10" width="400" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="gmail_ps" value="Gmail&#xa;Pub/Sub" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="60" y="60" width="100" height="950" as="geometry" />
+        </mxCell>
+
+        <mxCell id="be" value="Backend&#xa;Worker" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="240" y="60" width="100" height="950" as="geometry" />
+        </mxCell>
+
+        <mxCell id="gmail_api" value="Gmail API" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="420" y="60" width="100" height="950" as="geometry" />
+        </mxCell>
+
+        <mxCell id="db" value="Database" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="600" y="60" width="100" height="950" as="geometry" />
+        </mxCell>
+
+        <mxCell id="llm" value="LLM Service&#xa;(OpenAI)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="780" y="60" width="110" height="950" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rag" value="Knowledge&#xa;Store (Redis)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="970" y="60" width="110" height="950" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sse" value="SSE Manager&#xa;(Frontend)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="60" width="110" height="950" as="geometry" />
+        </mxCell>
+
+        <!-- 1. Push notification -->
+        <mxCell id="m1" value="1. Push new email notification" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="110" y="140" as="sourcePoint" />
+            <mxPoint x="290" y="140" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 2. Fetch full email -->
+        <mxCell id="m2" value="2. Fetch full email content" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="290" y="180" as="sourcePoint" />
+            <mxPoint x="470" y="180" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 3. Return email -->
+        <mxCell id="m3" value="3. Email content (from, subject, body)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="470" y="220" as="sourcePoint" />
+            <mxPoint x="290" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 4. Match contact + campaign -->
+        <mxCell id="m4" value="4. Match from_email to contact + campaign" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="290" y="260" as="sourcePoint" />
+            <mxPoint x="650" y="260" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 5. Return contact + campaign -->
+        <mxCell id="m5" value="5. Contact + campaign data" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="650" y="300" as="sourcePoint" />
+            <mxPoint x="290" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 6. Store email -->
+        <mxCell id="m6" value="6. Store email in conversations table" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="290" y="340" as="sourcePoint" />
+            <mxPoint x="650" y="340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 7. Classify intent -->
+        <mxCell id="m7" value="7. Classify reply intent" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="290" y="390" as="sourcePoint" />
+            <mxPoint x="835" y="390" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 8. Return intent -->
+        <mxCell id="m8" value="8. Intent: INTERESTED (confidence: 0.92)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="835" y="430" as="sourcePoint" />
+            <mxPoint x="290" y="430" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Alt: DO_NOT_CONTACT -->
+        <mxCell id="alt1" value="alt [DO_NOT_CONTACT]" style="shape=umlFrame;whiteSpace=wrap;html=1;width=150;height=20;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="220" y="460" width="500" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="m_dnc" value="Mark do_not_contact=true, DROP contact" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="290" y="490" as="sourcePoint" />
+            <mxPoint x="650" y="490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 9. Build conversation history -->
+        <mxCell id="m9" value="9. Build conversation history context" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="290" y="540" as="sourcePoint" />
+            <mxPoint x="650" y="540" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 10. Return history -->
+        <mxCell id="m10" value="10. All emails in thread" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="650" y="580" as="sourcePoint" />
+            <mxPoint x="290" y="580" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 11. RAG: fetch knowledge -->
+        <mxCell id="m11" value="11. Retrieve relevant knowledge (RAG)" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="290" y="620" as="sourcePoint" />
+            <mxPoint x="1025" y="620" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 12. Return knowledge chunks -->
+        <mxCell id="m12" value="12. Top-5 knowledge chunks (cosine distance ≤ 0.5)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1025" y="660" as="sourcePoint" />
+            <mxPoint x="290" y="660" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 13. Generate draft -->
+        <mxCell id="m13" value="13. Generate draft reply (history + intent + knowledge)" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="290" y="700" as="sourcePoint" />
+            <mxPoint x="835" y="700" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 14. Return draft -->
+        <mxCell id="m14" value="14. RAG-grounded draft reply" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="835" y="740" as="sourcePoint" />
+            <mxPoint x="290" y="740" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 15. Save draft to cmetadata -->
+        <mxCell id="m15" value="15. Save draft to conversation.cmetadata.ai_reply" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="290" y="780" as="sourcePoint" />
+            <mxPoint x="650" y="780" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 16. Update outreach state -->
+        <mxCell id="m16" value="16. Update: outreach_stage=REPLIED, next_step=SET_MEETING" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="290" y="830" as="sourcePoint" />
+            <mxPoint x="650" y="830" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 17. Push SSE notification -->
+        <mxCell id="m17" value="17. Push SSE: &quot;New AI draft ready&quot;" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="290" y="880" as="sourcePoint" />
+            <mxPoint x="1215" y="880" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 18. Toast notification -->
+        <mxCell id="m18" value="18. Display toast notification to BD" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1215" y="920" as="sourcePoint" />
+            <mxPoint x="290" y="920" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Note -->
+        <mxCell id="note" value="Entire pipeline executes&#xa;autonomously without&#xa;human intervention" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="140" width="180" height="70" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,119 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="seq-uc11" name="UC-11 Correct Reply Intent">
+    <mxGraphModel dx="1200" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="700" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="UC-11: Correct Reply Intent" style="text;html=1;fontSize=16;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="300" y="10" width="300" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="bd" value="BD (Sales Rep)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="50" y="55" width="120" height="615" as="geometry" />
+        </mxCell>
+        <mxCell id="fe" value="Frontend" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="270" y="55" width="110" height="615" as="geometry" />
+        </mxCell>
+        <mxCell id="be" value="Backend API" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="480" y="55" width="120" height="615" as="geometry" />
+        </mxCell>
+        <mxCell id="db" value="Database" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="720" y="55" width="110" height="615" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m1" value="1. Select a different intent on the badge" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="110" y="120" as="sourcePoint" />
+            <mxPoint x="325" y="120" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m2" value="2. POST /v1/conversations/:id/intent {intent}" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="154" as="sourcePoint" />
+            <mxPoint x="540" y="154" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m3" value="3. Validate label against taxonomy; load conversation" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="540" y="188" as="sourcePoint" />
+            <mxPoint x="775" y="188" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m4" value="4. Conversation + intent_detail (owner checked)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="775" y="222" as="sourcePoint" />
+            <mxPoint x="540" y="222" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m5" value="5. Update conversation.intents; move intent / confidence / reasoning to original_*" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="540" y="256" as="sourcePoint" />
+            <mxPoint x="775" y="256" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m6" value="6. Update the classified email's intent" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="540" y="290" as="sourcePoint" />
+            <mxPoint x="775" y="290" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Alt: suppression -->
+        <mxCell id="alt" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;width=30;height=20;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="70" y="315" width="760" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="alt1" value="[Correction crosses the Do Not Contact boundary]" style="text;html=1;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="110" y="320" width="330" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="m7" value="7. Set or clear contact.do_not_contact" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="540" y="368" as="sourcePoint" />
+            <mxPoint x="775" y="368" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="sep" value="" style="endArrow=none;dashed=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="80" y="390" as="sourcePoint" />
+            <mxPoint x="820" y="390" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="alt2" value="[Otherwise — suppression unchanged]" style="text;html=1;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="110" y="396" width="270" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m8" value="8. Insert user_feedback {intent_correction, from, to} — best effort" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="540" y="455" as="sourcePoint" />
+            <mxPoint x="775" y="455" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m9" value="9. 200 {intent, draft_stale, suppression_changed}" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="540" y="489" as="sourcePoint" />
+            <mxPoint x="325" y="489" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m10" value="10. Show new intent and suppression state; drop the old evidence highlight" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="523" as="sourcePoint" />
+            <mxPoint x="110" y="523" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Opt: stale draft -->
+        <mxCell id="opt" value="opt" style="shape=umlFrame;whiteSpace=wrap;html=1;width=30;height=20;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="70" y="545" width="760" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="opt1" value="[draft_stale]" style="text;html=1;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="110" y="550" width="120" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="m11" value="11. Offer &quot;Rewrite with AI&quot; — the draft itself is left untouched" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="600" as="sourcePoint" />
+            <mxPoint x="110" y="600" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

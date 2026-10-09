@@ -1,0 +1,347 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="sys-arch" name="System Architecture">
+    <mxGraphModel dx="2400" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2600" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="System Architecture of COSMO" style="text;html=1;fontSize=18;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="900" y="10" width="400" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- ACTORS (top) -->
+        <!-- ============================================ -->
+        <mxCell id="user_actor" value="BD (Sales Rep)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="520" y="50" width="40" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="prospect_actor" value="Prospect" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1640" y="50" width="40" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- SYSTEM BOUNDARY -->
+        <!-- ============================================ -->
+        <mxCell id="sys_boundary" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#0066CC;strokeWidth=2;dashed=1;dashPattern=8 4;arcSize=5;" vertex="1" parent="1">
+          <mxGeometry x="60" y="160" width="1100" height="1100" as="geometry" />
+        </mxCell>
+        <mxCell id="sys_label" value="&lt;b&gt;COSMO System&lt;/b&gt;" style="text;html=1;fontSize=14;fontColor=#0066CC;align=left;" vertex="1" parent="1">
+          <mxGeometry x="70" y="165" width="150" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- LAYER 1: PRESENTATION -->
+        <!-- ============================================ -->
+        <mxCell id="presentation" value="Presentation Layer (Frontend)" style="swimlane;fontStyle=1;align=center;startSize=25;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="100" y="200" width="1020" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="fe_nextjs" value="Next.js 14&#xa;React 18" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;" vertex="1" parent="presentation">
+          <mxGeometry x="20" y="35" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="fe_ts" value="TypeScript" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;" vertex="1" parent="presentation">
+          <mxGeometry x="150" y="35" width="90" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="fe_tanstack" value="TanStack&#xa;Query" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;" vertex="1" parent="presentation">
+          <mxGeometry x="260" y="35" width="90" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="fe_jotai" value="Jotai" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;" vertex="1" parent="presentation">
+          <mxGeometry x="370" y="35" width="70" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="fe_shadcn" value="shadcn/ui" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;" vertex="1" parent="presentation">
+          <mxGeometry x="460" y="35" width="80" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="fe_sse" value="EventSource&#xa;(SSE Client)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;" vertex="1" parent="presentation">
+          <mxGeometry x="560" y="35" width="100" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- User -> Presentation (bidirectional) -->
+        <mxCell id="arr_user_fe" value="HTTP Request" style="endArrow=block;html=1;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="540" y="130" as="sourcePoint" />
+            <mxPoint x="540" y="200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arr_fe_user" value="HTML / JSON" style="endArrow=block;html=1;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="200" as="sourcePoint" />
+            <mxPoint x="500" y="130" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- LAYER 2: COMMUNICATION -->
+        <!-- ============================================ -->
+        <mxCell id="communication" value="Communication Layer" style="swimlane;fontStyle=1;align=center;startSize=25;fontSize=12;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="100" y="340" width="1020" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="comm_rest" value="REST / JSON&#xa;over HTTPS" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;" vertex="1" parent="communication">
+          <mxGeometry x="20" y="30" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="comm_jwt" value="JWT&#xa;Authentication" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;" vertex="1" parent="communication">
+          <mxGeometry x="160" y="30" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="comm_sse" value="SSE&#xa;(Server-Sent Events)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;" vertex="1" parent="communication">
+          <mxGeometry x="300" y="30" width="140" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Presentation <-> Communication (bidirectional) -->
+        <mxCell id="arr_fe_comm" value="" style="endArrow=block;startArrow=block;html=1;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="610" y="300" as="sourcePoint" />
+            <mxPoint x="610" y="340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- LAYER 3: BUSINESS LOGIC -->
+        <!-- ============================================ -->
+        <mxCell id="business" value="Business Logic Layer (Go / Fiber)" style="swimlane;fontStyle=1;align=center;startSize=25;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="100" y="460" width="1020" height="200" as="geometry" />
+        </mxCell>
+
+        <!-- Sub-layer labels -->
+        <mxCell id="bl_handler_label" value="Handlers" style="text;html=1;fontSize=10;fontStyle=2;align=center;fillColor=#f5f5f5;strokeColor=#CCCCCC;rounded=1;" vertex="1" parent="business">
+          <mxGeometry x="20" y="30" width="980" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bl_service_label" value="Services" style="text;html=1;fontSize=10;fontStyle=2;align=center;fillColor=#f5f5f5;strokeColor=#CCCCCC;rounded=1;" vertex="1" parent="business">
+          <mxGeometry x="20" y="55" width="980" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="svc1" value="Campaign&#xa;Management" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="business">
+          <mxGeometry x="20" y="85" width="110" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="svc2" value="Contact&#xa;Intelligence" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="business">
+          <mxGeometry x="145" y="85" width="110" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="svc3" value="Email Generation&#xa;&amp; Delivery" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="business">
+          <mxGeometry x="270" y="85" width="110" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="svc4" value="Outreach State&#xa;Machine" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="business">
+          <mxGeometry x="395" y="85" width="110" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="svc5" value="Intent&#xa;Classification" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="business">
+          <mxGeometry x="520" y="85" width="110" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="svc6" value="Knowledge Base&#xa;(RAG)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="business">
+          <mxGeometry x="20" y="140" width="110" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="svc7" value="Daily Action&#xa;Generation" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="business">
+          <mxGeometry x="145" y="140" width="110" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="svc8" value="Automation&#xa;Engine" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="business">
+          <mxGeometry x="270" y="140" width="110" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="svc9" value="Auth &amp;&#xa;Authorization" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="business">
+          <mxGeometry x="395" y="140" width="110" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- Repository label -->
+        <mxCell id="bl_repo_label" value="Repositories (GORM)" style="text;html=1;fontSize=10;fontStyle=2;align=center;fillColor=#f5f5f5;strokeColor=#CCCCCC;rounded=1;" vertex="1" parent="business">
+          <mxGeometry x="650" y="85" width="350" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="repo_box" value="ContactRepo | CampaignRepo | EmailRepo&#xa;AgentRepo | KnowledgeRepo | OutreachRepo&#xa;DailyActionRepo | ConversationRepo" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;align=center;" vertex="1" parent="business">
+          <mxGeometry x="650" y="110" width="350" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- Communication <-> Business (bidirectional) -->
+        <mxCell id="arr_comm_bl" value="" style="endArrow=block;startArrow=block;html=1;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="610" y="420" as="sourcePoint" />
+            <mxPoint x="610" y="460" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- LAYER 4: ASYNC WORKER -->
+        <!-- ============================================ -->
+        <mxCell id="worker" value="Background Worker Layer (Asynq / Redis Queue)" style="swimlane;fontStyle=1;align=center;startSize=25;fontSize=12;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="100" y="710" width="1020" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="w1" value="Email&#xa;Generation" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="worker">
+          <mxGeometry x="20" y="35" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="w2" value="Campaign&#xa;Execution" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="worker">
+          <mxGeometry x="150" y="35" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="w3" value="Reply&#xa;Processing" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="worker">
+          <mxGeometry x="280" y="35" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="w4" value="Contact&#xa;Orchestrator" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="worker">
+          <mxGeometry x="410" y="35" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="w5" value="Automation&#xa;Evaluator" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="worker">
+          <mxGeometry x="540" y="35" width="110" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Business -> Worker (enqueue) -->
+        <mxCell id="arr_bl_worker" value="Enqueue Task" style="endArrow=block;html=1;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="660" as="sourcePoint" />
+            <mxPoint x="580" y="710" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arr_worker_bl" value="Task Result" style="endArrow=block;html=1;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="640" y="710" as="sourcePoint" />
+            <mxPoint x="640" y="660" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- LAYER 5: DATA -->
+        <!-- ============================================ -->
+        <mxCell id="data" value="Data Layer" style="swimlane;fontStyle=1;align=center;startSize=25;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="100" y="870" width="1020" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="pg" value="PostgreSQL&#xa;(Relational + JSONB)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fontSize=10;" vertex="1" parent="data">
+          <mxGeometry x="40" y="30" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="redis_data" value="Redis&#xa;(Cache + Queue + Vector Store)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fontSize=10;" vertex="1" parent="data">
+          <mxGeometry x="230" y="30" width="190" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="AWS S3&#xa;(Object Storage)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fontSize=10;" vertex="1" parent="data">
+          <mxGeometry x="470" y="30" width="140" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Worker <-> Data (bidirectional) -->
+        <mxCell id="arr_worker_data" value="" style="endArrow=block;startArrow=block;html=1;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="610" y="810" as="sourcePoint" />
+            <mxPoint x="610" y="870" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Business <-> Data (bidirectional, skip worker) -->
+        <mxCell id="arr_bl_data" value="" style="endArrow=block;startArrow=block;html=1;strokeWidth=1.5;dashed=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1050" y="660" as="sourcePoint" />
+            <mxPoint x="1050" y="870" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arr_bl_data_label" value="Direct DB&#xa;queries" style="text;html=1;fontSize=10;fontStyle=2;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="750" width="70" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- EXTERNAL SYSTEMS (right side, outside boundary) -->
+        <!-- ============================================ -->
+        <mxCell id="ext_boundary" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;strokeWidth=2;dashed=1;dashPattern=8 4;arcSize=5;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="160" width="400" height="830" as="geometry" />
+        </mxCell>
+        <mxCell id="ext_label" value="&lt;b&gt;External Services&lt;/b&gt;" style="text;html=1;fontSize=14;fontColor=#b85450;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="165" width="160" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- OpenAI -->
+        <mxCell id="openai" value="OpenAI API&#xa;(GPT-4o-mini +&#xa;Embeddings)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1340" y="220" width="150" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Gmail -->
+        <mxCell id="gmail" value="Gmail API&#xa;(OAuth + Pub/Sub)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1340" y="340" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Apollo -->
+        <mxCell id="apollo" value="Apollo.io API&#xa;(B2B Contact Data)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1340" y="450" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Google OAuth -->
+        <mxCell id="google_oauth" value="Google OAuth 2.0&#xa;(Authentication)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1340" y="560" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- CONNECTIONS: System <-> External -->
+        <!-- ============================================ -->
+
+        <!-- Worker -> OpenAI (bidirectional) -->
+        <mxCell id="arr_worker_openai" value="Generate / Classify / Embed" style="endArrow=block;startArrow=block;html=1;strokeWidth=1.5;exitX=1;exitY=0;exitDx=0;exitDy=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1120" y="750" as="sourcePoint" />
+            <mxPoint x="1340" y="260" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1230" y="750" />
+              <mxPoint x="1230" y="260" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Worker -> Gmail (bidirectional) -->
+        <mxCell id="arr_worker_gmail" value="Send / Receive Email" style="endArrow=block;startArrow=block;html=1;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1120" y="770" as="sourcePoint" />
+            <mxPoint x="1340" y="370" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1250" y="770" />
+              <mxPoint x="1250" y="370" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Business -> Apollo -->
+        <mxCell id="arr_bl_apollo" value="Search / Enrich" style="endArrow=block;startArrow=block;html=1;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1120" y="580" as="sourcePoint" />
+            <mxPoint x="1340" y="480" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1210" y="580" />
+              <mxPoint x="1210" y="480" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Business -> Google OAuth -->
+        <mxCell id="arr_bl_oauth" value="Auth Code Exchange" style="endArrow=block;startArrow=block;html=1;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1120" y="620" as="sourcePoint" />
+            <mxPoint x="1340" y="590" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1190" y="620" />
+              <mxPoint x="1190" y="590" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Gmail Pub/Sub -> Worker (inbound notification) -->
+        <mxCell id="arr_gmail_worker" value="Push Notification&#xa;(new email)" style="endArrow=block;html=1;strokeWidth=1.5;strokeColor=#b85450;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1340" y="390" as="sourcePoint" />
+            <mxPoint x="1120" y="730" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1270" y="390" />
+              <mxPoint x="1270" y="730" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Prospect -> Gmail (sends reply) -->
+        <mxCell id="arr_prospect_gmail" value="Reply Email" style="endArrow=block;html=1;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1660" y="130" as="sourcePoint" />
+            <mxPoint x="1490" y="340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Gmail -> Prospect (receives campaign email) -->
+        <mxCell id="arr_gmail_prospect" value="Campaign Email" style="endArrow=block;html=1;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1490" y="350" as="sourcePoint" />
+            <mxPoint x="1680" y="130" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- SSE: Worker -> Presentation (push notification) -->
+        <mxCell id="arr_sse_push" value="SSE Push&#xa;(via Redis Pub/Sub)" style="endArrow=block;html=1;strokeWidth=1.5;strokeColor=#9673a6;dashed=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="200" y="710" as="sourcePoint" />
+            <mxPoint x="200" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

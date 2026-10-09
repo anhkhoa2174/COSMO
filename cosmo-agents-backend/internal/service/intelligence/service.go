@@ -5,15 +5,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
+	"github.com/rockship/cosmo-agents-go/internal/domain/base"
+	"github.com/rockship/cosmo-agents-go/internal/domain/outreach"
 	segDomain "github.com/rockship/cosmo-agents-go/internal/domain/segmentation"
 	"github.com/rockship/cosmo-agents-go/internal/repository/contact"
 	"github.com/rockship/cosmo-agents-go/internal/repository/interaction"
+	outreachRepo "github.com/rockship/cosmo-agents-go/internal/repository/outreach"
 	segRepo "github.com/rockship/cosmo-agents-go/internal/repository/segmentation"
 	"github.com/rockship/cosmo-agents-go/internal/schema/v1"
 	"github.com/rockship/cosmo-agents-go/internal/skills"
@@ -32,6 +36,74 @@ type Service struct {
 	vectorSearch  *skills.VectorSearchSkill
 	segmentations *segRepo.SegmentationRepository
 	openAI        *ai.OpenAIClient
+
+	// interactionLogs holds the outreach and email history. Set with
+	// WithInteractionLogs; without it only the interactions table is read.
+	interactionLogs *outreachRepo.InteractionLogRepository
+}
+
+// WithInteractionLogs makes enrichment read the conversation history that
+// outreach and the email worker write to interaction_logs. The skill above
+// reads the interactions table, which those paths never write, so enrichment
+// saw "No interactions yet" for a contact with a whole thread behind them.
+func (s *Service) WithInteractionLogs(r *outreachRepo.InteractionLogRepository) *Service {
+	s.interactionLogs = r
+	return s
+}
+
+// contactHistory returns the newest interactions for a contact from both
+// stores, newest first, at most limit.
+func (s *Service) contactHistory(ctx context.Context, contactID uuid.UUID, limit int) ([]*v1.InteractionResponse, error) {
+	items, err := s.interaction.ListByContact(ctx, contactID, limit)
+	if err != nil {
+		return nil, err
+	}
+	if s.interactionLogs != nil {
+		logs, err := s.interactionLogs.FindByContactID(ctx, contactID, limit)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, historyFromLogs(logs)...)
+	}
+	sort.SliceStable(items, func(i, j int) bool { return items[i].OccurredAt > items[j].OccurredAt })
+	if len(items) > limit {
+		items = items[:limit]
+	}
+	return items, nil
+}
+
+// historyFromLogs maps interaction_logs rows onto the shape the prompt reads.
+// Content carries the text under "text", which buildEnrichmentPrompt prints
+// as-is; a note's subject goes along when there is one.
+func historyFromLogs(logs []*outreach.InteractionLog) []*v1.InteractionResponse {
+	out := make([]*v1.InteractionResponse, 0, len(logs))
+	for _, l := range logs {
+		if l == nil {
+			continue
+		}
+		content := map[string]interface{}{"text": l.Content}
+		if l.Subject != nil && *l.Subject != "" {
+			content["subject"] = *l.Subject
+		}
+		if l.Sentiment != nil && *l.Sentiment != "" {
+			content["sentiment"] = *l.Sentiment
+		}
+		kind := "message"
+		if l.Direction == "note" {
+			kind = "note"
+		}
+		out = append(out, &v1.InteractionResponse{
+			ID:              l.ID,
+			ContactID:       l.ContactID,
+			InteractionType: kind,
+			Channel:         l.Channel,
+			Direction:       l.Direction,
+			Content:         content,
+			OccurredAt:      l.Timestamp.UTC().Format(time.RFC3339),
+			CreatedAt:       l.CreatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+	return out
 }
 
 // NewService wires a new intelligence service.
@@ -57,6 +129,15 @@ func NewService(
 	}
 }
 
+// DeleteContactVectors removes vectors for the given contact IDs from Redis.
+func (s *Service) DeleteContactVectors(ctx context.Context, contactIDs []uuid.UUID) {
+	for _, id := range contactIDs {
+		if err := s.embedSkill.DeleteContactVector(ctx, id); err != nil {
+			fmt.Printf("[DeleteContactVectors] Warning: failed to delete vector for contact %s: %v\n", id, err)
+		}
+	}
+}
+
 // EnrichContact runs the contact enrichment agent synchronously.
 func (s *Service) EnrichContact(ctx context.Context, userID, orgID, contactID uuid.UUID, forceRefresh bool) (*v1.ContactEnrichmentResponse, error) {
 	contactModel, err := s.contactRepo.GetByID(ctx, contactID)
@@ -72,17 +153,25 @@ func (s *Service) EnrichContact(ctx context.Context, userID, orgID, contactID uu
 		return nil, err
 	}
 
-	interactions, err := s.interaction.ListByContact(ctx, contactID, 20)
+	interactions, err := s.contactHistory(ctx, contactID, 20)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Printf("[EnrichContact] Building insights for contact %s...\n", contactID)
-	insights := s.buildInsights(contactMap, interactions)
-	fmt.Printf("[EnrichContact] Insights built successfully\n")
+	insights, fromCache := EnrichmentInsights{}, false
+	if !forceRefresh {
+		insights, fromCache = cachedInsights(contactModel.AIInsights)
+	}
+	if fromCache {
+		fmt.Printf("[EnrichContact] Reusing stored insights for contact %s\n", contactID)
+	} else {
+		fmt.Printf("[EnrichContact] Building insights for contact %s...\n", contactID)
+		insights = s.buildInsights(contactMap, interactions)
+		fmt.Printf("[EnrichContact] Insights built successfully\n")
 
-	if err := s.persistAIInsights(ctx, contactID, userID, orgID, insights); err != nil {
-		return nil, err
+		if err := s.persistAIInsights(ctx, contactID, userID, orgID, insights); err != nil {
+			return nil, err
+		}
 	}
 
 	embeddingText := buildEmbeddingText(contactMap, insights)
@@ -96,7 +185,7 @@ func (s *Service) EnrichContact(ctx context.Context, userID, orgID, contactID uu
 		"job_title":       getString(contactMap, "job_title"),
 		"industry":        getString(contactMap, "industry"),
 		"contact_channel": getString(contactMap, "contact_channel"),
-		"lifecycle_stage": getString(contactMap, "lifecycle_stage"),
+		"outreach_stage":  getString(contactMap, "outreach_stage"),
 		"city":            getString(contactMap, "city"),
 		"country":         getString(contactMap, "country"),
 	}
@@ -135,7 +224,7 @@ func (s *Service) EnrichContactWithContext(ctx context.Context, userID, orgID, c
 		return nil, err
 	}
 
-	interactions, err := s.interaction.ListByContact(ctx, contactID, 20)
+	interactions, err := s.contactHistory(ctx, contactID, 20)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +259,7 @@ func (s *Service) EnrichContactWithContext(ctx context.Context, userID, orgID, c
 		"job_title":       getString(contactMap, "job_title"),
 		"industry":        getString(contactMap, "industry"),
 		"contact_channel": getString(contactMap, "contact_channel"),
-		"lifecycle_stage": getString(contactMap, "lifecycle_stage"),
+		"outreach_stage":  getString(contactMap, "outreach_stage"),
 		"city":            getString(contactMap, "city"),
 		"country":         getString(contactMap, "country"),
 	}
@@ -292,7 +381,7 @@ func (s *Service) EmbedContact(ctx context.Context, userID uuid.UUID, contactID 
 		"job_title":       getString(contactMap, "job_title"),
 		"industry":        getString(contactMap, "industry"),
 		"contact_channel": getString(contactMap, "contact_channel"),
-		"lifecycle_stage": getString(contactMap, "lifecycle_stage"),
+		"outreach_stage":  getString(contactMap, "outreach_stage"),
 		"city":            getString(contactMap, "city"),
 		"country":         getString(contactMap, "country"),
 	}
@@ -408,7 +497,40 @@ func (e EnrichmentInsights) ToMap() map[string]any {
 		"anticipated_objections":    e.AnticipatedObjs,
 		"research_suggestions":      e.ResearchSuggestions,
 		"avg_confidence":            e.AvgConfidence,
+		// Stamped so a later EnrichContact can tell whether the stored
+		// insights are still fresh instead of re-running the model.
+		"generated_at": time.Now().UTC().Format(time.RFC3339),
 	}
+}
+
+// insightsTTL is how long stored AI insights stay usable. Enrichment reads a
+// contact profile and its interaction history; neither moves fast enough to
+// justify paying for a new completion on every request.
+const insightsTTL = 7 * 24 * time.Hour
+
+// cachedInsights returns the contact's stored insights when they are present
+// and still within insightsTTL, so `forceRefresh=false` actually avoids a
+// model call. Returns ok=false whenever anything is missing, stale, or
+// unparseable — the caller then regenerates.
+func cachedInsights(raw base.JSONB) (EnrichmentInsights, bool) {
+	if len(raw) == 0 {
+		return EnrichmentInsights{}, false
+	}
+	var stamp struct {
+		GeneratedAt string `json:"generated_at"`
+	}
+	if err := json.Unmarshal(raw, &stamp); err != nil || stamp.GeneratedAt == "" {
+		return EnrichmentInsights{}, false
+	}
+	generatedAt, err := time.Parse(time.RFC3339, stamp.GeneratedAt)
+	if err != nil || time.Since(generatedAt) > insightsTTL {
+		return EnrichmentInsights{}, false
+	}
+	var insights EnrichmentInsights
+	if err := json.Unmarshal(raw, &insights); err != nil {
+		return EnrichmentInsights{}, false
+	}
+	return insights, true
 }
 
 func (s *Service) buildInsights(contact map[string]any, interactions []*v1.InteractionResponse) EnrichmentInsights {
@@ -731,7 +853,7 @@ func buildEmbeddingText(contact map[string]any, insights EnrichmentInsights) str
 		"job_title",
 		"industry",          // e.g., Fintech, SaaS, Healthcare
 		"contact_channel",   // e.g., LinkedIn, Email
-		"lifecycle_stage",   // e.g., new, contacted, replied
+		"outreach_stage",    // COLD, NO_REPLY, REPLIED, POST_MEETING, DROPPED
 		"context_level",     // LOW, MEDIUM, HIGH
 		"outreach_decision", // INTRO, FOLLOW-UP, NURTURE, HOLD
 		"scenario",          // Role-based, Post-reply, etc.
@@ -842,13 +964,28 @@ func (s *Service) buildEnrichmentPrompt(contact map[string]any, interactions []*
 			}
 			contentStr := ""
 			if inter.Content != nil {
-				contentStr = fmt.Sprintf("%v", inter.Content)
+				if text, ok := inter.Content["text"].(string); ok && text != "" {
+					contentStr = text
+				} else {
+					contentStr = fmt.Sprintf("%v", inter.Content)
+				}
 			}
-			if len(contentStr) > 200 {
-				contentStr = contentStr[:200] + "..."
+			if len(contentStr) > 300 {
+				contentStr = contentStr[:300] + "..."
 			}
-			interactionSummary += fmt.Sprintf("\n- %s via %s on %s (content: %s)",
-				inter.InteractionType, inter.Channel, inter.OccurredAt, contentStr)
+			// Who spoke matters more to the model than the row type: a
+			// prospect's own words are the strongest signal there is.
+			who := "unknown"
+			switch inter.Direction {
+			case "outgoing":
+				who = "us (sales rep)"
+			case "incoming":
+				who = "the contact"
+			case "note":
+				who = "internal note"
+			}
+			interactionSummary += fmt.Sprintf("\n- %s, %s via %s on %s: %s",
+				who, inter.InteractionType, inter.Channel, inter.OccurredAt, contentStr)
 		}
 	}
 

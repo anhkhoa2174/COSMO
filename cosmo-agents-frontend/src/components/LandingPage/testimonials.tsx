@@ -1,63 +1,67 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarImage } from '@/components/ui/avatar';
+import { Quote, Star } from 'lucide-react';
 
 export function Testimonials() {
   return (
-    <div className="bg-[url(/landing-page/testimonial.png)] py-8">
+    <div className="bg-[url(/landing-page/testimonial.webp)] py-8">
       <div id="testimonials" className="container mx-auto">
         {/* Top section */}
         <div className="flex flex-col items-center justify-center gap-4">
           {/* Badge */}
-          <div className="flex items-center justify-center rounded-md bg-zinc-100 px-4 py-2 text-indigo-500">
+          <div className="flex items-center justify-center rounded-md bg-zinc-100 px-4 py-2 text-indigo-700">
             <span className="text-xs font-bold uppercase">Testimonials</span>
           </div>
 
           {/* Title */}
-          <h2 className="text-2xl font-bold">
-            A Community of AI Revenue Innovators
+          <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
+            A community of AI revenue innovators
           </h2>
 
-          {/* Description */}
+          <p className="max-w-2xl text-center text-[1.05rem] text-muted-foreground">
+            Teams across SaaS, consulting, education and real estate use Cosmo
+            to keep every conversation moving.
+          </p>
         </div>
 
         {/* Bottom section */}
         <div className="mt-12">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <AvatarCard
-              image="/landing-page/avatar_1.png"
+              image="/landing-page/avatar_1.webp"
               name="Hoang Linh"
               title="CEO at cirCO"
-              quote="Cosmo Agents improved our workflow and revenue. The automation has made our sales process more efficient and effective."
+              quote="Cosmo improved our workflow and revenue. The automation has made our sales process more efficient and effective."
             />
             <AvatarCard
-              image="/landing-page/avatar_3.png"
+              image="/landing-page/avatar_3.webp"
               name="Thanh Huynh Minh"
               title="President at ASOFT"
-              quote="Cosmo Agents excels in nurturing conversations. It keeps the dialogue going with potential clients, making our sales funnel more efficient."
+              quote="Cosmo excels in nurturing conversations. It keeps the dialogue going with potential clients, making our sales funnel more efficient."
             />
             <AvatarCard
-              image="/landing-page/avatar_4.png"
+              image="/landing-page/avatar_4.webp"
               name="Giang Nguyen"
               title="Sales Manager at CMC"
-              quote="Implementing Cosmo Agents transformed our sales. Automation and personalized content significantly increased engagement."
+              quote="Implementing Cosmo transformed our sales. Automation and personalized content significantly increased engagement."
             />
             <AvatarCard
-              image="/landing-page/avatar_5.png"
+              image="/landing-page/avatar_5.webp"
               name="Tung Hoang"
               title="SAP Consultant at Citek"
-              quote="Cosmo Agents has been a powerful asset to our sales team. The way it drives revenue through automated processes is nothing short of impressive."
+              quote="Cosmo has been a powerful asset to our sales team. The way it drives revenue through automated processes is nothing short of impressive."
             />
             <AvatarCard
-              image="/landing-page/avatar_6.png"
+              image="/landing-page/avatar_6.webp"
               name="Pemi Nguyen"
               title="CEO at Ike Education"
-              quote="Cosmo Agents simplifies our sales efforts. The automation and lead segmentation features have dramatically improved our conversion rates and efficiency."
+              quote="Cosmo simplifies our sales efforts. The lead segmentation features have dramatically improved our conversion rates and efficiency."
             />
             <AvatarCard
-              image="/landing-page/avatar_8.png"
+              image="/landing-page/avatar_8.webp"
               name="Michael Phan"
               title="Head of Sales at Glenvill Developments"
-              quote="Cosmo Agents has transformed how we approach lead management. The nurturing tools have made our sales strategy much more effective."
+              quote="Cosmo has transformed how we approach lead management. The nurturing tools have made our sales strategy much more effective."
             />
           </div>
         </div>
@@ -75,35 +79,44 @@ interface AvatarProps {
 
 function AvatarCard(props: Readonly<AvatarProps>) {
   return (
-    <Card className="rounded-lg bg-white shadow-md">
-      <div className="flex justify-between p-2">
-        <div className="h-4 w-4 rounded-full bg-gray-100 shadow-md" />
-        <div className="h-4 w-4 rounded-full bg-gray-100 shadow-md" />
-      </div>
-      <CardContent className="px-6 pb-0">
-        <p className="rounded-xl border border-gray-200 p-2 text-gray-600">
+    <Card className="group relative flex h-full flex-col rounded-2xl border bg-white/90 shadow-sm backdrop-blur transition-all duration-200 hover:-translate-y-1 hover:shadow-xl">
+      <CardContent className="flex flex-1 flex-col p-6">
+        <Quote className="size-7 shrink-0 text-violet-300" aria-hidden="true" />
+
+        <p className="mt-3 flex-1 text-[0.95rem] leading-relaxed text-muted-foreground">
           {props.quote}
         </p>
-        <div className="mt-4 flex items-center justify-between">
-          <div>
-            <p className="font-bold">{props.name}</p>
-            <p className="mt-1 max-w-[170px] text-sm font-medium">
+
+        <div
+          className="mt-5 flex gap-0.5"
+          role="img"
+          aria-label="Rated 5 out of 5"
+        >
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Star
+              key={i}
+              className="size-3.5 fill-amber-400 text-amber-400"
+              aria-hidden="true"
+            />
+          ))}
+        </div>
+
+        <div className="mt-4 flex items-center gap-3 border-t pt-4">
+          <Avatar className="size-11">
+            <AvatarImage
+              src={props.image}
+              alt=""
+              className="size-11 rounded-full object-cover"
+            />
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{props.name}</p>
+            <p className="truncate text-[0.85rem] text-muted-foreground">
               {props.title}
             </p>
           </div>
-          <Avatar>
-            <AvatarImage
-              src={props.image}
-              alt="avatar"
-              className="h-12 w-12 rounded-full"
-            />
-          </Avatar>
         </div>
       </CardContent>
-      <div className="flex justify-between p-2">
-        <div className="h-4 w-4 rounded-full bg-gray-100 shadow-md" />
-        <div className="h-4 w-4 rounded-full bg-gray-100 shadow-md" />
-      </div>
     </Card>
   );
 }

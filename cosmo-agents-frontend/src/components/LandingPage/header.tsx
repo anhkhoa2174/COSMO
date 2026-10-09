@@ -1,27 +1,36 @@
 'use client';
 
-import Image from 'next/image';
+import Link from 'next/link';
 // import Script from 'next/script';
 import { useRouter } from 'next/navigation';
+import { CosmoMark } from '@/components/nav/cosmo-mark';
 import { MainButton } from '../buttons/main-button';
 import { Menu } from 'lucide-react';
 import { useState } from 'react';
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
 
   const sections = [
     { id: 'product', label: 'Product' },
-    { id: 'use-cases', label: 'Use cases' },
     { id: 'key-features', label: 'Key features' },
     { id: 'how-it-works', label: 'How it works' },
+    { id: 'use-cases', label: 'Use cases' },
     { id: 'testimonials', label: 'Testimonials' },
+    { id: 'policy', label: 'Policy' },
   ];
 
   const scrollToSection =
     (id: string) => (e: React.MouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
       const target = document.getElementById(id);
+
+      if (!target) {
+        // Not on the landing page — go there and let the browser jump to the section
+        router.push(`/#${id}`);
+        return;
+      }
 
       if (target) {
         const headerOffset = 30;
@@ -36,15 +45,13 @@ const Header = () => {
     };
 
   return (
-    <div className="container sticky top-4 mx-auto">
+    <div className="container sticky top-4 z-50 mx-auto">
       <div className="space-y-2 rounded-xl border bg-background p-4 shadow-md">
         <div className="flex items-center justify-between gap-2">
-          <Image
-            src="/landing-page/ca_logo.png"
-            alt="ca_logo.png"
-            width={164.5}
-            height={44}
-          />
+          <Link href="/" className="flex items-center gap-2.5">
+            <CosmoMark size={40} />
+            <span className="text-2xl font-bold tracking-tight">COSMO</span>
+          </Link>
           <div className="hidden items-center justify-center gap-8 sm:flex">
             {sections.map(({ id, label }) => (
               <button

@@ -1,6 +1,12 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,7 +34,9 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import PlaybookApi, { type CreatePlaybookRequest } from '@/network/client/playbook';
+import PlaybookApi, {
+  type CreatePlaybookRequest,
+} from '@/network/client/playbook';
 
 interface PlaybookStage {
   id: string;
@@ -66,10 +74,12 @@ const STAGE_ICONS = {
 
 const STAGE_COLORS = {
   email: 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950',
-  linkedin: 'border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950',
+  linkedin:
+    'border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950',
   call: 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950',
   wait: 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-950',
-  conditional: 'border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950',
+  conditional:
+    'border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950',
 };
 
 export function PlaybookBuilder() {
@@ -532,7 +542,9 @@ export function PlaybookBuilder() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="advance">Advance to next stage</SelectItem>
+                    <SelectItem value="advance">
+                      Advance to next stage
+                    </SelectItem>
                     <SelectItem value="complete">Complete playbook</SelectItem>
                   </SelectContent>
                 </Select>

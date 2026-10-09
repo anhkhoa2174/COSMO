@@ -14,6 +14,7 @@ import (
 type EmailStatus string
 
 const (
+	EmailStatusDraft   EmailStatus = "draft"
 	EmailStatusSending EmailStatus = "sending"
 	EmailStatusSent    EmailStatus = "sent"
 	EmailStatusInbox   EmailStatus = "inbox"
@@ -78,7 +79,7 @@ func (e *Email) BeforeCreate(tx *gorm.DB) error {
 // ValidateStatus ensures a status belongs to the enum.
 func ValidateStatus(status EmailStatus) error {
 	switch status {
-	case EmailStatusSending, EmailStatusSent, EmailStatusInbox:
+	case EmailStatusDraft, EmailStatusSending, EmailStatusSent, EmailStatusInbox:
 		return nil
 	default:
 		return errors.New("invalid email status")

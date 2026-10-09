@@ -1,0 +1,22 @@
+version: 1.0.0
+project:
+    name: cosmo-agents-backend
+    short_code: co
+    created: 2026-02-27T07:42:00.959206808Z
+    modified: 2026-02-27T07:42:00.95922217Z
+    version: 0.1.0
+playbook:
+    name: specledger
+    version: 1.0.0
+    applied_at: 2026-02-27T07:42:00.959206808Z
+    structure:
+        - .claude/
+        - .gitattributes
+        - AGENTS.md
+        - mise.toml
+        - .specledger/
+template_version: dev
+task_tracker:
+    choice: builtin
+    enabled_at: 2026-02-27T07:42:00.959206808Z
+artifact_path: specledger/

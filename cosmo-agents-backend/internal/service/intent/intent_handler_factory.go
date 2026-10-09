@@ -174,6 +174,13 @@ func (f *IntentHandlerFactory) Build(campaign *domain.Campaign, intent domain.In
 	}
 }
 
+// DraftHandler returns the AI reply drafter regardless of the campaign's
+// routing, for when the next-step engine has chosen to answer a reply whose
+// intent is routed to a person.
+func (f *IntentHandlerFactory) DraftHandler() IntentHandler {
+	return f.defaultHandler(nil, domain.IntentInterested)
+}
+
 // defaultHandler routes an intent that has no (valid) campaign-specific
 // configuration, following the intent taxonomy's routed actions:
 // actionable asks get a grounded AI reply, referrals create a lead, and

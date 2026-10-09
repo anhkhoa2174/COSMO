@@ -117,6 +117,17 @@ func (h *AIReplyHandler) Execute(
 		return false, fmt.Errorf("failed to find conversation: %w", err)
 	}
 
+	// The next-step engine, when on, has already decided what this reply is
+	// for. An action that sends nothing (wait, nurture, suppress, escalate)
+	// gets no draft; any other gives the draft its goal.
+	writeDraft, goal := nextStepGoal(conversation.CMetadata)
+	if !writeDraft {
+		h.logger.Info().
+			Str("conversation_id", conversation.ID.String()).
+			Msg("AI reply handler: the next step sends nothing; no draft written")
+		return true, nil
+	}
+
 	// 2. Build conversation history
 	conversationEmails, err := h.emailRepo.FindByConversationID(ctx, conversation.ID)
 	if err != nil {
@@ -141,6 +152,27 @@ func (h *AIReplyHandler) Execute(
 	// 4. Generate AI reply via Coze bot (include campaign type for context)
 	// The organisation may have written guidance for replies of this kind.
 	guidance := h.replyGuidance(ctx, campaign.UserID, intent)
+	if goal != "" {
+		guidance = strings.TrimSpace("Goal of this reply: " + goal + "\n" + guidance)
+	}
+
+	// Who writes to whom. Without it the bot read the thread's names and
+	// sometimes signed the reply with the prospect's own name ("Best, Ha").
+	senderName := ""
+	if conversation.AgentID != nil && h.agentRepo != nil {
+		if agent, err := h.agentRepo.FindByID(ctx, *conversation.AgentID); err == nil && agent != nil {
+			senderName = agent.Name
+		}
+	}
+	recipientName := ""
+	if h.contactRepo != nil {
+		if c, err := h.contactRepo.FindByEmail(ctx, campaign.UserID, email.FromEmail); err == nil && c != nil {
+			recipientName = strings.TrimSpace(c.Name)
+		}
+	}
+	if roles := replyRoles(senderName, recipientName); roles != "" {
+		guidance = strings.TrimSpace(roles + "\n" + guidance)
+	}
 
 	draftContent, err := h.callCozeBot(ctx, conversationContext.String(), string(intent), campaign.Playbook, knowledgeContext, guidance)
 	if err != nil {
@@ -158,12 +190,6 @@ func (h *AIReplyHandler) Execute(
 	// The bot signs off with "[Your Name]" / "[Your Position]". Sending fills
 	// the name and drops the rest, but the reviewer saw the raw brackets in
 	// the inbox; tidy the stored draft the same way, with the mailbox's name.
-	senderName := ""
-	if conversation.AgentID != nil && h.agentRepo != nil {
-		if agent, err := h.agentRepo.FindByID(ctx, *conversation.AgentID); err == nil && agent != nil {
-			senderName = agent.Name
-		}
-	}
 	draftContent = tidyDraftPlaceholders(draftContent, senderName)
 
 	if strings.TrimSpace(draftContent) == "" {
@@ -189,6 +215,7 @@ func (h *AIReplyHandler) Execute(
 		"intent":        string(intent),
 		"status":        "pending_review",
 		"generated_by":  "coze_bot",
+		"goal":          goal,
 		"generated_at":  time.Now().Format(time.RFC3339),
 	}
 

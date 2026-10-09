@@ -117,6 +117,13 @@ func (w *Worker) HandleGenerateEmail(ctx context.Context, task *asynq.Task) erro
 		return fmt.Errorf("template not found: %w", err)
 	}
 
+	// The repositories report a missing row as (nil, nil). A task queued for
+	// a campaign, contact or template deleted since then used to dereference
+	// nil and panic on every retry; it can never succeed, so it is dropped.
+	if campaign == nil || contact == nil || template == nil {
+		return fmt.Errorf("campaign, contact or template no longer exists: %w", asynq.SkipRetry)
+	}
+
 	// Get knowledge base context (RAG)
 	knowledgeContext := ""
 	if campaign.UserID != uuid.Nil {

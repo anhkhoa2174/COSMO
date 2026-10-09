@@ -1,0 +1,190 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="act-contact" name="Contact Intelligence Activity">
+    <mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="lane_bd" value="BD (Sales Rep)" style="shape=swimlane;startSize=25;horizontal=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontStyle=1;fontSize=11;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="320" height="1040" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lane_sys" value="COSMO System" style="shape=swimlane;startSize=25;horizontal=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontStyle=1;fontSize=11;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="360" y="20" width="320" height="1040" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lane_ext" value="External Services" style="shape=swimlane;startSize=25;horizontal=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontStyle=1;fontSize=11;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="680" y="20" width="320" height="1040" as="geometry" />
+        </mxCell>
+
+        <mxCell id="initial" value="" style="ellipse;html=1;shape=mxgraph.flowchart.start_2;fontSize=12;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="lane_bd">
+          <mxGeometry x="140" y="45" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d_source" value="" style="rhombus;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;" vertex="1" parent="lane_bd">
+          <mxGeometry x="135" y="100" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_apollo" value="Search contacts via&#xa;Apollo MCP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_bd">
+          <mxGeometry x="70" y="175" width="170" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_apollo_ext" value="Query Apollo API&#xa;(people_search)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_ext">
+          <mxGeometry x="75" y="175" width="160" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_linkedin" value="Import via LinkedIn&#xa;Chrome Extension" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_bd">
+          <mxGeometry x="70" y="250" width="170" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_csv" value="Upload CSV file" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_bd">
+          <mxGeometry x="70" y="325" width="170" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="merge_import" value="" style="rhombus;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;" vertex="1" parent="lane_sys">
+          <mxGeometry x="140" y="325" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_create" value="Create contact record&#xa;(profile JSONB)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="70" y="400" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fork1" value="" style="shape=line;html=1;strokeWidth=4;strokeColor=#000000;fillColor=#000000;fontSize=1;perimeter=linePerimeter;" vertex="1" parent="lane_sys">
+          <mxGeometry x="20" y="480" width="270" height="10" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_embed" value="Generate vector&#xa;embedding" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_ext">
+          <mxGeometry x="75" y="510" width="160" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_enrich" value="Generate AI insights&#xa;(pain points, goals)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_ext">
+          <mxGeometry x="75" y="585" width="160" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_scores" value="Calculate segment&#xa;fit scores (ICP)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="70" y="510" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_status" value="Update contact status&#xa;(pending to ready)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="70" y="585" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="join1" value="" style="shape=line;html=1;strokeWidth=4;strokeColor=#000000;fillColor=#000000;fontSize=1;perimeter=linePerimeter;" vertex="1" parent="lane_sys">
+          <mxGeometry x="20" y="665" width="270" height="10" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_display" value="Display AI insights&#xa;on contact detail panel" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="70" y="705" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_review" value="Review AI insights&#xa;(pain points, goals)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_bd">
+          <mxGeometry x="70" y="705" width="170" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d_validate" value="" style="rhombus;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;" vertex="1" parent="lane_bd">
+          <mxGeometry x="135" y="785" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_confirm" value="Confirm insight&#xa;(move to confirmed_facts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="70" y="780" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_reject" value="Reject insight&#xa;(remove from ai_insights)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="70" y="855" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_feedback" value="Log validation to&#xa;user_feedbacks table" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="lane_sys">
+          <mxGeometry x="70" y="935" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="final" value="" style="ellipse;html=1;shape=mxgraph.flowchart.terminate;fontSize=12;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="lane_bd">
+          <mxGeometry x="140" y="960" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e01" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="initial" target="d_source" parent="lane_bd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e02" value="[Apollo]" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;" edge="1" source="d_source" target="a_apollo" parent="lane_bd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e02b" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_apollo" target="a_apollo_ext" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e03" value="[LinkedIn]" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;" edge="1" source="d_source" target="a_linkedin" parent="lane_bd">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="280" y="120" />
+              <mxPoint x="280" y="273" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e04" value="[CSV]" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;" edge="1" source="d_source" target="a_csv" parent="lane_bd">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="30" y="120" />
+              <mxPoint x="30" y="345" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e05" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_apollo_ext" target="merge_import" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e06" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_linkedin" target="merge_import" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e07" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_csv" target="merge_import" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e08" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="merge_import" target="a_create" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e09" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_create" target="fork1" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="fork1" target="a_embed" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="fork1" target="a_scores" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_embed" target="a_enrich" parent="lane_ext">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_scores" target="a_status" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_enrich" target="join1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_status" target="join1" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="join1" target="a_display" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_display" target="a_review" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_review" target="d_validate" parent="lane_bd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" value="[confirm]" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;" edge="1" source="d_validate" target="a_confirm" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e20" value="[reject]" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;" edge="1" source="d_validate" target="a_reject" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e21" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_confirm" target="a_feedback" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e22" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_reject" target="a_feedback" parent="lane_sys">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e23" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=open;endFill=0;" edge="1" source="a_feedback" target="final" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

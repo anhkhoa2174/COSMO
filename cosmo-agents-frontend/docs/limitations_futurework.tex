@@ -1,0 +1,113 @@
+\subsection{Limitations}
+\label{sec:conclusion-limitations}
+
+While COSMO satisfies the AI-native criteria outlined above,
+several limitations should be acknowledged. Each item below concerns a
+feature that is implemented but falls short of its design; capabilities that
+were never in scope are extensions and are listed under Future Work
+(Section~\ref{sec:future-work}).
+\label{limit}
+\begin{itemize}
+  \item \textbf{Retrieval is dense-only, and its cut-off is set rather than
+    tuned.} Grounding uses a single nearest-neighbour search over embeddings:
+    there is no keyword or BM25 leg to catch an exact term the embedding blurs
+    (a product name, a plan name, a figure), and no reranking stage over the
+    retrieved set. A chunk is admitted if its cosine distance from the query is
+    0.5 or less, which keeps chunks at a similarity of 0.5 or better. That
+    number was chosen to be defensibly strict rather than measured: choosing it
+    properly needs a labelled retrieval set --- queries paired with the chunks
+    that ought to answer them --- which this project does not have. The
+    consequence is that retrieval quality is asserted from the pipeline's
+    construction rather than measured, and it is the clearest gap between how
+    the reply-drafting capability is evaluated (Section~\ref{sec:llm-judge})
+    and how its inputs are.
+
+    A related consequence is worth stating because it is easy to miss: the
+    cut-off was previously 0.8, described in the code as ``fairly relevant''.
+    A distance of 0.8 is a similarity of 0.2, so in practice the filter
+    admitted almost anything and the five nearest chunks were injected into
+    every prompt regardless of whether they bore on the question. A grounding
+    step that always fires is not grounding; it is noise with a citation. The
+    unit confusion behind that --- treating a distance as a similarity --- is
+    the kind of defect a retrieval evaluation would have caught immediately
+    and inspection did not.
+
+  \item \textbf{Chunks are fixed-size and boundary-blind.} Documents are split
+    every 1,000 characters with a 150-character overlap, without regard to
+    headings, tables, or sentence ends. A pricing table split across two chunks
+    is retrieved as two fragments, and the model may answer from the half it
+    was given. Structure-aware splitting, and retrieving a chunk's neighbours
+    alongside it, are the standard remedies and are not implemented.
+
+  \item \textbf{Follow-ups fire on the no-reply window, not on the
+    day-based cadence.} Section~4.4 describes Follow-up~1 on days~4--5
+    and Follow-up~2 on days~9--12, but both steps currently fire on the
+    same no-reply window. The day-based fields are stored, validated and
+    editable by an administrator, and the settings page says on the fields
+    themselves that the scheduler does not yet read them.
+
+  \item \textbf{Daily action ranking is a single-shot LLM
+    re-rank over a heuristic shortlist.} The model reorders the
+    day's candidate actions in one batched call, but it does not
+    learn from which actions the representative actually completed;
+    incorporating that outcome signal is left as future work.
+
+  \item \textbf{The HubSpot import is not functional.} Contact import
+    works through Apollo.io, CSV upload, a LinkedIn Chrome Extension and
+    inbound lead forms. A HubSpot import endpoint also exists, but it records
+    the request and returns success without enqueueing any work, so no
+    contacts are actually pulled.
+
+  \item \textbf{The AI reply intent classifier uses an
+    English-language prompt}; classification accuracy on
+    non-English inbound replies has not been formally evaluated.
+
+  \item \textbf{Email sending is tied to the representative's Gmail
+    account.} Sending goes through Gmail OAuth, so deliverability depends on
+    that account's sending reputation and on Gmail's rate limits.
+
+\end{itemize}
+
+\subsection{Future Work}
+\label{sec:future-work}
+
+The limitations above are engineering work on paths that already exist ---
+the HubSpot import can be wired to the existing contact-import worker, and the
+follow-up scheduler can read the cadence fields it already stores. This section is about extending COSMO beyond its current scope, in
+four groups.
+
+\textbf{New capabilities on the existing platform.} Password authentication
+alongside Google OAuth, for organisations that restrict third-party sign-in;
+dedicated outbound mailboxes (custom SMTP or a provider such as SendGrid) so
+that sending no longer depends on one Gmail account; and a proactive Ask COSMO,
+which opens each morning with the overnight replies and the follow-ups due. The
+last needs no new data: the daily action list and the notification channel
+already exist, and it would be bounded by the same relevance threshold,
+frequency ceiling and off switch as automatic replies.
+
+\textbf{Measuring whether the AI helps.} The system tracks reply rate and
+meetings booked, but cannot yet show that its generated content outperforms a
+human-written email. That requires open and click tracking, an A/B framework over comparable contact cohorts, and enough
+volume for a difference to be measurable; the feedback tables already record
+whether each draft was used, edited or discarded. Recording which daily actions
+were completed, against the rank they were given, would likewise let the ranking
+be evaluated and tuned rather than asserted.
+
+\textbf{Extending the evaluation.} The evaluation covers English mail only;
+Vietnamese replies need their own labelled seed set, since intent often lives in
+politeness register that translation flattens. More than two human raters would
+let agreement be reported with a confidence interval. For the classifier, the
+concrete target is the wrong-recipient scenario on which three of its four
+misses occur (Section~\ref{sec:llm-judge}): a prompt revision for that case, then
+distillation from a stronger model. Retrieval also needs a labelled query set so
+that its relevance cut-off can be tuned rather than chosen.
+
+\textbf{Directions for the Graduation Project.} LLM-based ICP scoring over the
+contact's full profile and interaction history, replacing the weighted formula;
+integration with Salesforce and LinkedIn Sales Navigator and a two-way
+HubSpot sync, so that COSMO acts as the outreach layer over a pipeline a team
+already maintains; and multi-channel orchestration
+beyond email, including LinkedIn and, for the Vietnamese market, Zalo.
+
+
+\clearpage

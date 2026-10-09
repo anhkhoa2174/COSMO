@@ -1,0 +1,302 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="cosmo-usecase" name="COSMO Use Case Diagram">
+    <mxGraphModel dx="1900" dy="1400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1300" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="sys" value="COSMO AI-Native CRM" style="shape=rectangle;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=2;verticalAlign=top;fontStyle=1;fontSize=14;spacingTop=5;spacingLeft=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="280" y="20" width="1200" height="1240" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_bd" value="BD&#xa;(Sales Rep)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#000000;strokeColor=#000000;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="440" width="40" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_admin" value="Admin" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#000000;strokeColor=#000000;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="200" width="40" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="gen_admin_bd" style="endArrow=block;endFill=0;endSize=12;strokeColor=#000000;strokeWidth=1.5;" edge="1" source="actor_admin" target="actor_bd" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_prospect" value="Prospect" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#000000;strokeColor=#000000;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1620" y="100" width="40" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_llm" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;system&amp;raquo;&lt;/font&gt;&#xa;LLM Service&#xa;(OpenAI)" style="shape=rectangle;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1590" y="400" width="120" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_gmail" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;system&amp;raquo;&lt;/font&gt;&#xa;Gmail&#xa;(Pub/Sub)" style="shape=rectangle;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1590" y="600" width="120" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_apollo" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;system&amp;raquo;&lt;/font&gt;&#xa;Apollo API&#xa;(MCP)" style="shape=rectangle;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1590" y="800" width="120" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="grp_campaign" value="Campaign &amp; Outreach" style="shape=rectangle;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#888888;strokeWidth=1;dashed=1;verticalAlign=top;fontStyle=2;fontSize=10;spacingTop=2;spacingLeft=5;align=left;fontColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="300" y="40" width="560" height="200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="grp_inbox" value="AI Inbox &amp; Reply (human-in-the-loop)" style="shape=rectangle;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#888888;strokeWidth=1;dashed=1;verticalAlign=top;fontStyle=2;fontSize=10;spacingTop=2;spacingLeft=5;align=left;fontColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="300" y="260" width="560" height="250" as="geometry" />
+        </mxCell>
+
+        <mxCell id="grp_contact" value="Contact &amp; Intelligence" style="shape=rectangle;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#888888;strokeWidth=1;dashed=1;verticalAlign=top;fontStyle=2;fontSize=10;spacingTop=2;spacingLeft=5;align=left;fontColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="300" y="530" width="560" height="310" as="geometry" />
+        </mxCell>
+
+        <mxCell id="grp_pipeline" value="Automatic AI Pipeline (no human trigger)" style="shape=rectangle;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#888888;strokeWidth=1;dashed=1;verticalAlign=top;fontStyle=2;fontSize=10;spacingTop=2;spacingLeft=5;align=left;fontColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="900" y="260" width="560" height="580" as="geometry" />
+        </mxCell>
+
+        <mxCell id="grp_monitor" value="Monitoring &amp; Admin" style="shape=rectangle;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#888888;strokeWidth=1;dashed=1;verticalAlign=top;fontStyle=2;fontSize=10;spacingTop=2;spacingLeft=5;align=left;fontColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="300" y="860" width="560" height="380" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_create_campaign" value="Create Campaign" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="70" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_generate_email" value="Generate Email&#xa;Sequence (AI)" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="540" y="70" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_send_campaign" value="Send Campaign&#xa;Emails" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="540" y="155" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_view_conversations" value="View&#xa;Conversations" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="285" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_review_draft" value="Review AI&#xa;Suggested Reply" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="370" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_approve_reply" value="Approve &amp; Send&#xa;AI Reply" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="540" y="285" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_edit_reply" value="Edit &amp; Send&#xa;AI Reply" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="540" y="370" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_manual_reply" value="Reply Manually" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="455" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_manage_contacts" value="Manage Contacts" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="555" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_import_contacts" value="Import Contacts" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="640" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_import_apollo" value="Import via&#xa;Apollo MCP" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="540" y="555" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_import_linkedin" value="Import via&#xa;LinkedIn Extension" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="540" y="640" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_import_csv" value="Import via&#xa;CSV Upload" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="540" y="725" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_import_leadform" value="Capture via&#xa;Lead Form" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="725" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_enrich_contact" value="Enrich Contact&#xa;with AI" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="810" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_validate_insight" value="Validate AI&#xa;Insight" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="540" y="810" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_classify_intent" value="Classify Reply&#xa;Intent" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="940" y="290" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_generate_draft" value="Generate AI&#xa;Draft Reply" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="940" y="390" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_rag" value="Retrieve Knowledge&#xa;(RAG)" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="940" y="490" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_transition_state" value="Transition Pipeline&#xa;State" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="290" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_calc_scores" value="Calculate Segment&#xa;Scores" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="940" y="590" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_generate_insights" value="Generate AI&#xa;Insights" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="940" y="690" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_embed" value="Generate Vector&#xa;Embedding" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="590" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_daily_actions" value="View Daily Actions&#xa;Briefing" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="890" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_receive_notifications" value="Receive Real-time&#xa;Notifications (SSE)" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="540" y="890" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_upload_knowledge" value="Upload Knowledge&#xa;Documents" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="975" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_assign_conversation" value="Assign Conversation&#xa;to Member" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="1060" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_manage_lead_forms" value="Manage&#xa;Lead Forms" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="540" y="1060" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc_create_campaign2" value="Choose Playbook&#xa;Strategy" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="155" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note_ai_native" value="Steps 2-6 are fully autonomous.&#xa;BD role = supervisor, not operator." style="shape=note;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;size=14;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="880" width="230" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_bd_create" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_bd" target="uc_create_campaign" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="inc_create_playbook" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;include&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_create_campaign" target="uc_create_campaign2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_bd_view" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_bd" target="uc_view_conversations" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_bd_review" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_bd" target="uc_review_draft" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_bd_manual" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_bd" target="uc_manual_reply" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_bd_contacts" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_bd" target="uc_manage_contacts" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_bd_import" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_bd" target="uc_import_contacts" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_bd_enrich" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_bd" target="uc_enrich_contact" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_bd_validate" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_bd" target="uc_validate_insight" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_bd_daily" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_bd" target="uc_daily_actions" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_bd_notifications" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_bd" target="uc_receive_notifications" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_bd_upload" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_bd" target="uc_upload_knowledge" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_admin_assign" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_admin" target="uc_assign_conversation" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_admin_leadforms" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_admin" target="uc_manage_lead_forms" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_prospect_receive" value="receives" style="strokeColor=#000000;strokeWidth=1;fontSize=10;fontStyle=2;" edge="1" source="actor_prospect" target="uc_send_campaign" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_prospect_leadform" value="submits" style="strokeColor=#000000;strokeWidth=1;fontSize=10;fontStyle=2;" edge="1" source="actor_prospect" target="uc_import_leadform" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_llm_gen" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_llm" target="uc_generate_email" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_llm_classify" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_llm" target="uc_classify_intent" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_llm_draft" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_llm" target="uc_generate_draft" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_llm_insights" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_llm" target="uc_generate_insights" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_llm_embed" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_llm" target="uc_embed" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_gmail_classify" value="pushes&#xa;new email" style="strokeColor=#000000;strokeWidth=1;fontSize=10;fontStyle=2;" edge="1" source="actor_gmail" target="uc_classify_intent" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_apollo_import" style="strokeColor=#000000;strokeWidth=1;" edge="1" source="actor_apollo" target="uc_import_apollo" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="inc_create_gen" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;include&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_create_campaign" target="uc_generate_email" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="inc_draft_classify" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;include&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_generate_draft" target="uc_classify_intent" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="inc_draft_rag" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;include&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_generate_draft" target="uc_rag" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="inc_classify_transition" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;include&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_classify_intent" target="uc_transition_state" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="inc_send_transition" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;include&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_send_campaign" target="uc_transition_state" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="inc_enrich_insights" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;include&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_enrich_contact" target="uc_generate_insights" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="inc_enrich_embed" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;include&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_enrich_contact" target="uc_embed" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="inc_enrich_scores" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;include&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_enrich_contact" target="uc_calc_scores" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ext_approve_review" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;extend&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_approve_reply" target="uc_review_draft" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ext_edit_review" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;extend&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_edit_reply" target="uc_review_draft" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ext_apollo" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;extend&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_import_apollo" target="uc_import_contacts" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ext_linkedin" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;extend&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_import_linkedin" target="uc_import_contacts" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ext_csv" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;extend&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_import_csv" target="uc_import_contacts" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ext_leadform" value="&lt;font style=&quot;font-size:10px&quot;&gt;&amp;laquo;extend&amp;raquo;&lt;/font&gt;" style="endArrow=open;endSize=10;dashed=1;dashPattern=8 4;strokeColor=#000000;strokeWidth=1;html=1;" edge="1" source="uc_import_leadform" target="uc_import_contacts" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

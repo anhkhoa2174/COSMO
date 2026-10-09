@@ -1,0 +1,463 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="class-full" name="COSMO Class Diagram">
+    <mxGraphModel dx="3000" dy="2000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3400" pageHeight="2200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="COSMO — UML Class Diagram" style="text;html=1;fontSize=20;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="10" width="500" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- USER -->
+        <!-- ============================================ -->
+        <mxCell id="user" value="&lt;&lt;entity&gt;&gt;&#xa;User" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="60" width="280" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="user_sep" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=10;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;" vertex="1" parent="user">
+          <mxGeometry y="40" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="user_attrs" value="- id: UUID&#xa;- email: string {unique}&#xa;- name: string&#xa;- picture: string&#xa;- credentials: JSON&#xa;- provider: string&#xa;- jobTitle: string" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="user">
+          <mxGeometry y="48" width="280" height="112" as="geometry" />
+        </mxCell>
+        <mxCell id="user_sep2" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=10;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;" vertex="1" parent="user">
+          <mxGeometry y="160" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="user_methods" value="+ authenticate(code): JWT&#xa;+ refreshToken(token): JWT&#xa;+ logout()&#xa;+ updateProfile(data)&#xa;+ createApiKey(): ApiKey&#xa;+ revokeApiKey(id)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="user">
+          <mxGeometry y="168" width="280" height="112" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- ORGANIZATION -->
+        <!-- ============================================ -->
+        <mxCell id="org" value="&lt;&lt;entity&gt;&gt;&#xa;Organization" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="440" y="60" width="280" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="org_sep" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="org">
+          <mxGeometry y="40" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="org_attrs" value="- id: UUID&#xa;- userID: UUID {FK}&#xa;- name: string&#xa;- companyURL: string&#xa;- companyDescription: string&#xa;- valueOffering: string" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="org">
+          <mxGeometry y="48" width="280" height="96" as="geometry" />
+        </mxCell>
+        <mxCell id="org_sep2" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="org">
+          <mxGeometry y="144" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="org_methods" value="+ create(data): Organization&#xa;+ update(settings)&#xa;+ inviteMember(email, role)&#xa;+ removeMember(userId)&#xa;+ assignRole(userId, role)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="org">
+          <mxGeometry y="152" width="280" height="98" as="geometry" />
+        </mxCell>
+
+        <!-- User -> Organization -->
+        <mxCell id="rel_user_org" style="endArrow=open;endFill=0;endSize=12;html=1;" edge="1" source="user" target="org" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l_uo1" value="1" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="342" y="130" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l_uo2" value="0..*" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="418" y="130" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- AGENT -->
+        <!-- ============================================ -->
+        <mxCell id="agent" value="&lt;&lt;entity&gt;&gt;&#xa;Agent" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="820" y="60" width="280" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="agent_sep" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="agent">
+          <mxGeometry y="40" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="agent_attrs" value="- id: UUID&#xa;- userID: UUID {FK}&#xa;- organizationID: UUID {FK}&#xa;- email: string {unique per user}&#xa;- emailProvider: enum(gmail|outlook)&#xa;- status: enum(active|inactive|...)&#xa;- credentials: JSON&#xa;- dailyLimit: int" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="agent">
+          <mxGeometry y="48" width="280" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="agent_sep2" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="agent">
+          <mxGeometry y="168" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="agent_methods" value="+ create(email, provider): Agent&#xa;+ syncCredentials()&#xa;+ sendEmail(to, subject, content)&#xa;+ checkDailyLimit(): bool&#xa;+ deactivate()&#xa;+ refreshToken()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="agent">
+          <mxGeometry y="176" width="280" height="104" as="geometry" />
+        </mxCell>
+
+        <!-- User -> Agent -->
+        <mxCell id="rel_user_agent" style="endArrow=open;endFill=0;endSize=12;html=1;" edge="1" source="user" target="agent" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="200" y="50" />
+              <mxPoint x="960" y="50" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l_ua1" value="1" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="220" y="33" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l_ua2" value="0..*" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="910" y="33" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Org -> Agent -->
+        <mxCell id="rel_org_agent" style="endArrow=open;endFill=0;endSize=12;html=1;" edge="1" source="org" target="agent" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l_oa1" value="1" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="722" y="145" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l_oa2" value="0..*" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="798" y="145" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- CONTACT -->
+        <!-- ============================================ -->
+        <mxCell id="contact" value="&lt;&lt;entity&gt;&gt;&#xa;Contact" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="420" width="280" height="380" as="geometry" />
+        </mxCell>
+        <mxCell id="contact_sep" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="contact">
+          <mxGeometry y="40" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="contact_attrs" value="- id: UUID&#xa;- userID: UUID {FK}&#xa;- source: enum(Apollo|LinkedIn|csv|...)&#xa;- name: string&#xa;- company: string&#xa;- jobTitle: string&#xa;- contactInformation: string&#xa;- profile: JSONB&#xa;- aiInsights: JSONB&#xa;- confirmedFacts: JSONB&#xa;- scores: JSONB&#xa;- outreachStage: enum(COLD|NO_REPLY|...)&#xa;- businessStage: enum(LEAD|QUALIFIED|...)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="contact">
+          <mxGeometry y="48" width="280" height="192" as="geometry" />
+        </mxCell>
+        <mxCell id="contact_sep2" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="contact">
+          <mxGeometry y="240" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="contact_methods" value="+ create(data): Contact&#xa;+ update(fields)&#xa;+ delete()&#xa;+ search(query, filters): Contact[]&#xa;+ enrich(): AIInsights&#xa;+ calculateScores(): Scores&#xa;+ validateInsight(id, action)&#xa;+ importFromCSV(file): Contact[]&#xa;+ importFromApollo(criteria): Contact[]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="contact">
+          <mxGeometry y="248" width="280" height="132" as="geometry" />
+        </mxCell>
+
+        <!-- User -> Contact -->
+        <mxCell id="rel_user_contact" style="endArrow=open;endFill=0;endSize=12;html=1;" edge="1" source="user" target="contact" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l_uc1" value="1" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="185" y="340" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l_uc2" value="0..*" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="185" y="400" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- CAMPAIGN -->
+        <!-- ============================================ -->
+        <mxCell id="campaign" value="&lt;&lt;entity&gt;&gt;&#xa;Campaign" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="440" y="400" width="280" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="campaign_sep" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="campaign">
+          <mxGeometry y="40" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="campaign_attrs" value="- id: UUID&#xa;- userID: UUID {FK}&#xa;- agentID: UUID {FK}&#xa;- listContactID: UUID {FK}&#xa;- name: string&#xa;- playbook: string&#xa;- status: enum(draft|active|paused|...)&#xa;- cmetadata: JSONB" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="campaign">
+          <mxGeometry y="48" width="280" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="campaign_sep2" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="campaign">
+          <mxGeometry y="168" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="campaign_methods" value="+ create(data): Campaign&#xa;+ activate()&#xa;+ pause()&#xa;+ generateTemplates(): Template[]&#xa;+ setFollowUpSchedule(intervals)&#xa;+ assignAgent(agentId)&#xa;+ execute()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="campaign">
+          <mxGeometry y="176" width="280" height="104" as="geometry" />
+        </mxCell>
+
+        <!-- Agent -> Campaign -->
+        <mxCell id="rel_agent_campaign" style="endArrow=open;endFill=0;endSize=12;html=1;" edge="1" source="agent" target="campaign" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l_ac1" value="1" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="900" y="345" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l_ac2" value="0..*" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="720" y="390" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- EMAIL -->
+        <!-- ============================================ -->
+        <mxCell id="email" value="&lt;&lt;entity&gt;&gt;&#xa;Email" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="440" y="740" width="280" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="email_sep" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="email">
+          <mxGeometry y="40" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="email_attrs" value="- id: UUID&#xa;- campaignID: UUID {FK}&#xa;- conversationID: UUID {FK}&#xa;- fromEmail: string&#xa;- toEmail: string&#xa;- subject: string&#xa;- content: string&#xa;- status: enum(draft|sending|sent|inbox)&#xa;- intents: string[]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="email">
+          <mxGeometry y="48" width="280" height="136" as="geometry" />
+        </mxCell>
+        <mxCell id="email_sep2" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="email">
+          <mxGeometry y="184" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="email_methods" value="+ send(agent): DeliveryResult&#xa;+ reply(content): Email&#xa;+ classifyIntent(): Intent&#xa;+ syncFromGmail(messageId)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="email">
+          <mxGeometry y="192" width="280" height="68" as="geometry" />
+        </mxCell>
+
+        <!-- Campaign -> Email -->
+        <mxCell id="rel_campaign_email" style="endArrow=open;endFill=0;endSize=12;html=1;" edge="1" source="campaign" target="email" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l_ce1" value="1" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="565" y="685" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l_ce2" value="0..*" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="565" y="720" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- KNOWLEDGE -->
+        <!-- ============================================ -->
+        <mxCell id="knowledge" value="&lt;&lt;entity&gt;&gt;&#xa;Knowledge" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="870" width="280" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="knowledge_sep" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="knowledge">
+          <mxGeometry y="40" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="knowledge_attrs" value="- id: UUID&#xa;- userID: UUID {FK}&#xa;- sourceType: enum(website|upload)&#xa;- summaryPair: string[]&#xa;- embeddingGID: string {unique}&#xa;- cmetadata: JSONB" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="knowledge">
+          <mxGeometry y="48" width="280" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="knowledge_sep2" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="knowledge">
+          <mxGeometry y="136" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="knowledge_methods" value="+ upload(file): Knowledge&#xa;+ chunkAndEmbed()&#xa;+ generateSummary()&#xa;+ searchRelevant(query): Chunk[]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="knowledge">
+          <mxGeometry y="144" width="280" height="76" as="geometry" />
+        </mxCell>
+
+        <!-- User -> Knowledge -->
+        <mxCell id="rel_user_knowledge" style="endArrow=open;endFill=0;endSize=12;html=1;" edge="1" source="user" target="knowledge" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="30" y="200" />
+              <mxPoint x="30" y="950" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l_uk1" value="1" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="10" y="200" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l_uk2" value="0..*" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="10" y="910" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- OUTREACH STATE -->
+        <!-- ============================================ -->
+        <mxCell id="outreach" value="&lt;&lt;entity&gt;&gt;&#xa;OutreachState" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="820" y="420" width="300" height="310" as="geometry" />
+        </mxCell>
+        <mxCell id="outreach_sep" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="outreach">
+          <mxGeometry y="40" width="300" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="outreach_attrs" value="- id: UUID&#xa;- userID: UUID {FK}&#xa;- contactID: UUID {FK, unique}&#xa;- conversationState: enum(COLD|NO_REPLY|...)&#xa;- outreachIntent: enum(INTRO|FOLLOW_UP|...)&#xa;- scenario: enum(role_based|industry_based|...)&#xa;- nextStep: enum(SEND|FOLLOW_UP_1|...)&#xa;- followupCount: int&#xa;- maxFollowups: int" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="outreach">
+          <mxGeometry y="48" width="300" height="132" as="geometry" />
+        </mxCell>
+        <mxCell id="outreach_sep2" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="outreach">
+          <mxGeometry y="180" width="300" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="outreach_methods" value="+ suggestContacts(type): Contact[]&#xa;+ generateDraft(scenario, lang): string&#xa;+ updateState(event)&#xa;+ recordInteraction(channel, content)&#xa;+ transitionState(event): NextStep&#xa;+ recalculateState()&#xa;+ drop()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="outreach">
+          <mxGeometry y="188" width="300" height="122" as="geometry" />
+        </mxCell>
+
+        <!-- Contact -> OutreachState -->
+        <mxCell id="rel_contact_outreach" style="endArrow=open;endFill=0;endSize=12;html=1;" edge="1" source="contact" target="outreach" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l_cos1" value="1" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="345" y="550" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l_cos2" value="0..*" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="800" y="550" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- INTERACTION LOG -->
+        <!-- ============================================ -->
+        <mxCell id="interaction" value="&lt;&lt;entity&gt;&gt;&#xa;InteractionLog" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="820" y="790" width="280" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="interaction_sep" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="interaction">
+          <mxGeometry y="40" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="interaction_attrs" value="- id: UUID&#xa;- contactID: UUID {FK}&#xa;- channel: enum(LinkedIn|Email|Call|...)&#xa;- direction: enum(outgoing|incoming)&#xa;- content: string&#xa;- sentiment: enum(positive|neutral|negative)&#xa;- timestamp: DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="interaction">
+          <mxGeometry y="48" width="280" height="104" as="geometry" />
+        </mxCell>
+        <mxCell id="interaction_sep2" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="interaction">
+          <mxGeometry y="152" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="interaction_methods" value="+ log(channel, direction, content)&#xa;+ listByContact(contactId): Log[]&#xa;+ triggerOrchestration()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="interaction">
+          <mxGeometry y="160" width="280" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Contact -> InteractionLog -->
+        <mxCell id="rel_contact_interaction" style="endArrow=open;endFill=0;endSize=12;html=1;" edge="1" source="contact" target="interaction" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="200" y="810" />
+              <mxPoint x="820" y="810" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l_ci1" value="1" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="220" y="793" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l_ci2" value="0..*" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="790" y="793" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- MEETING -->
+        <!-- ============================================ -->
+        <mxCell id="meeting" value="&lt;&lt;entity&gt;&gt;&#xa;Meeting" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1220" y="60" width="280" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="meeting_sep" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="meeting">
+          <mxGeometry y="40" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="meeting_attrs" value="- id: UUID&#xa;- contactID: UUID {FK}&#xa;- title: string&#xa;- time: DateTime&#xa;- durationMinutes: int&#xa;- channel: enum(Zoom|Google Meet|Call|...)&#xa;- status: enum(scheduled|completed|...)&#xa;- meetingPrep: string&#xa;- outcome: string" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="meeting">
+          <mxGeometry y="48" width="280" height="132" as="geometry" />
+        </mxCell>
+        <mxCell id="meeting_sep2" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="meeting">
+          <mxGeometry y="180" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="meeting_methods" value="+ create(data): Meeting&#xa;+ confirm()&#xa;+ cancel()&#xa;+ complete(outcome, nextSteps)&#xa;+ generatePrep(): MeetingBriefing&#xa;+ recordNoShow()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="meeting">
+          <mxGeometry y="188" width="280" height="112" as="geometry" />
+        </mxCell>
+
+        <!-- Contact -> Meeting -->
+        <mxCell id="rel_contact_meeting" style="endArrow=open;endFill=0;endSize=12;html=1;" edge="1" source="contact" target="meeting" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="200" y="410" />
+              <mxPoint x="1360" y="410" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l_cm1" value="1" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="260" y="393" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l_cm2" value="0..*" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1330" y="393" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- DAILY ACTION GENERATION -->
+        <!-- ============================================ -->
+        <mxCell id="generation" value="&lt;&lt;entity&gt;&gt;&#xa;DailyActionGeneration" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1220" y="440" width="280" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="generation_sep" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="generation">
+          <mxGeometry y="40" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="generation_attrs" value="- id: UUID&#xa;- userID: UUID {FK}&#xa;- date: string&#xa;- status: enum(started|completed|failed)&#xa;- language: string&#xa;- agentBriefing: JSONB&#xa;- pipelineSummary: JSONB" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="generation">
+          <mxGeometry y="48" width="280" height="104" as="geometry" />
+        </mxCell>
+        <mxCell id="generation_sep2" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="generation">
+          <mxGeometry y="152" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="generation_methods" value="+ generate(language): Generation&#xa;+ getStatus(): GenerationStatus&#xa;+ getBriefing(): Briefing&#xa;+ markCompleted(actionCount)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="generation">
+          <mxGeometry y="160" width="280" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- DAILY ACTION -->
+        <!-- ============================================ -->
+        <mxCell id="action" value="&lt;&lt;entity&gt;&gt;&#xa;DailyAction" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="440" width="280" height="310" as="geometry" />
+        </mxCell>
+        <mxCell id="action_sep" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="action">
+          <mxGeometry y="40" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="action_attrs" value="- id: UUID&#xa;- generationID: UUID {FK}&#xa;- contactID: UUID {FK}&#xa;- type: enum(outreach|respond|...)&#xa;- categoryID: enum(follow_up|meeting|...)&#xa;- priority: int&#xa;- reasoning: string&#xa;- status: enum(suggested|executed|...)&#xa;- outreachData: JSONB&#xa;- contactSnapshot: JSONB" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="action">
+          <mxGeometry y="48" width="280" height="148" as="geometry" />
+        </mxCell>
+        <mxCell id="action_sep2" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="action">
+          <mxGeometry y="196" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="action_methods" value="+ markCompleted(content, channel)&#xa;+ skip(reason)&#xa;+ snooze(until)&#xa;+ reopen()&#xa;+ getContactDetail(): Contact" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="action">
+          <mxGeometry y="204" width="280" height="106" as="geometry" />
+        </mxCell>
+
+        <!-- Generation -> DailyAction -->
+        <mxCell id="rel_gen_action" style="endArrow=open;endFill=0;endSize=12;html=1;" edge="1" source="generation" target="action" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l_ga1" value="1" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1505" y="545" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l_ga2" value="1..*" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1578" y="545" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- ACTION SNOOZE -->
+        <!-- ============================================ -->
+        <mxCell id="snooze" value="&lt;&lt;entity&gt;&gt;&#xa;ActionSnooze" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1980" y="440" width="220" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="snooze_sep" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="snooze">
+          <mxGeometry y="40" width="220" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="snooze_attrs" value="- id: UUID&#xa;- actionID: UUID {FK}&#xa;- snoozeUntil: DateTime&#xa;- clearedAt: DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="snooze">
+          <mxGeometry y="48" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="snooze_sep2" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="snooze">
+          <mxGeometry y="108" width="220" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="snooze_methods" value="+ clear()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="snooze">
+          <mxGeometry y="116" width="220" height="34" as="geometry" />
+        </mxCell>
+
+        <!-- DailyAction -> ActionSnooze -->
+        <mxCell id="rel_action_snooze" style="endArrow=open;endFill=0;endSize=12;html=1;" edge="1" source="action" target="snooze" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l_as1" value="1" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1885" y="480" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l_as2" value="0..*" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1958" y="480" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- ACTION COMPLETION LOG -->
+        <!-- ============================================ -->
+        <mxCell id="complog" value="&lt;&lt;entity&gt;&gt;&#xa;ActionCompletionLog" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1980" y="640" width="240" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="complog_sep" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="complog">
+          <mxGeometry y="40" width="240" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="complog_attrs" value="- id: UUID&#xa;- actionID: UUID&#xa;- actionType: enum&#xa;- transition: string&#xa;- contactName: string&#xa;- content: string&#xa;- date: string" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="complog">
+          <mxGeometry y="48" width="240" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="complog_sep2" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="complog">
+          <mxGeometry y="148" width="240" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="complog_methods" value="+ log(action, transition)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="complog">
+          <mxGeometry y="156" width="240" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- DailyAction -> CompletionLog -->
+        <mxCell id="rel_action_complog" style="endArrow=open;endFill=0;endSize=12;html=1;" edge="1" source="action" target="complog" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l_acl1" value="1" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1885" y="700" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l_acl2" value="0..*" style="text;html=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1958" y="700" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- CHAT MESSAGE -->
+        <!-- ============================================ -->
+        <mxCell id="chat" value="&lt;&lt;entity&gt;&gt;&#xa;ChatMessage" style="swimlane;fontStyle=1;align=center;startSize=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1220" y="770" width="260" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="chat_sep" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="chat">
+          <mxGeometry y="40" width="260" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="chat_attrs" value="- id: UUID&#xa;- userID: UUID {FK}&#xa;- role: enum(user|assistant)&#xa;- content: string&#xa;- classifiedIntent: string&#xa;- generationID: UUID" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="chat">
+          <mxGeometry y="48" width="260" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="chat_sep2" value="" style="line;strokeWidth=1;fillColor=none;" vertex="1" parent="chat">
+          <mxGeometry y="136" width="260" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="chat_methods" value="+ send(message): Response&#xa;+ classifyIntent(): Intent&#xa;+ listHistory(): ChatMessage[]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="chat">
+          <mxGeometry y="144" width="260" height="56" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

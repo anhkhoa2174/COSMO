@@ -1,0 +1,99 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="seq-uc6" name="UC-6 Upload Knowledge Documents">
+    <mxGraphModel dx="1200" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="700" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="UC-6: Upload Knowledge Documents" style="text;html=1;fontSize=16;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="300" y="10" width="350" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="bd" value="BD (Sales Rep)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="60" y="60" width="120" height="560" as="geometry" />
+        </mxCell>
+        <mxCell id="fe" value="Frontend" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="250" y="60" width="100" height="560" as="geometry" />
+        </mxCell>
+        <mxCell id="be" value="Backend API" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="430" y="60" width="100" height="560" as="geometry" />
+        </mxCell>
+        <mxCell id="worker" value="Background&#xa;Worker" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="610" y="60" width="110" height="560" as="geometry" />
+        </mxCell>
+        <mxCell id="llm" value="LLM Service&#xa;(OpenAI)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="800" y="60" width="110" height="560" as="geometry" />
+        </mxCell>
+        <mxCell id="redis" value="Redis&#xa;Vector Store" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;" vertex="1" parent="1">
+          <mxGeometry x="980" y="60" width="100" height="560" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m1" value="1. Select file and click &quot;Upload&quot;" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="120" y="130" as="sourcePoint" />
+            <mxPoint x="300" y="130" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m2" value="2. POST /v2/knowledge/upload (multipart)" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="300" y="170" as="sourcePoint" />
+            <mxPoint x="480" y="170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m3" value="3. Create knowledge record + extract content" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="480" y="210" as="sourcePoint" />
+            <mxPoint x="665" y="210" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m3r" value="201 Created" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="480" y="250" as="sourcePoint" />
+            <mxPoint x="300" y="250" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="m4" value="4. Chunk document into segments" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="665" y="300" as="sourcePoint" />
+            <mxPoint x="665" y="330" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m5" value="5. Generate embedding per chunk" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="665" y="350" as="sourcePoint" />
+            <mxPoint x="855" y="350" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m5r" value="Vector embeddings" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="855" y="390" as="sourcePoint" />
+            <mxPoint x="665" y="390" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m6" value="6. Store embeddings in vector index" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="665" y="430" as="sourcePoint" />
+            <mxPoint x="1030" y="430" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m7" value="7. Generate document summary" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="665" y="480" as="sourcePoint" />
+            <mxPoint x="855" y="480" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m7r" value="Summary pair (Q&amp;A format)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="855" y="520" as="sourcePoint" />
+            <mxPoint x="665" y="520" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m8" value="8. Save summary to knowledge record" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="665" y="560" as="sourcePoint" />
+            <mxPoint x="480" y="560" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

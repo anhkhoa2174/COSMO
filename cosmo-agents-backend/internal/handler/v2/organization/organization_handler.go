@@ -21,6 +21,7 @@ import (
 	user "github.com/rockship/cosmo-agents-go/internal/repository/user"
 	"github.com/rockship/cosmo-agents-go/internal/schema"
 	v2schema "github.com/rockship/cosmo-agents-go/internal/schema/v2"
+	"github.com/rockship/cosmo-agents-go/internal/service/productivity"
 	"github.com/rockship/cosmo-agents-go/pkg/logger"
 	"github.com/rockship/cosmo-agents-go/pkg/worker"
 )
@@ -32,6 +33,16 @@ type OrganizationHandler struct {
 	userRepo     *user.UserRepository
 	roleRepo     *roleRepo.RoleRepository
 	workerClient workerClient
+
+	// Optional: set with WithProductivity. Left nil the team-productivity
+	// endpoint reports itself unconfigured rather than panicking.
+	productivity *productivity.Service
+}
+
+// WithProductivity enables the team-productivity endpoint.
+func (h *OrganizationHandler) WithProductivity(svc *productivity.Service) *OrganizationHandler {
+	h.productivity = svc
+	return h
 }
 
 type workerClient interface {

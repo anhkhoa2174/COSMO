@@ -3,8 +3,10 @@ package email
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/lib/pq"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -16,6 +18,7 @@ import (
 	integrationRepo "github.com/rockship/cosmo-agents-go/internal/repository/integration"
 	v2schema "github.com/rockship/cosmo-agents-go/internal/schema/v2"
 	"github.com/rockship/cosmo-agents-go/pkg/gmail"
+	googleoauth "github.com/rockship/cosmo-agents-go/pkg/oauth2/google"
 )
 
 // EmailHandler handles V2 Email requests
@@ -23,6 +26,7 @@ type EmailHandler struct {
 	emailRepo       *emailRepo.Repository
 	integrationRepo *integrationRepo.IntegrationRepository
 	agentRepo       *agentRepo.AgentRepository
+	oauth2Client    *googleoauth.Client
 }
 
 // NewEmailHandler creates a new V2 EmailHandler
@@ -30,11 +34,13 @@ func NewEmailHandler(
 	emailRepo *emailRepo.Repository,
 	integrationRepo *integrationRepo.IntegrationRepository,
 	agentRepo *agentRepo.AgentRepository,
+	oauth2Client *googleoauth.Client,
 ) *EmailHandler {
 	return &EmailHandler{
 		emailRepo:       emailRepo,
 		integrationRepo: integrationRepo,
 		agentRepo:       agentRepo,
+		oauth2Client:    oauth2Client,
 	}
 }
 
@@ -53,8 +59,9 @@ func (h *EmailHandler) Search(c fiber.Ctx) error {
 	// Parse query params
 	offset, _ := strconv.Atoi(c.Query("offset", "0"))
 	limit, _ := strconv.Atoi(c.Query("limit", "25"))
-	if limit > 100 {
-		limit = 100
+	// The dashboard reads a whole window of mail in one page.
+	if limit > 500 {
+		limit = 500
 	}
 
 	// Parse request body
@@ -181,9 +188,33 @@ func (h *EmailHandler) Reply(c fiber.Ctx) error {
 	// Prefer agent credentials (matches current auth flow)
 	var accessToken string
 
-	agent, err := h.agentRepo.FindByUserAndEmail(c.Context(), userID, email.ToEmail)
+	// For incoming emails (prospect replied), look up agent by ToEmail (our agent's email)
+	// For outgoing emails, look up by FromEmail (our agent's email)
+	agentEmail := email.FromEmail
+	if email.ToEmail != "" {
+		// Check if FromEmail is an agent; if not, try ToEmail
+		agentCheck, _ := h.agentRepo.FindByUserAndEmail(c.Context(), userID, email.FromEmail)
+		if agentCheck == nil {
+			agentEmail = email.ToEmail
+		}
+	}
+	agent, err := h.agentRepo.FindByUserAndEmail(c.Context(), userID, agentEmail)
 	if err == nil && agent != nil {
 		if store, storeErr := agent.GetGoogleTokenStore(); storeErr == nil {
+			// Refresh token if expired or expiring soon
+			if store.Expiry.Before(time.Now().Add(5*time.Minute)) && h.oauth2Client != nil {
+				newToken, refreshErr := h.oauth2Client.RefreshToken(c.Context(), store.RefreshToken)
+				if refreshErr == nil {
+					store.AccessToken = newToken.AccessToken
+					if newToken.RefreshToken != "" {
+						store.RefreshToken = newToken.RefreshToken
+					}
+					store.Expiry = newToken.Expiry
+					// Save refreshed token back to agent
+					_ = agent.UpdateGoogleTokenStore(store)
+					_ = h.agentRepo.Update(c.Context(), agent.ID, agent)
+				}
+			}
 			accessToken = store.AccessToken
 		}
 	}
@@ -287,8 +318,15 @@ func stringArrayToSlice(arr interface{}) []string {
 		return []string{}
 	}
 
-	// Handle different types
+	// Handle different types. The email columns are pq.StringArray, a named
+	// type that a []string case does not match: every intent and attachment
+	// came out as [], so the dashboard said no reply had been classified.
 	switch v := arr.(type) {
+	case pq.StringArray:
+		if v == nil {
+			return []string{}
+		}
+		return []string(v)
 	case []string:
 		return v
 	case []interface{}:

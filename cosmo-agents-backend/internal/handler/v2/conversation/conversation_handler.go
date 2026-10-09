@@ -3,6 +3,7 @@ package conversation
 import (
 	"encoding/json"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -43,15 +44,16 @@ type ConversationSearchRequest struct {
 
 // ConversationEntity represents a conversation in the response
 type ConversationEntity struct {
-	ID         uuid.UUID  `json:"id"`
-	UserID     uuid.UUID  `json:"user_id"`
-	Labels     []string   `json:"labels"`
-	Replied    bool       `json:"replied"`
-	CampaignID *uuid.UUID `json:"campaign_id,omitempty"`
-	AssigneeID *uuid.UUID `json:"assignee_id,omitempty"`
-	IsDeleted  bool       `json:"is_deleted"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+	ID         uuid.UUID       `json:"id"`
+	UserID     uuid.UUID       `json:"user_id"`
+	Labels     []string        `json:"labels"`
+	Replied    bool            `json:"replied"`
+	CampaignID *uuid.UUID      `json:"campaign_id,omitempty"`
+	AssigneeID *uuid.UUID      `json:"assignee_id,omitempty"`
+	CMetadata  json.RawMessage `json:"cmetadata,omitempty"`
+	IsDeleted  bool            `json:"is_deleted"`
+	CreatedAt  time.Time       `json:"created_at"`
+	UpdatedAt  time.Time       `json:"updated_at"`
 }
 
 // EmailEntity represents an email in the response
@@ -102,25 +104,33 @@ func (h *ConversationHandler) SearchConversations(c fiber.Ctx) error {
 
 	conversationType := c.Query("conversation_type")
 
-	// conversation_type filtering is not yet implemented - return 501 if requested
-	if conversationType != "" {
-		logger.Logger.Warn().
-			Str("conversation_type", conversationType).
-			Str("user_id", userID.String()).
-			Msg("conversation_type filtering requested but not implemented")
-		return c.Status(fiber.StatusNotImplemented).JSON(schema.ErrorResponse(
-			fiber.StatusNotImplemented,
-			"Feature not implemented",
-			"conversation_type filtering is not yet supported. Please use other filters.",
-		))
-	}
-
 	// Build base query
 	query := h.conversationRepo.GetDB().WithContext(c.Context()).
 		Model(&domain.Conversation{}).
 		Where("user_id = ? AND is_deleted = ?", userID, false)
 
-	// conversation_type filtering removed - feature returns 501 Not Implemented above
+	// The inbox tabs send this on every request. It used to return 501, which
+	// meant three of the five tabs showed an error instead of their contents.
+	switch conversationType {
+	case "sent":
+		// Threads this account has actually answered.
+		query = query.Where("replied = ?", true)
+	case "assign_to_human":
+		// Handed to a teammate, so it is off the automated path.
+		query = query.Where("assignee_id IS NOT NULL")
+	case "assign_to_ai":
+		// Nobody has claimed it and the pipeline left a draft to review.
+		query = query.Where(
+			"assignee_id IS NULL AND cmetadata -> 'ai_reply' ->> 'draft_content' <> ''")
+	case "":
+		// No tab filter — all mail.
+	default:
+		return c.Status(fiber.StatusBadRequest).JSON(schema.ErrorResponse(
+			fiber.StatusBadRequest,
+			"Unknown conversation_type",
+			"conversation_type must be one of: sent, assign_to_ai, assign_to_human",
+		))
+	}
 
 	// Apply custom filter if provided
 	if req.Filter != nil {
@@ -145,6 +155,58 @@ func (h *ConversationHandler) SearchConversations(c fiber.Ctx) error {
 					if id, err := uuid.Parse(campaignID); err == nil {
 						query = query.Where("campaign_id = ?", id)
 					}
+				}
+
+			case "q":
+				// Free-text search over the messages, not the thread row: a
+				// conversation carries no subject or body of its own, so the
+				// terms a user actually remembers only exist on its emails.
+				term, ok := v.(string)
+				if !ok {
+					break
+				}
+				term = strings.TrimSpace(term)
+				if term == "" {
+					break
+				}
+				like := "%" + strings.ReplaceAll(
+					strings.ReplaceAll(term, "%", `\%`), "_", `\_`) + "%"
+				query = query.Where(`id IN (
+						SELECT conversation_id FROM emails
+						WHERE conversation_id IS NOT NULL
+						  AND (subject ILIKE ? OR content ILIKE ?
+						       OR from_email ILIKE ? OR to_email ILIKE ?)
+					)`, like, like, like, like)
+
+			case "intent":
+				// Both the thread and its emails carry a classified intent;
+				// match either so a thread is found by the label the user saw
+				// on it in the list.
+				if intent, ok := v.(string); ok && intent != "" {
+					query = query.Where(`(intents::text ILIKE ? OR id IN (
+							SELECT conversation_id FROM emails
+							WHERE conversation_id IS NOT NULL
+							  AND intents::text ILIKE ?
+						))`, "%"+intent+"%", "%"+intent+"%")
+				}
+
+			case "has_draft":
+				// Threads where the pipeline left a reply waiting for review.
+				if want, ok := v.(bool); ok {
+					cond := "cmetadata -> 'ai_reply' ->> 'draft_content' <> ''"
+					if want {
+						query = query.Where(cond)
+					} else {
+						query = query.Where("NOT (" + cond + ") OR cmetadata -> 'ai_reply' IS NULL")
+					}
+				}
+
+			case "since_days":
+				// Relative rather than absolute dates: the client asks for
+				// "last 7 days" without either side agreeing on a timezone.
+				if days, ok := v.(float64); ok && days > 0 {
+					query = query.Where("updated_at >= ?",
+						time.Now().AddDate(0, 0, -int(days)))
 				}
 			}
 		}
@@ -218,6 +280,7 @@ func (h *ConversationHandler) SearchConversations(c fiber.Ctx) error {
 			Replied:    conv.Replied,
 			CampaignID: conv.CampaignID,
 			AssigneeID: conv.AssigneeID,
+			CMetadata:  json.RawMessage(conv.CMetadata),
 			IsDeleted:  conv.IsDeleted,
 			CreatedAt:  conv.CreatedAt,
 			UpdatedAt:  conv.UpdatedAt,

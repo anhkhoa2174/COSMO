@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/rockship/cosmo-agents-go/pkg/auth"
 	"github.com/rockship/cosmo-agents-go/pkg/config"
 	"github.com/rockship/cosmo-agents-go/pkg/logger"
-	"github.com/rockship/cosmo-agents-go/pkg/metrics"
 )
 
 // App holds the Fiber application and configuration
@@ -19,22 +17,6 @@ type App struct {
 	Fiber      *fiber.App
 	Config     *config.Config
 	JWTManager *auth.JWTManager
-}
-
-type metricsWriter struct {
-	c fiber.Ctx
-}
-
-func (w *metricsWriter) Header() http.Header {
-	return make(http.Header)
-}
-
-func (w *metricsWriter) Write(data []byte) (int, error) {
-	return w.c.Write(data)
-}
-
-func (w *metricsWriter) WriteHeader(statusCode int) {
-	w.c.Status(statusCode)
 }
 
 // NewApp creates and configures a new Fiber application
@@ -120,11 +102,9 @@ func (a *App) SetupMiddleware() {
 // setupMiddleware configures all global middleware
 func setupMiddleware(app *fiber.App, cfg *config.Config, jwtManager *auth.JWTManager) {
 	// Global middleware
-	app.Use(appMiddleware.Recovery())  // Panic recovery
-	app.Use(appMiddleware.RequestID()) // Request ID tracking
-	app.Use(appMiddleware.Logger())    // Request logging
-	// Enable Prometheus middleware for automatic metrics collection
-	app.Use(appMiddleware.Prometheus())                            // HTTP metrics
+	app.Use(appMiddleware.Recovery())                              // Panic recovery
+	app.Use(appMiddleware.RequestID())                             // Request ID tracking
+	app.Use(appMiddleware.Logger())                                // Request logging
 	app.Use(appMiddleware.CORS(appMiddleware.DefaultCORSConfig())) // CORS
 	app.Use(appMiddleware.OptionalAuth(jwtManager, nil, nil))      // Auth
 
@@ -148,26 +128,6 @@ func setupBasicRoutes(app *fiber.App) {
 	app.Get("/ping", healthHandler)
 	app.Get("/health", healthHandler)
 	app.Get("/healthz", healthHandler)
-
-	// Prometheus metrics endpoint at root
-	app.Get("/metrics", func(c fiber.Ctx) error {
-		c.Set("Content-Type", "text/plain")
-
-		handler := metrics.Handler()
-
-		w := &metricsWriter{
-			c: c,
-		}
-
-		req := &http.Request{
-			Method: "GET",
-			URL:    nil,
-		}
-
-		handler.ServeHTTP(w, req)
-
-		return nil
-	})
 
 	// Swagger JSON endpoint (disable caching)
 	app.Get("/swagger/doc.json", func(c fiber.Ctx) error {
@@ -210,4 +170,3 @@ func (a *App) Start() error {
 	logger.Logger.Info().Msgf("Starting server on port %d", a.Config.App.Port)
 	return a.Fiber.Listen(fmt.Sprintf(":%d", a.Config.App.Port))
 }
-

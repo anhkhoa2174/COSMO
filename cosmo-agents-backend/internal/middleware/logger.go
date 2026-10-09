@@ -10,8 +10,8 @@ import (
 // Logger middleware logs HTTP requests with structured logging
 func Logger() fiber.Handler {
 	return func(c fiber.Ctx) error {
-		// Skip logging for health check and metrics endpoints to reduce spam
-		if c.Path() == "/health" || c.Path() == "/metrics" || c.Path() == "/ping" || c.Path() == "/healthz" {
+		// Skip logging for health check endpoints to reduce spam
+		if c.Path() == "/health" || c.Path() == "/ping" || c.Path() == "/healthz" {
 			return c.Next()
 		}
 

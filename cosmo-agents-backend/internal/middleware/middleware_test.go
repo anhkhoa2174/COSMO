@@ -200,13 +200,12 @@ func TestRequestID(t *testing.T) {
 	})
 }
 
-// Logger and Prometheus wrap the handler: they must pass its status and error
+// Logger wraps the handler: they must pass its status and error
 // through unchanged, including for the skipped health paths.
-func TestLoggerAndPrometheusPassThrough(t *testing.T) {
+func TestLoggerPassThrough(t *testing.T) {
 	app := fiber.New()
 	app.Use(RequestID())
 	app.Use(Logger())
-	app.Use(Prometheus())
 	app.Get("/health", func(c fiber.Ctx) error { return c.SendString("ok") })
 	app.Get("/created", func(c fiber.Ctx) error { return c.Status(fiber.StatusCreated).SendString("made") })
 	app.Get("/err", func(c fiber.Ctx) error { return fiber.NewError(fiber.StatusConflict, "clash") })

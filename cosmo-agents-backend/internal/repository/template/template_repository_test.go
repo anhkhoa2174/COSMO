@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
@@ -22,7 +22,7 @@ import (
 
 // Test setup utilities
 func setupComprehensiveTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+	db, err := pgtest.Open(t, &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent), // Reduce log noise in tests
 	})
 	require.NoError(t, err)
@@ -595,7 +595,6 @@ func TestTemplateRepository_FindByIDs_Comprehensive(t *testing.T) {
 }
 
 func TestTemplateRepository_Concurrent_Access(t *testing.T) {
-	t.Skip("Skipping concurrent test due to DB setup issues")
 
 	db := setupComprehensiveTestDB(t)
 	repo := NewTemplateRepository(db)

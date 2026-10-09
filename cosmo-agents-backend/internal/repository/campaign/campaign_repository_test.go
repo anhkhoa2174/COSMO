@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
@@ -22,7 +22,7 @@ import (
 func newTestRepo(t *testing.T) (*CampaignRepository, *gorm.DB) {
 	t.Helper()
 
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 
 	require.NoError(t, db.AutoMigrate(&domain.Campaign{}))

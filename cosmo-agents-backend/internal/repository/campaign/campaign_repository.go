@@ -143,9 +143,9 @@ func (r *CampaignRepository) FindWithStats(
 		SUM(CASE WHEN conversations.replied THEN 1 ELSE 0 END) AS reply,
 		CASE WHEN COUNT(conversations.id) = 0 THEN 0
 			 ELSE SUM(CASE WHEN conversations.replied THEN 1 ELSE 0 END)::float / COUNT(conversations.id) END AS reply_rate,
-		SUM(CASE WHEN conversations.intents @> ARRAY[?]::varchar[] THEN 1 ELSE 0 END) AS interested,
+		SUM(CASE WHEN conversations.intents @> ARRAY[?]::text[] THEN 1 ELSE 0 END) AS interested,
 		CASE WHEN SUM(CASE WHEN conversations.replied THEN 1 ELSE 0 END) = 0 THEN 0
-			 ELSE SUM(CASE WHEN conversations.intents @> ARRAY[?]::varchar[] THEN 1 ELSE 0 END)::float /
+			 ELSE SUM(CASE WHEN conversations.intents @> ARRAY[?]::text[] THEN 1 ELSE 0 END)::float /
 				  SUM(CASE WHEN conversations.replied THEN 1 ELSE 0 END) END AS interest_rate,
 		MAX(agents.name) AS agent_name,
 		COALESCE((array_agg(agents.cmetadata) FILTER (WHERE agents.cmetadata IS NOT NULL))[1], '{}'::jsonb) AS agent_cmetadata

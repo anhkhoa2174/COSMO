@@ -135,11 +135,14 @@ const IntelligenceApi = {
   // Calculate segment scores for a contact
   calculateScores: async (contactId: string, segmentationIds?: string[]) => {
     // Backend route: /v1/contacts/{id}/calculate-scores
-    const data = await kyClient.post(`v1/contacts/${contactId}/calculate-scores`, {
-      json: {
-        segmentation_ids: segmentationIds || [],
-      },
-    });
+    const data = await kyClient.post(
+      `v1/contacts/${contactId}/calculate-scores`,
+      {
+        json: {
+          segmentation_ids: segmentationIds || [],
+        },
+      }
+    );
     return data.json<ApiResponse<CalculateScoresResponse>>();
   },
 
@@ -168,17 +171,26 @@ const IntelligenceApi = {
       why_important?: string;
     }
   ) => {
-    const data = await kyClient.post(`v1/contacts/${contactId}/research-findings`, {
-      json: finding,
-    });
+    const data = await kyClient.post(
+      `v1/contacts/${contactId}/research-findings`,
+      {
+        json: finding,
+      }
+    );
     return data.json<ApiResponse<any>>();
   },
 
   // Validate or reject an AI insight (moves to confirmed_facts or removes)
-  validateInsight: async (contactId: string, payload: ValidateInsightRequest) => {
-    const data = await kyClient.post(`v1/contacts/${contactId}/insights/validate`, {
-      json: payload,
-    });
+  validateInsight: async (
+    contactId: string,
+    payload: ValidateInsightRequest
+  ) => {
+    const data = await kyClient.post(
+      `v1/contacts/${contactId}/insights/validate`,
+      {
+        json: payload,
+      }
+    );
     return data.json<ApiResponse<any>>();
   },
 
@@ -190,7 +202,9 @@ const IntelligenceApi = {
 
   // Generate meeting brief with AI insights
   generateMeetingBrief: async (contactId: string) => {
-    const data = await kyClient.post(`v1/contacts/${contactId}/generate-meeting-brief`);
+    const data = await kyClient.post(
+      `v1/contacts/${contactId}/generate-meeting-brief`
+    );
     return data.json<ApiResponse<MeetingBriefResponse>>();
   },
 };

@@ -1,7 +1,11 @@
 import { kyClient } from '@/lib/ky';
 import type { ApiResponse } from '@/models/response';
 
-export type EnrollmentStatus = 'pending_approval' | 'active' | 'paused' | 'completed';
+export type EnrollmentStatus =
+  | 'pending_approval'
+  | 'active'
+  | 'paused'
+  | 'completed';
 
 export interface EnrollContactRequest {
   playbook_id: string;
@@ -62,7 +66,10 @@ const EnrollmentApi = {
   },
 
   // Update enrollment status
-  updateEnrollmentStatus: async (enrollmentId: string, status: EnrollmentStatus) => {
+  updateEnrollmentStatus: async (
+    enrollmentId: string,
+    status: EnrollmentStatus
+  ) => {
     const data = await kyClient.patch(`v1/enrollments/${enrollmentId}/status`, {
       json: { status },
     });
@@ -77,13 +84,17 @@ const EnrollmentApi = {
 
   // Approve an enrollment request
   approveEnrollment: async (requestId: string) => {
-    const data = await kyClient.post(`v1/enrollment-approvals/${requestId}/approve`);
+    const data = await kyClient.post(
+      `v1/enrollment-approvals/${requestId}/approve`
+    );
     return data.json<ApiResponse<{ message: string }>>();
   },
 
   // Reject an enrollment request
   rejectEnrollment: async (requestId: string) => {
-    const data = await kyClient.post(`v1/enrollment-approvals/${requestId}/reject`);
+    const data = await kyClient.post(
+      `v1/enrollment-approvals/${requestId}/reject`
+    );
     return data.json<ApiResponse<{ message: string }>>();
   },
 };

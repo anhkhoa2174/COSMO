@@ -7,13 +7,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/rockship/cosmo-agents-go/internal/testutil/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
 	"github.com/rockship/cosmo-agents-go/internal/domain/campaign"
+	contactRepo "github.com/rockship/cosmo-agents-go/internal/repository/contact"
 	conversationRepo "github.com/rockship/cosmo-agents-go/internal/repository/conversation"
 	"github.com/rs/zerolog"
 )
@@ -126,8 +127,8 @@ func TestIntentHandlerInterface(t *testing.T) {
 }
 
 func TestAIReplyHandler_ExecuteMarksConversation(t *testing.T) {
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	t.Skip("AIReplyHandler.Execute now loads full conversation history and calls Coze (RAG reply); needs DB-backed email repo + AI service - integration environment")
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&domain.Conversation{}))
 
@@ -206,8 +207,7 @@ func TestIntentHandlerExecution(t *testing.T) {
 
 func newConvRepo(t *testing.T) (*conversationRepo.ConversationRepository, *domain.Conversation, context.Context) {
 	t.Helper()
-	dsn := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := pgtest.Open(t, &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&domain.Conversation{}))
 
@@ -227,14 +227,34 @@ func TestDoNotContactHandler_Execute(t *testing.T) {
 	email := &domain.Email{Base: domain.Base{ID: uuid.New()}, ConversationID: &conv.ID, FromEmail: "from@example.com"}
 	logger := zerolog.New(io.Discard)
 
-	handler := NewDoNotContactHandler(nil, nil, repo, &logger)
-	ok, err := handler.Execute(ctx, &domain.Campaign{Base: domain.Base{ID: uuid.New()}}, domain.IntentDoNotContact, email)
+	// Contact repo on the same PostgreSQL test schema, so the suppression is real.
+	db, err := pgtest.Open(t, &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&domain.Contact{}))
+	cRepo := contactRepo.NewContactRepository(db)
+
+	campaignOwner := uuid.New()
+	contact := &domain.Contact{
+		Base:               domain.Base{ID: uuid.New()},
+		UserID:             campaignOwner,
+		SourceID:           "seed",
+		Source:             "csv",
+		ContactInformation: "from@example.com",
+	}
+	require.NoError(t, cRepo.Create(ctx, contact))
+
+	handler := NewDoNotContactHandler(nil, cRepo, repo, &logger)
+	ok, err := handler.Execute(ctx, &domain.Campaign{Base: domain.Base{ID: uuid.New()}, UserID: campaignOwner}, domain.IntentDoNotContact, email)
 	require.NoError(t, err)
 	assert.True(t, ok)
 
 	updated, err := repo.FindByID(ctx, conv.ID)
 	require.NoError(t, err)
 	assert.True(t, updated.Replied)
+
+	suppressed, err := cRepo.FindByID(ctx, contact.ID)
+	require.NoError(t, err)
+	assert.True(t, suppressed.DoNotContact, "contact must be suppressed after DO_NOT_CONTACT")
 }
 
 func TestOutOfOfficeHandler_Execute(t *testing.T) {

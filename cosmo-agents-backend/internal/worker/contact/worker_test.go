@@ -3,7 +3,7 @@ package contact
 import "testing"
 
 func TestContactTypeConstants(t *testing.T) {
-	if TypePullHubspotContacts == "" || TypeContactImportCSV == "" || TypeContactEnrich == "" || TypeContactImportHubspot == "" {
+	if TypePullHubspotContacts == "" || TypeContactEnrich == "" || TypeContactImportHubspot == "" {
 		t.Fatalf("expected contact task types to be non-empty")
 	}
 }

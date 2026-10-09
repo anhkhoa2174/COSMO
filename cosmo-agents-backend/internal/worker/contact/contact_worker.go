@@ -2,9 +2,7 @@ package contact
 
 import (
 	"context"
-	"encoding/csv"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 
@@ -15,6 +13,7 @@ import (
 
 	"github.com/rockship/cosmo-agents-go/internal/core"
 	"github.com/rockship/cosmo-agents-go/internal/domain"
+	v1 "github.com/rockship/cosmo-agents-go/internal/schema/v1"
 	hubspotService "github.com/rockship/cosmo-agents-go/internal/service/hubspot"
 	"github.com/rockship/cosmo-agents-go/pkg/logger"
 	queueworker "github.com/rockship/cosmo-agents-go/pkg/worker"
@@ -23,7 +22,6 @@ import (
 const (
 	TypePullHubspotContacts     = "contact:pull_hubspot"
 	TypePullHubspotListContacts = "contact:pull_hubspot_lists"
-	TypeContactImportCSV        = "contact:import_csv"
 	TypeContactEnrich           = "contact:enrich"
 	TypeContactImportHubspot    = "contact:import_hubspot"
 )
@@ -37,19 +35,11 @@ type PullHubspotContactsPayload struct {
 	Offset      int    `json:"offset"`
 }
 
-// ContactImportCSVPayload represents the payload for importing contacts from CSV.
-type ContactImportCSVPayload struct {
-	UserID       string            `json:"user_id"`
-	FileURL      string            `json:"file_url"`
-	OperationID  string            `json:"operation_id"`
-	ListID       string            `json:"list_id,omitempty"`
-	FieldMapping map[string]string `json:"field_mapping,omitempty"`
-}
-
 // ContactEnrichPayload represents the payload for enriching contact data.
 type ContactEnrichPayload struct {
 	ContactID string `json:"contact_id"`
 	UserID    string `json:"user_id"`
+	OrgID     string `json:"org_id,omitempty"`
 }
 
 // Worker handles contact-related background tasks.
@@ -63,7 +53,30 @@ type Worker struct {
 	integrationRepo integrationRepository
 	enrichService   EnrichmentService
 	hubspotAPI      *hubspotService.HubspotAPI
+
+	// queue enqueues follow-up enrichment after an import. Optional: without
+	// it an import still succeeds, it just does not auto-enrich.
+	queue taskEnqueuer
 }
+
+// taskEnqueuer is the slice of the worker client needed to schedule
+// enrichment; an interface so tests can observe what would be enqueued.
+type taskEnqueuer interface {
+	EnqueueTask(ctx context.Context, taskType string, payload interface{}, opts ...asynq.Option) (*asynq.TaskInfo, error)
+}
+
+// WithQueue enables auto-enrichment of freshly imported contacts.
+func (w *Worker) WithQueue(q taskEnqueuer) *Worker {
+	w.queue = q
+	return w
+}
+
+// maxAutoEnrichPerImport bounds how many contacts one import may auto-enrich.
+// Enrichment is one LLM call per contact, so an unbounded CSV would turn a
+// single upload into an unbounded bill. Anything past the bound is left for
+// the rep to enrich on demand, and the number skipped is logged rather than
+// silently dropped.
+const maxAutoEnrichPerImport = 50
 
 type contactRepository interface {
 	UpsertMany(ctx context.Context, contacts []*domain.Contact) error
@@ -87,7 +100,7 @@ type integrationRepository interface {
 
 // EnrichmentService interface for contact enrichment.
 type EnrichmentService interface {
-	EnrichContact(ctx context.Context, contact *domain.Contact) (*domain.Contact, error)
+	EnrichContact(ctx context.Context, userID, orgID, contactID uuid.UUID, forceRefresh bool) (*v1.ContactEnrichmentResponse, error)
 }
 
 // New creates a new contact worker.
@@ -232,91 +245,55 @@ func (w *Worker) HandlePullHubspotListContacts(ctx context.Context, task *asynq.
 	return nil
 }
 
-// HandleContactImportCSV processes importing contacts from CSV.
-func (w *Worker) HandleContactImportCSV(ctx context.Context, task *asynq.Task) error {
-	var payload ContactImportCSVPayload
-	if err := queueworker.ParsePayload(task, &payload); err != nil {
-		return fmt.Errorf("failed to parse payload: %w", err)
+// enqueueAutoEnrichment schedules AI enrichment for freshly imported contacts
+// so insights exist before the rep opens the profile, instead of only after
+// they press the enrich button.
+//
+// Runs on the low-priority queue: enrichment is never on a user's critical
+// path, and a large import must not starve outbound email of workers.
+func (w *Worker) enqueueAutoEnrichment(ctx context.Context, contacts []*domain.Contact, userID string) {
+	if w.queue == nil || len(contacts) == 0 {
+		return
 	}
 
-	logger.FromContext(ctx).Info().
-		Str("user_id", payload.UserID).
-		Str("file_url", payload.FileURL).
-		Msg("Importing contacts from CSV")
-
-	// Simulate CSV reading from URL (in real scenario, download the file)
-	csvData := `first_name,last_name,email,company,job_title
-John,Doe,john@example.com,Example Inc,CTO
-Jane,Smith,jane@example.com,Acme Corp,CEO`
-
-	reader := csv.NewReader(strings.NewReader(csvData))
-	headers, err := reader.Read()
-	if err != nil {
-		return fmt.Errorf("failed to read CSV headers: %w", err)
+	limit := len(contacts)
+	if limit > maxAutoEnrichPerImport {
+		limit = maxAutoEnrichPerImport
 	}
 
-	contacts := make([]domain.Contact, 0)
-	for {
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
+	queued := 0
+	for _, c := range contacts[:limit] {
+		if c == nil || c.ID == uuid.Nil {
+			// The upsert returns generated IDs; anything without one cannot be
+			// enriched and would enqueue a task that always fails.
+			continue
 		}
-		if err != nil {
-			return fmt.Errorf("failed to read CSV record: %w", err)
+		orgID := ""
+		if c.OrganizationID != nil {
+			orgID = c.OrganizationID.String()
 		}
-
-		contact := domain.Contact{}
-		var firstName, lastName, email string
-		for i, header := range headers {
-			value := record[i]
-			switch strings.ToLower(header) {
-			case "name":
-				contact.Name = value
-			case "first_name":
-				firstName = value
-			case "last_name":
-				lastName = value
-			case "email":
-				email = value
-			case "company":
-				contact.Company = value
-			case "job_title":
-				contact.JobTitle = value
-			}
+		payload := ContactEnrichPayload{
+			ContactID: c.ID.String(),
+			UserID:    userID,
+			OrgID:     orgID,
 		}
-		// If name wasn't set directly, combine first_name and last_name
-		if contact.Name == "" {
-			contact.Name = combineName(firstName, lastName)
+		if _, err := w.queue.EnqueueTask(ctx, TypeContactEnrich, payload, asynq.Queue("low")); err != nil {
+			logger.FromContext(ctx).Warn().Err(err).
+				Str("contact_id", c.ID.String()).
+				Msg("Failed to schedule auto-enrichment")
+			continue
 		}
-		// Store email in profile JSONB
-		if email != "" {
-			profileData := map[string]interface{}{"email": email}
-			_ = contact.Profile.Marshal(profileData)
-		}
-
-		contacts = append(contacts, contact)
+		queued++
 	}
 
-	logger.FromContext(ctx).Info().
-		Int("count", len(contacts)).
-		Msg("Parsed contacts from CSV")
-
-	// Upsert contacts
-	contactPtrs := make([]*domain.Contact, len(contacts))
-	for i := range contacts {
-		contactPtrs[i] = &contacts[i]
-		contactPtrs[i].UserID, _ = uuid.Parse(payload.UserID) // Assign user ID
+	event := logger.FromContext(ctx).Info().
+		Int("queued", queued).
+		Int("total", len(contacts))
+	if len(contacts) > limit {
+		event = event.Int("skipped", len(contacts)-limit).
+			Str("skip_reason", "per-import auto-enrichment cap; enrich the rest on demand")
 	}
-
-	if err := w.contactRepo.UpsertMany(ctx, contactPtrs); err != nil {
-		return fmt.Errorf("failed to upsert contacts: %w", err)
-	}
-
-	logger.FromContext(ctx).Info().
-		Int("count", len(contacts)).
-		Msg("Imported contacts from CSV successfully")
-
-	return nil
+	event.Msg("Scheduled auto-enrichment for imported contacts")
 }
 
 // HandleContactEnrich processes enriching contact data.
@@ -336,26 +313,23 @@ func (w *Worker) HandleContactEnrich(ctx context.Context, task *asynq.Task) erro
 		return fmt.Errorf("invalid contact ID: %w", err)
 	}
 
-	contact, err := w.contactRepo.FindByID(ctx, contactID)
-	if err != nil {
-		return fmt.Errorf("contact not found: %w", err)
-	}
-
 	if w.enrichService == nil {
 		logger.FromContext(ctx).Warn().Msg("Enrichment service not configured")
 		return nil
 	}
 
-	// Enrich contact data
-	enrichedContact, err := w.enrichService.EnrichContact(ctx, contact)
+	userID, err := uuid.Parse(payload.UserID)
 	if err != nil {
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+	orgID, _ := uuid.Parse(payload.OrgID) // optional; uuid.Nil when the user has no org
+
+	// forceRefresh=false so a contact enriched within the insight TTL is not
+	// paid for a second time — re-importing a CSV must not re-bill every row.
+	// The service persists the insights itself.
+	if _, err := w.enrichService.EnrichContact(ctx, userID, orgID, contactID, false); err != nil {
 		logger.FromContext(ctx).Error().Err(err).Msg("Failed to enrich contact")
 		return fmt.Errorf("enrichment failed: %w", err)
-	}
-
-	// Update contact with enriched data
-	if err := w.contactRepo.Update(ctx, contactID, enrichedContact); err != nil {
-		return fmt.Errorf("failed to update contact: %w", err)
 	}
 
 	logger.FromContext(ctx).Info().

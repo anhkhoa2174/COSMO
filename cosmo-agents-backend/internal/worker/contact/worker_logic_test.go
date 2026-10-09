@@ -9,46 +9,78 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/rockship/cosmo-agents-go/internal/domain"
+	v1 "github.com/rockship/cosmo-agents-go/internal/schema/v1"
 )
 
 func TestHandleContactEnrich(t *testing.T) {
 	contactID := uuid.New()
+	userID := uuid.New()
+	orgID := uuid.New()
 	fakeContactRepo := &stubContactRepo{
 		contacts: map[uuid.UUID]*domain.Contact{
 			contactID: {Base: domain.Base{ID: contactID}, Name: "Bob"},
 		},
 	}
-	enricher := &stubEnrichmentService{contact: &domain.Contact{Name: "Enriched"}}
+	enricher := &stubEnrichmentService{}
 	worker := New(nil, nil, enricher, nil, fakeContactRepo, nil, nil, nil, nil)
 
-	payload := ContactEnrichPayload{ContactID: contactID.String(), UserID: uuid.New().String()}
+	payload := ContactEnrichPayload{
+		ContactID: contactID.String(),
+		UserID:    userID.String(),
+		OrgID:     orgID.String(),
+	}
 	data, _ := json.Marshal(payload)
 	task := asynq.NewTask(TypeContactEnrich, data)
 
 	if err := worker.HandleContactEnrich(context.Background(), task); err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
-	if fakeContactRepo.updated == nil || fakeContactRepo.updated.Name != "Enriched" {
-		t.Fatalf("expected contact updated via enrichment")
+	if enricher.calls != 1 {
+		t.Fatalf("expected the enrichment service to be called once, got %d", enricher.calls)
+	}
+	if enricher.contactID != contactID || enricher.userID != userID || enricher.orgID != orgID {
+		t.Fatal("enrichment must be scoped to the contact, user and org from the payload")
+	}
+	if enricher.forceRefresh {
+		t.Fatal("auto-enrichment must not force a refresh — a re-import would re-bill every row")
 	}
 }
 
-func TestHandleContactImportCSV(t *testing.T) {
-	fakeContactRepo := &stubContactRepo{contacts: make(map[uuid.UUID]*domain.Contact)}
-	fakeListRepo := &stubListContactRepo{}
-	worker := New(nil, nil, nil, nil, fakeContactRepo, fakeListRepo, nil, nil, nil)
+func TestHandleContactEnrich_NoServiceConfigured(t *testing.T) {
+	contactID := uuid.New()
+	worker := New(nil, nil, nil, nil, &stubContactRepo{}, nil, nil, nil, nil)
 
-	payload := ContactImportCSVPayload{
-		UserID:      uuid.New().String(),
-		FileURL:     "http://example.com/file.csv",
-		OperationID: uuid.New().String(),
-	}
+	payload := ContactEnrichPayload{ContactID: contactID.String(), UserID: uuid.New().String()}
 	data, _ := json.Marshal(payload)
-	task := asynq.NewTask(TypeContactImportCSV, data)
+	task := asynq.NewTask(TypeContactEnrich, data)
 
-	if err := worker.HandleContactImportCSV(context.Background(), task); err != nil {
-		t.Fatalf("expected nil error, got %v", err)
+	if err := worker.HandleContactEnrich(context.Background(), task); err != nil {
+		t.Fatalf("a missing enrichment service should be a no-op, got %v", err)
 	}
+}
+
+func TestEnqueueAutoEnrichment_CapsPerImport(t *testing.T) {
+	contacts := make([]*domain.Contact, maxAutoEnrichPerImport+10)
+	for i := range contacts {
+		contacts[i] = &domain.Contact{Base: domain.Base{ID: uuid.New()}}
+	}
+	queue := &stubEnqueuer{}
+	worker := New(nil, nil, nil, nil, &stubContactRepo{}, nil, nil, nil, nil).WithQueue(queue)
+
+	worker.enqueueAutoEnrichment(context.Background(), contacts, uuid.New().String())
+
+	if queue.count != maxAutoEnrichPerImport {
+		t.Fatalf("expected the import cap of %d enrichments, got %d", maxAutoEnrichPerImport, queue.count)
+	}
+	if queue.lastType != TypeContactEnrich {
+		t.Fatalf("expected %s tasks, got %s", TypeContactEnrich, queue.lastType)
+	}
+}
+
+func TestEnqueueAutoEnrichment_NoQueueIsNoOp(t *testing.T) {
+	worker := New(nil, nil, nil, nil, &stubContactRepo{}, nil, nil, nil, nil)
+	// Must not panic when no queue was configured.
+	worker.enqueueAutoEnrichment(context.Background(), []*domain.Contact{{}}, uuid.New().String())
 }
 
 // ---- stubs ----
@@ -81,9 +113,26 @@ func (s *stubListContactRepo) AddContactsToList(ctx context.Context, listID uuid
 }
 
 type stubEnrichmentService struct {
-	contact *domain.Contact
+	calls        int
+	userID       uuid.UUID
+	orgID        uuid.UUID
+	contactID    uuid.UUID
+	forceRefresh bool
 }
 
-func (s *stubEnrichmentService) EnrichContact(ctx context.Context, contact *domain.Contact) (*domain.Contact, error) {
-	return s.contact, nil
+func (s *stubEnrichmentService) EnrichContact(ctx context.Context, userID, orgID, contactID uuid.UUID, forceRefresh bool) (*v1.ContactEnrichmentResponse, error) {
+	s.calls++
+	s.userID, s.orgID, s.contactID, s.forceRefresh = userID, orgID, contactID, forceRefresh
+	return &v1.ContactEnrichmentResponse{}, nil
+}
+
+type stubEnqueuer struct {
+	count    int
+	lastType string
+}
+
+func (s *stubEnqueuer) EnqueueTask(ctx context.Context, taskType string, payload interface{}, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+	s.count++
+	s.lastType = taskType
+	return &asynq.TaskInfo{}, nil
 }

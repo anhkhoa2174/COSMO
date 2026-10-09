@@ -45,6 +45,7 @@ import (
 	intelligenceService "github.com/rockship/cosmo-agents-go/internal/service/intelligence"
 	intentService "github.com/rockship/cosmo-agents-go/internal/service/intent"
 	mailService "github.com/rockship/cosmo-agents-go/internal/service/mail"
+	nextstepService "github.com/rockship/cosmo-agents-go/internal/service/nextstep"
 	outreachService "github.com/rockship/cosmo-agents-go/internal/service/outreach"
 	summaryService "github.com/rockship/cosmo-agents-go/internal/service/summary"
 	"github.com/rockship/cosmo-agents-go/internal/skills"
@@ -565,6 +566,21 @@ func registerHandlers(
 		&logger.Logger,
 	).WithOrgSettings(orgRepo.OutreachSettingsForUser)
 
+	// Next-step engine (report Section 6.7). Each organisation turns it on in
+	// its outreach settings; off, replies and the sweep behave as before.
+	nextStepEngine := nextstepService.New(
+		db,
+		contactRepository,
+		outreachInteractionRepo,
+		outreachMeetingRepo,
+		outreachSvc,
+		&classifierClient,
+		cfg.AI.OpenAIModel,
+		orgRepo.OutreachSettingsForUser,
+		&logger.Logger,
+	)
+	outreachRecalculateWorker.WithNextStep(nextStepEngine, orgRepo.OutreachSettingsForUser)
+
 	workerSSEManager := dailyActionSvc.NewSSEManager(redisClient)
 	defer workerSSEManager.Close()
 
@@ -578,7 +594,7 @@ func registerHandlers(
 		outreachSvc,
 		&logger.Logger,
 		workerSSEManager,
-	).WithAutoReply(
+	).WithNextStep(nextStepEngine).WithAutoReply(
 		// Organisations that have not opted in are unaffected: the dispatcher
 		// resolves their policy to "hold every draft for review".
 		autoreply.NewDispatcher(

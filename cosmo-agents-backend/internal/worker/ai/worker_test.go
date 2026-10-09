@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -71,11 +72,18 @@ func TestHandleGenerateEmbedding(t *testing.T) {
 	data, _ := json.Marshal(payload)
 	task := asynq.NewTask("embed", data)
 
-	if err := worker.HandleGenerateEmbedding(context.Background(), task); err != nil {
-		t.Fatalf("expected nil error, got %v", err)
+	// There is no vector store behind this task, so it must refuse rather than
+	// bill the embedding API for a result it throws away. Real indexing goes
+	// through knowledge:indexing.
+	err := worker.HandleGenerateEmbedding(context.Background(), task)
+	if err == nil {
+		t.Fatal("expected an error while embedding storage is unimplemented")
 	}
-	if !fakeAI.embedCalled {
-		t.Fatalf("expected embedding to be called")
+	if !errors.Is(err, asynq.SkipRetry) {
+		t.Fatalf("expected SkipRetry so the task is not retried 25 times, got %v", err)
+	}
+	if fakeAI.embedCalled {
+		t.Fatal("embedding must not be generated when there is nowhere to store it")
 	}
 }
 

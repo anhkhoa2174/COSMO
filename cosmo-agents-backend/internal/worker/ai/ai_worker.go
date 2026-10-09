@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/rockship/cosmo-agents-go/internal/contactinfo"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,19 +20,9 @@ import (
 	queueworker "github.com/rockship/cosmo-agents-go/pkg/worker"
 )
 
-// extractEmailFromProfile extracts email from contact's profile JSONB
-func extractEmailFromProfile(profile domain.JSONB) string {
-	if len(profile) == 0 {
-		return ""
-	}
-	var profileData map[string]interface{}
-	if err := json.Unmarshal(profile, &profileData); err != nil {
-		return ""
-	}
-	if email, ok := profileData["email"].(string); ok {
-		return email
-	}
-	return ""
+// extractContactEmail extracts email from contact, checking ContactInformation first, then profile JSONB.
+func extractContactEmail(contactInformation string, profile domain.JSONB) string {
+	return contactinfo.Resolve(contactInformation, profile)
 }
 
 type campaignFinder interface {
@@ -136,7 +127,7 @@ func (w *Worker) HandleGenerateEmail(ctx context.Context, task *asynq.Task) erro
 	}
 
 	// Extract email from profile
-	contactEmail := extractEmailFromProfile(contact.Profile)
+	contactEmail := extractContactEmail(contact.ContactInformation, contact.Profile)
 
 	// Build generation parameters
 	params := ai.EmailGenerationParams{
@@ -208,20 +199,17 @@ func (w *Worker) HandleGenerateEmbedding(ctx context.Context, task *asynq.Task) 
 		Str("knowledge_id", payload.KnowledgeID.String()).
 		Msg("Generating embedding")
 
-	// Generate embedding
-	embedding, err := w.openaiClient.GenerateEmbedding(ctx, payload.Text)
-	if err != nil {
-		return fmt.Errorf("failed to generate embedding: %w", err)
-	}
-
-	// TODO: Store embedding in vector database
-	// For now just log success
-	logger.Logger.Info().
+	// There is no storage path for the result yet, so generating the embedding
+	// would bill the embedding API for a value that is discarded on the next
+	// line. Knowledge indexing runs through knowledge:indexing, which does
+	// persist to the vector store — fail loudly here rather than pay for
+	// nothing. SkipRetry stops a stray producer from repeating a permanent
+	// failure 25 times.
+	logger.Logger.Warn().
 		Str("knowledge_id", payload.KnowledgeID.String()).
-		Int("embedding_dimensions", len(embedding)).
-		Msg("Embedding generated successfully (storage not implemented)")
+		Msg("knowledge:generate_embedding has no storage path — use knowledge:indexing")
 
-	return nil
+	return fmt.Errorf("embedding storage not implemented, use knowledge:indexing: %w", asynq.SkipRetry)
 }
 
 // getKnowledgeContext retrieves relevant knowledge base context (simplified).

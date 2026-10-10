@@ -54,6 +54,38 @@ func TestMapActionTypeAndCategory(t *testing.T) {
 	}
 }
 
+func TestMapEngineAction(t *testing.T) {
+	with := func(action string) *contact.Contact { return &contact.Contact{NextAction: &action} }
+	tests := []struct {
+		name     string
+		c        *contact.Contact
+		wantType domain.ActionType
+		wantCat  domain.CategoryID
+		wantOK   bool
+	}{
+		{"no decision", &contact.Contact{}, "", "", false},
+		{"answer reply", with("ANSWER_REPLY"), domain.ActionTypeRespond, domain.CategoryReplied, true},
+		{"propose meeting", with("PROPOSE_MEETING"), domain.ActionTypeRespond, domain.CategoryReplied, true},
+		{"escalate", with("ESCALATE"), domain.ActionTypeRespond, domain.CategoryReplied, true},
+		{"follow-up", with("SEND_FOLLOW_UP"), domain.ActionTypeFollowup, domain.CategoryFollowup, true},
+		{"nurture", with("NURTURE"), domain.ActionTypeFollowup, domain.CategoryFollowup, true},
+		{"meeting follow-up", with("MEETING_FOLLOW_UP"), domain.ActionTypeFollowup, domain.CategoryFollowup, true},
+		{"intro", with("SEND_INTRO"), domain.ActionTypeOutreach, domain.CategoryNewOutreach, true},
+		{"fix data", with("FIX_DATA"), domain.ActionTypeEnrich, domain.CategoryEnrichment, true},
+		{"wait falls back", with("WAIT"), "", "", false},
+		{"unknown falls back", with("SOMETHING_ELSE"), "", "", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotType, gotCat, ok := mapEngineAction(tc.c)
+			if gotType != tc.wantType || gotCat != tc.wantCat || ok != tc.wantOK {
+				t.Errorf("mapEngineAction = (%q, %q, %v), want (%q, %q, %v)",
+					gotType, gotCat, ok, tc.wantType, tc.wantCat, tc.wantOK)
+			}
+		})
+	}
+}
+
 func TestBuildReasoning(t *testing.T) {
 	sc := &outreachSvc.SuggestContact{Contact: &contact.Contact{Name: "An", Company: "Acme"}}
 	tests := []struct {

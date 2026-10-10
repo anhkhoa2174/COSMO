@@ -11,6 +11,7 @@ import (
 	"github.com/rockship/cosmo-agents-go/internal/domain/base"
 	contact "github.com/rockship/cosmo-agents-go/internal/domain/contact"
 	domain "github.com/rockship/cosmo-agents-go/internal/domain/daily_action"
+	ns "github.com/rockship/cosmo-agents-go/internal/domain/nextstep"
 	outreach "github.com/rockship/cosmo-agents-go/internal/domain/outreach"
 	dailyActionRepo "github.com/rockship/cosmo-agents-go/internal/repository/daily_action"
 	outreachRepo "github.com/rockship/cosmo-agents-go/internal/repository/outreach"
@@ -257,8 +258,15 @@ func (s *Service) buildAction(
 	c := sc.Contact
 	state := sc.State
 
-	// Determine action type and category from outreach state
+	// Determine action type and category from outreach state, unless the
+	// next-step engine has decided for this contact: its decision is the
+	// newer one, and the outreach state alone would file every replied
+	// contact under "Replied" whatever the engine chose.
 	actionType, categoryID := mapActionTypeAndCategory(sc, state)
+	engineType, engineCategory, fromEngine := mapEngineAction(c)
+	if fromEngine {
+		actionType, categoryID = engineType, engineCategory
+	}
 
 	// Find the nearest upcoming meeting for this contact (for priority scoring
 	// and meeting_prep). The repository returns newest-first, so keep scanning.
@@ -289,6 +297,9 @@ func (s *Service) buildAction(
 
 	// Build reasoning
 	reasoning := buildReasoning(actionType, sc, state)
+	if fromEngine && c.NextActionReason != nil && *c.NextActionReason != "" {
+		reasoning = *c.NextActionReason
+	}
 
 	action := &domain.DailyAction{
 		UserID:          userID,
@@ -366,6 +377,29 @@ func mapActionTypeAndCategory(sc *outreachSvc.SuggestContact, state *outreach.Ou
 		}
 		return domain.ActionTypeOutreach, domain.CategoryNewOutreach
 	}
+}
+
+// mapEngineAction maps the next-step engine's decision for a contact to an
+// action type and category. ok is false when there is no decision to follow:
+// the engine is off for the organisation, or the decision is WAIT, which
+// SuggestContacts has already filtered while it holds and which, once due,
+// leaves the contact to the outreach state until the engine decides again.
+// SUPPRESS and DISQUALIFY never reach here (heldByNextStep drops them).
+func mapEngineAction(c *contact.Contact) (domain.ActionType, domain.CategoryID, bool) {
+	if c == nil || c.NextAction == nil {
+		return "", "", false
+	}
+	switch ns.Action(*c.NextAction) {
+	case ns.AnswerReply, ns.ProposeMeeting, ns.Escalate:
+		return domain.ActionTypeRespond, domain.CategoryReplied, true
+	case ns.SendFollowUp, ns.SwitchChannel, ns.ContactStakeholder, ns.Nurture, ns.MeetingFollowUp:
+		return domain.ActionTypeFollowup, domain.CategoryFollowup, true
+	case ns.SendIntro:
+		return domain.ActionTypeOutreach, domain.CategoryNewOutreach, true
+	case ns.FixData:
+		return domain.ActionTypeEnrich, domain.CategoryEnrichment, true
+	}
+	return "", "", false
 }
 
 // buildContactSnapshot creates a ContactSnapshot from a Contact entity.
